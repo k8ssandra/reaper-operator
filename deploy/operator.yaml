@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cassandrareaper-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: cassandrareaper-operator
+  template:
+    metadata:
+      labels:
+        name: cassandrareaper-operator
+    spec:
+      serviceAccountName: cassandrareaper-operator
+      containers:
+        - name: cassandrareaper-operator
+          # Replace this with the built image name
+          image: REPLACE_IMAGE
+          command:
+          - cassandrareaper-operator
+          imagePullPolicy: Always
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "cassandrareaper-operator"
