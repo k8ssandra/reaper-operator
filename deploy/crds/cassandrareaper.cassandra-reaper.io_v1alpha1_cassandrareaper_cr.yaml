@@ -1,0 +1,7 @@
+apiVersion: cassandrareaper.cassandra-reaper.io/v1alpha1
+kind: CassandraReaper
+metadata:
+  name: example-cassandrareaper
+spec:
+  # Add fields here
+  size: 3
