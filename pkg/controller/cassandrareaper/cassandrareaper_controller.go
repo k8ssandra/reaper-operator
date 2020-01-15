@@ -2,21 +2,24 @@ package cassandrareaper
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	cassandrareaperv1alpha1 "github.com/jsanda/cassandrareaper-operator/pkg/apis/cassandrareaper/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"k8s.io/apimachinery/pkg/types"
+	"gopkg.in/yaml.v2"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 var log = logf.Log.WithName("controller_cassandrareaper")
@@ -100,52 +103,186 @@ func (r *ReconcileCassandraReaper) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	// Define a new Pod object
-	pod := newPodForCR(instance)
-
-	// Set CassandraReaper instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Check if this Pod already exists
-	found := &corev1.Pod{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
+	serverConfig := &corev1.ConfigMap{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, serverConfig)
 	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-		err = r.client.Create(context.TODO(), pod)
+		// create server config configmap
+		cm, err := r.newServerConfigMap(instance)
 		if err != nil {
+			reqLogger.Error(err, "Failed to create new ConfigMap")
 			return reconcile.Result{}, err
 		}
-
-		// Pod created successfully - don't requeue
-		return reconcile.Result{}, nil
+		if err = controllerutil.SetControllerReference(instance, cm, r.scheme); err != nil {
+			reqLogger.Error(err, "Failed to set owner reference on Reaper server config ConfigMap")
+			return reconcile.Result{}, err
+		}
+		if err = r.client.Create(context.TODO(), cm); err != nil {
+			reqLogger.Error(err, "Failed to save ConfigMap")
+			return reconcile.Result{}, err
+		} else {
+			return reconcile.Result{Requeue: true}, nil
+		}
 	} else if err != nil {
+		reqLogger.Error(err, "Failed to get ConfigMap")
 		return reconcile.Result{}, err
 	}
 
-	// Pod already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
+	deployment := &appsv1.Deployment{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, deployment)
+	if err != nil && errors.IsNotFound(err) {
+		// Create the Deployment
+		deployment := r.newDeployment(instance)
+		if err = controllerutil.SetControllerReference(instance, deployment, r.scheme); err != nil {
+			reqLogger.Error(err, "Failed to set owner reference on Reaper Deployment")
+			return reconcile.Result{}, err
+		}
+		if err = r.client.Create(context.TODO(), deployment); err != nil {
+			reqLogger.Error(err, "Failed to create Deployment")
+			return reconcile.Result{}, err
+		} else {
+			return reconcile.Result{Requeue: true}, nil
+		}
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get Deployment")
+		return reconcile.Result{}, err
+	}
+
+	service := &corev1.Service{}
+	err = r.client.Get(context.TODO(),types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, service)
+	if err != nil && errors.IsNotFound(err) {
+		// Create the Service
+		service := r.newService(instance)
+		if err = r.client.Create(context.TODO(), service); err != nil {
+			reqLogger.Error(err, "Failed to create Service")
+			return reconcile.Result{}, err
+		} else {
+			return reconcile.Result{Requeue: true}, nil
+		}
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get Service")
+		return reconcile.Result{}, err
+	}
+
 	return reconcile.Result{}, nil
 }
 
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *cassandrareaperv1alpha1.CassandraReaper) *corev1.Pod {
-	labels := map[string]string{
-		"app": cr.Name,
+func (r *ReconcileCassandraReaper) newServerConfigMap(instance *cassandrareaperv1alpha1.CassandraReaper) (*corev1.ConfigMap, error) {
+	output, err := yaml.Marshal(&instance.Spec.ServerConfig)
+	if err != nil {
+		return nil, err
 	}
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
-			Namespace: cr.Namespace,
-			Labels:    labels,
+
+	cm := &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "ConfigMap",
+			APIVersion: "v1",
 		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: instance.Name,
+			Namespace: instance.Namespace,
+		},
+		Data: map[string]string{
+			"reaper.yaml": string(output),
+		},
+	}
+
+	return cm, nil
+}
+
+func (r *ReconcileCassandraReaper) newService(instance *cassandrareaperv1alpha1.CassandraReaper) *corev1.Service {
+	return &corev1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: instance.Name,
+			Namespace: instance.Namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
 				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
+					Port: 8080,
+					Name: "ui",
+					Protocol: corev1.ProtocolTCP,
+					TargetPort: intstr.IntOrString{
+						Type: intstr.String,
+						StrVal: "ui",
+					},
+				},
+			},
+			Selector: map[string]string{
+				"app": "cassandrareaper",
+				"cassandrareaper": instance.Name,
+			},
+		},
+	}
+}
+
+func (r *ReconcileCassandraReaper) newDeployment(instance *cassandrareaperv1alpha1.CassandraReaper) *appsv1.Deployment {
+	selector := metav1.LabelSelector{
+		MatchExpressions: []metav1.LabelSelectorRequirement{
+			{
+				Key: "app",
+				Operator: metav1.LabelSelectorOpIn,
+				Values: []string{"cassandrareaper"},
+			},
+		},
+	}
+	return &appsv1.Deployment{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Deployment",
+			APIVersion: "apps/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: instance.Name,
+			Namespace: instance.Namespace,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &selector,
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{ "app": "cassandrareaper" },
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "reaper",
+							ImagePullPolicy: corev1.PullAlways,
+							Image: "jsanda/cassandra-reaper-k8s:latest",
+							Ports: []corev1.ContainerPort{
+								{
+									Name: "ui",
+									ContainerPort: 8080,
+									Protocol: "TCP",
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name: "reaper-config",
+									MountPath: "/etc/cassandra-reaper",
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "reaper-config",
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: instance.Name,
+									},
+									Items: []corev1.KeyToPath{
+										{
+											Key: "reaper.yaml",
+											Path: "cassandra-reaper.yaml",
+										},
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},

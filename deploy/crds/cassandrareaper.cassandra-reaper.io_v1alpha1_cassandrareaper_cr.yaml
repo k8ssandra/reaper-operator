@@ -3,5 +3,5 @@ kind: CassandraReaper
 metadata:
   name: example-cassandrareaper
 spec:
-  # Add fields here
-  size: 3
+  serverConfig:
+    storageType: "memory" 

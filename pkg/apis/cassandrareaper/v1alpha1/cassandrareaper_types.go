@@ -7,11 +7,37 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+type ServerConfig struct {
+	StorageType string `json:"storageType,omitempty" yaml:"storageType,omitempty"`
+}
+
+type AutoScheduling struct {
+	// Enables or disables auto scheduling
+	Enabled bool `json:"enabled,omitempty" yaml:"enabled,omitempty"`
+
+	// The duration of the delay before the schedule period starts. Defaults to PT15S (15 seconds)
+	InitialDelayPeriod string `json:"initialDelayPeriod,omitempty" yaml:"initialDelayPeriod,omitempty"`
+
+	// The amount of time to wait before checking whether or not to start a repair task. Defaults to PT10M (10 minutes)
+	PeriodBetweenPolls string `json:"periodBetweenPolls,omitempty" yaml:"periodBetweenPolls,omitempty"`
+
+	// Grace period before the first repair in the schedule is started. Defaults to PT5M (5 minutes)
+	TimeBeforeFirstSchedule string `json:"timeBeforeFirstSchedule,omitempty" yaml:"timeBeforeFirstSchedule,omitempty"`
+
+	// The time spacing between each of the repair schedules that is to be carried out. Defaults to PT6H (6 hours)
+	ScheduleSpreadPeriod string `json:"scheduleSpreadPeriod,omitempty" yaml:"scheduleSpreadPeriod,omitempty"`
+
+	// The keyspaces that are to be excluded from the repair schedule.
+	ExcludedKeyspaces []string `json:"excludedKeyspaces" yaml:"excludedKeyspaces"`
+}
+
 // CassandraReaperSpec defines the desired state of CassandraReaper
 type CassandraReaperSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+
+	ServerConfig ServerConfig `json:"serverConfig,omitempty"`
 }
 
 // CassandraReaperStatus defines the observed state of CassandraReaper
