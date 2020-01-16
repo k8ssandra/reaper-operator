@@ -23,7 +23,8 @@ type ServerConfig struct {
 	//
 	// Note: It is recommended to avoid using incremental repair before Cassandra 4.0 as subtle bugs can lead to
 	// overstreaming and cluster instabililty
-	IncrementalRepair bool `json:"incrementalRepair,omitempty" yaml:"incrementalRepair,omitempty"`
+	IncrementalRepair bool `json:"incrementalRepair,omitempty" yaml:"incrementalRepair"`
+	//IncrementalRepair bool `json:"incrementalRepair,omitempty" yaml:"incrementalRepair,omitempty"`
 
 	// Repair intensity defines the amount of time to sleep between triggering each repair segment while running a
 	// repair run. When intensity is 1.0, it means that Reaper doesn’t sleep at all before triggering next segment, and

@@ -104,9 +104,7 @@ func (r *ReconcileCassandraReaper) Reconcile(request reconcile.Request) (reconci
 	}
 
 	instance = instance.DeepCopy()
-
-	log.Info("### REAPER ###", "EXAMPLE", instance)
-
+	
 	if checkDefaults(instance) {
 		if err = r.client.Update(context.TODO(), instance); err != nil {
 			return reconcile.Result{}, err

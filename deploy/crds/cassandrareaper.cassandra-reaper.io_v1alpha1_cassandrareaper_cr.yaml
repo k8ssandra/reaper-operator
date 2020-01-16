@@ -5,3 +5,4 @@ metadata:
 spec:
   serverConfig:
     storageType: "memory" 
+    incrementalRepair: false
