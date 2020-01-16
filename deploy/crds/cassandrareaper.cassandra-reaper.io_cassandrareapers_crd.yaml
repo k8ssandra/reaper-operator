@@ -33,6 +33,84 @@ spec:
           properties:
             serverConfig:
               properties:
+                autoScheduling:
+                  properties:
+                    enabled:
+                      description: Enables or disables auto scheduling
+                      type: boolean
+                    excludedKeyspaces:
+                      description: The keyspaces that are to be excluded from the
+                        repair schedule.
+                      items:
+                        type: string
+                      type: array
+                    initialDelayPeriod:
+                      description: The duration of the delay before the schedule period
+                        starts. Defaults to PT15S (15 seconds)
+                      type: string
+                    periodBetweenPolls:
+                      description: The amount of time to wait before checking whether
+                        or not to start a repair task. Defaults to PT10M (10 minutes)
+                      type: string
+                    scheduleSpreadPeriod:
+                      description: The time spacing between each of the repair schedules
+                        that is to be carried out. Defaults to PT6H (6 hours)
+                      type: string
+                    timeBeforeFirstSchedule:
+                      description: Grace period before the first repair in the schedule
+                        is started. Defaults to PT5M (5 minutes)
+                      type: string
+                  type: object
+                hangingRepairTimeoutMins:
+                  description: The amount of time in minutes to wait for a single
+                    repair to finish. Defaults to 30. If this timeout is reached,
+                    the repair segment in question will be cancelled, if possible,
+                    and then scheduled for later repair again within the same repair
+                    run process.
+                  format: int32
+                  type: integer
+                incrementalRepair:
+                  description: "Sets the default repair type unless specifically defined
+                    for each run. Note that this is only supported with the PARALLEL
+                    repairParallelism setting. For more details in incremental repair,
+                    please refer to the following article http://www.datastax.com/dev/blog/more-efficient-repairs
+                    \n Note: It is recommended to avoid using incremental repair before
+                    Cassandra 4.0 as subtle bugs can lead to overstreaming and cluster
+                    instabililty"
+                  type: boolean
+                repairIntensity:
+                  description: "Repair intensity defines the amount of time to sleep
+                    between triggering each repair segment while running a repair
+                    run. When intensity is 1.0, it means that Reaper doesn’t sleep
+                    at all before triggering next segment, and otherwise the sleep
+                    time is defined by how much time it took to repair the last segment
+                    divided by the intensity value. 0.5 means half of the time is
+                    spent sleeping, and half running. Intensity 0.75 means that 25%
+                    of the total time is used sleeping and 75% running. This value
+                    can also be overwritten per repair run when invoking repairs.
+                    \n Defaults to 0.9. TODO add validation to ensure the value is
+                    a number"
+                  type: string
+                repairParallelism:
+                  description: "Type of parallelism to apply by default to repair
+                    runs. The value must be either SEQUENTIAL, PARALLEL, or DATACENTER_AWARE.
+                    \n Defaults to DATACENTER_AWARE"
+                  type: string
+                repairRunThreadCount:
+                  description: "The amount of threads to use for handling the Reaper
+                    tasks. Have this big enough not to cause blocking in cause some
+                    thread is waiting for I/O, like calling a Cassandra cluster through
+                    JMX. \n Defaults to 15"
+                  format: int32
+                  type: integer
+                scheduleDaysBetween:
+                  description: "Defines the amount of days to wait between scheduling
+                    new repairs. The value configured here is the default for new
+                    repair schedules, but you can also define it separately for each
+                    new schedule. Using value 0 for continuous repairs is also supported.
+                    \n Defaults to 7"
+                  format: int32
+                  type: integer
                 storageType:
                   type: string
               type: object

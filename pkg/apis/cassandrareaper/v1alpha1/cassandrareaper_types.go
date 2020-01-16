@@ -8,7 +8,52 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 type ServerConfig struct {
+	AutoScheduling AutoScheduling `json:"autoScheduling,omitempty" yaml:"autoScheduling,omitempty"`
+
 	StorageType string `json:"storageType,omitempty" yaml:"storageType,omitempty"`
+
+	// The amount of time in minutes to wait for a single repair to finish. Defaults to 30. If this timeout is reached,
+	// the repair segment in question will be cancelled, if possible, and then scheduled for later repair again within
+	// the same repair run process.
+	HangingRepairTimeoutMins *int32 `json:"hangingRepairTimeoutMins,omitempty" yaml:"hangingRepairTimeoutMins,omitempty"`
+
+	// Sets the default repair type unless specifically defined for each run. Note that this is only supported with the
+	// PARALLEL repairParallelism setting. For more details in incremental repair, please refer to the following
+	// article http://www.datastax.com/dev/blog/more-efficient-repairs
+	//
+	// Note: It is recommended to avoid using incremental repair before Cassandra 4.0 as subtle bugs can lead to
+	// overstreaming and cluster instabililty
+	IncrementalRepair bool `json:"incrementalRepair,omitempty" yaml:"incrementalRepair,omitempty"`
+
+	// Repair intensity defines the amount of time to sleep between triggering each repair segment while running a
+	// repair run. When intensity is 1.0, it means that Reaper doesn’t sleep at all before triggering next segment, and
+	// otherwise the sleep time is defined by how much time it took to repair the last segment divided by the intensity
+	// value. 0.5 means half of the time is spent sleeping, and half running. Intensity 0.75 means that 25% of the
+	// total time is used sleeping and 75% running. This value can also be overwritten per repair run when invoking
+	// repairs.
+	//
+	// Defaults to 0.9.
+	// TODO add validation to ensure the value is a number
+	RepairIntensity string `json:"repairIntensity,omitempty" yaml:"repairIntensity,omitempty"`
+
+	// Type of parallelism to apply by default to repair runs. The value must be either SEQUENTIAL, PARALLEL, or
+	// DATACENTER_AWARE.
+	//
+	// Defaults to DATACENTER_AWARE
+	RepairParallelism string `json:"repairParallelism,omitempty" yaml:"repairParallelism,omitempty"`
+
+	// The amount of threads to use for handling the Reaper tasks. Have this big enough not to cause blocking in cause
+	// some thread is waiting for I/O, like calling a Cassandra cluster through JMX.
+	//
+	// Defaults to 15
+	RepairRunThreadCount *int32 `json:"repairRunThreadCount,omitempty" yaml:"repairRunThreadCount,omitempty"`
+
+	// Defines the amount of days to wait between scheduling new repairs. The value configured here is the default for
+	// new repair schedules, but you can also define it separately for each new schedule. Using value 0 for continuous
+	// repairs is also supported.
+	//
+	// Defaults to 7
+	ScheduleDaysBetween *int32 `json:"scheduleDaysBetween,omitempty" yaml:"scheduleDaysBetween,omitempty"`
 }
 
 type AutoScheduling struct {
@@ -28,7 +73,7 @@ type AutoScheduling struct {
 	ScheduleSpreadPeriod string `json:"scheduleSpreadPeriod,omitempty" yaml:"scheduleSpreadPeriod,omitempty"`
 
 	// The keyspaces that are to be excluded from the repair schedule.
-	ExcludedKeyspaces []string `json:"excludedKeyspaces" yaml:"excludedKeyspaces"`
+	ExcludedKeyspaces []string `json:"excludedKeyspaces,omitempty" yaml:"excludedKeyspaces,omitempty"`
 }
 
 // CassandraReaperSpec defines the desired state of CassandraReaper
@@ -37,7 +82,7 @@ type CassandraReaperSpec struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 
-	ServerConfig ServerConfig `json:"serverConfig,omitempty"`
+	ServerConfig ServerConfig `json:"serverConfig,omitempty" yaml:"serverConfig,omitempty"`
 }
 
 // CassandraReaperStatus defines the observed state of CassandraReaper

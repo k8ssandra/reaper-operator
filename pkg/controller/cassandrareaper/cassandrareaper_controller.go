@@ -5,21 +5,21 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	cassandrareaperv1alpha1 "github.com/jsanda/cassandrareaper-operator/pkg/apis/cassandrareaper/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
+	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"k8s.io/apimachinery/pkg/types"
-	"gopkg.in/yaml.v2"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 var log = logf.Log.WithName("controller_cassandrareaper")
@@ -101,6 +101,17 @@ func (r *ReconcileCassandraReaper) Reconcile(request reconcile.Request) (reconci
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
+	}
+
+	instance = instance.DeepCopy()
+
+	log.Info("### REAPER ###", "EXAMPLE", instance)
+
+	if checkDefaults(instance) {
+		if err = r.client.Update(context.TODO(), instance); err != nil {
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	serverConfig := &corev1.ConfigMap{}
@@ -187,6 +198,37 @@ func (r *ReconcileCassandraReaper) newServerConfigMap(instance *cassandrareaperv
 	}
 
 	return cm, nil
+}
+
+func checkDefaults(instance *cassandrareaperv1alpha1.CassandraReaper) bool {
+	updated := false
+
+	if instance.Spec.ServerConfig.HangingRepairTimeoutMins == nil {
+		instance.Spec.ServerConfig.HangingRepairTimeoutMins = int32Ptr(30)
+		updated = true
+	}
+
+	if instance.Spec.ServerConfig.RepairIntensity == "" {
+		instance.Spec.ServerConfig.RepairIntensity = "0.9"
+		updated = true
+	}
+
+	if instance.Spec.ServerConfig.RepairParallelism == "" {
+		instance.Spec.ServerConfig.RepairParallelism = "DATACENTER_AWARE"
+		updated = true
+	}
+
+	if instance.Spec.ServerConfig.RepairRunThreadCount == nil {
+		instance.Spec.ServerConfig.RepairRunThreadCount = int32Ptr(15)
+		updated = true
+	}
+
+	if instance.Spec.ServerConfig.ScheduleDaysBetween == nil {
+		instance.Spec.ServerConfig.ScheduleDaysBetween = int32Ptr(7)
+		updated = true
+	}
+
+	return updated
 }
 
 func (r *ReconcileCassandraReaper) newService(instance *cassandrareaperv1alpha1.CassandraReaper) *corev1.Service {
@@ -287,4 +329,8 @@ func (r *ReconcileCassandraReaper) newDeployment(instance *cassandrareaperv1alph
 			},
 		},
 	}
+}
+
+func int32Ptr(n int32) *int32 {
+	return &n
 }
