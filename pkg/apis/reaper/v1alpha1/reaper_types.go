@@ -77,8 +77,8 @@ type AutoScheduling struct {
 	ExcludedKeyspaces []string `json:"excludedKeyspaces,omitempty" yaml:"excludedKeyspaces,omitempty"`
 }
 
-// CassandraReaperSpec defines the desired state of CassandraReaper
-type CassandraReaperSpec struct {
+// ReaperSpec defines the desired state of Reaper
+type ReaperSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
@@ -86,8 +86,8 @@ type CassandraReaperSpec struct {
 	ServerConfig ServerConfig `json:"serverConfig,omitempty" yaml:"serverConfig,omitempty"`
 }
 
-// CassandraReaperStatus defines the observed state of CassandraReaper
-type CassandraReaperStatus struct {
+// ReaperStatus defines the observed state of Reaper
+type ReaperStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
@@ -95,26 +95,26 @@ type CassandraReaperStatus struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// CassandraReaper is the Schema for the cassandrareapers API
+// Reaper is the Schema for the reapers API
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:path=cassandrareapers,scope=Namespaced
-type CassandraReaper struct {
+// +kubebuilder:resource:path=reapers,scope=Namespaced
+type Reaper struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   CassandraReaperSpec   `json:"spec,omitempty"`
-	Status CassandraReaperStatus `json:"status,omitempty"`
+	Spec   ReaperSpec   `json:"spec,omitempty"`
+	Status ReaperStatus `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// CassandraReaperList contains a list of CassandraReaper
-type CassandraReaperList struct {
+// ReaperList contains a list of Reaper
+type ReaperList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []CassandraReaper `json:"items"`
+	Items           []Reaper `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&CassandraReaper{}, &CassandraReaperList{})
+	SchemeBuilder.Register(&Reaper{}, &ReaperList{})
 }

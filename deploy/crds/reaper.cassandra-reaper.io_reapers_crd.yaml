@@ -1,20 +1,20 @@
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: cassandrareapers.cassandrareaper.cassandra-reaper.io
+  name: reapers.reaper.cassandra-reaper.io
 spec:
-  group: cassandrareaper.cassandra-reaper.io
+  group: reaper.cassandra-reaper.io
   names:
-    kind: CassandraReaper
-    listKind: CassandraReaperList
-    plural: cassandrareapers
-    singular: cassandrareaper
+    kind: Reaper
+    listKind: ReaperList
+    plural: reapers
+    singular: reaper
   scope: Namespaced
   subresources:
     status: {}
   validation:
     openAPIV3Schema:
-      description: CassandraReaper is the Schema for the cassandrareapers API
+      description: Reaper is the Schema for the reapers API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -29,7 +29,7 @@ spec:
         metadata:
           type: object
         spec:
-          description: CassandraReaperSpec defines the desired state of CassandraReaper
+          description: ReaperSpec defines the desired state of Reaper
           properties:
             serverConfig:
               properties:
@@ -116,7 +116,7 @@ spec:
               type: object
           type: object
         status:
-          description: CassandraReaperStatus defines the observed state of CassandraReaper
+          description: ReaperStatus defines the observed state of Reaper
           type: object
       type: object
   version: v1alpha1

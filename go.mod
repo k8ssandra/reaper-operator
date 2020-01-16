@@ -1,4 +1,4 @@
-module github.com/jsanda/cassandrareaper-operator
+module github.com/jsanda/reaper-operator
 
 go 1.13
 

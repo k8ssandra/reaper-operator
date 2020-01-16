@@ -1,11 +1,11 @@
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 
-ENV OPERATOR=/usr/local/bin/cassandrareaper-operator \
+ENV OPERATOR=/usr/local/bin/reaper-operator \
     USER_UID=1001 \
-    USER_NAME=cassandrareaper-operator
+    USER_NAME=reaper-operator
 
 # install operator binary
-COPY build/_output/bin/cassandrareaper-operator ${OPERATOR}
+COPY build/_output/bin/reaper-operator ${OPERATOR}
 
 COPY build/bin /usr/local/bin
 RUN  /usr/local/bin/user_setup

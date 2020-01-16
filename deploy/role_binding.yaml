@@ -1,11 +1,11 @@
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: cassandrareaper-operator
+  name: reaper-operator
 subjects:
 - kind: ServiceAccount
-  name: cassandrareaper-operator
+  name: reaper-operator
 roleRef:
   kind: Role
-  name: cassandrareaper-operator
+  name: reaper-operator
   apiGroup: rbac.authorization.k8s.io
