@@ -104,7 +104,7 @@ func (r *ReconcileCassandraReaper) Reconcile(request reconcile.Request) (reconci
 	}
 
 	instance = instance.DeepCopy()
-	
+
 	if checkDefaults(instance) {
 		if err = r.client.Update(context.TODO(), instance); err != nil {
 			return reconcile.Result{}, err
@@ -251,10 +251,7 @@ func (r *ReconcileCassandraReaper) newService(instance *cassandrareaperv1alpha1.
 					},
 				},
 			},
-			Selector: map[string]string{
-				"app": "cassandrareaper",
-				"cassandrareaper": instance.Name,
-			},
+			Selector: createLabels(instance),
 		},
 	}
 }
@@ -266,6 +263,11 @@ func (r *ReconcileCassandraReaper) newDeployment(instance *cassandrareaperv1alph
 				Key: "app",
 				Operator: metav1.LabelSelectorOpIn,
 				Values: []string{"cassandrareaper"},
+			},
+			{
+				Key: "cassandrareaper",
+				Operator: metav1.LabelSelectorOpIn,
+				Values: []string{instance.Name},
 			},
 		},
 	}
@@ -282,7 +284,7 @@ func (r *ReconcileCassandraReaper) newDeployment(instance *cassandrareaperv1alph
 			Selector: &selector,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{ "app": "cassandrareaper" },
+					Labels: createLabels(instance),
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
@@ -326,6 +328,13 @@ func (r *ReconcileCassandraReaper) newDeployment(instance *cassandrareaperv1alph
 				},
 			},
 		},
+	}
+}
+
+func createLabels(instance *cassandrareaperv1alpha1.CassandraReaper) map[string]string {
+	return map[string]string{
+		"app": "cassandrareaper",
+		"cassandrareaper": instance.Name,
 	}
 }
 
