@@ -42,3 +42,7 @@ unit-test:
 	@echo Running tests:
 	go test -v -race -cover ./pkg/...
 
+.PHONY: e2e-test
+e2e-test:
+	@echo Running e2e tests
+	operator-sdk test local ./test/e2e --namespace $(E2E_NS)
