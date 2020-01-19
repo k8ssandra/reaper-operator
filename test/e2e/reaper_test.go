@@ -46,4 +46,8 @@ func TestDeployReaperWithMemoryBackend(t *testing.T) {
 	if err = f.Client.Create(goctx.TODO(), &reaper, cleanup); err != nil {
 		t.Fatalf("Failed to create Reaper: %s\n", err)
 	}
+
+	if err = e2eutil.WaitForReaper(t, f, reaper.Namespace, reaper.Name, 3 * time.Second, 1 * time.Minute); err != nil {
+		t.Fatalf("Timed out waiting for Reaper (%s) to be ready: %s\n", reaper.Name, err)
+	}
 }
