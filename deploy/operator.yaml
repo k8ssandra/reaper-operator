@@ -16,7 +16,7 @@ spec:
       containers:
         - name: reaper-operator
           # Replace this with the built image name
-          image: REPLACE_IMAGE
+          image: docker.io/jsanda/reaper-operator:latest
           command:
           - reaper-operator
           imagePullPolicy: Always
