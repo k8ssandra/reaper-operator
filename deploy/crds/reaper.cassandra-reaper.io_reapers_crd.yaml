@@ -117,6 +117,26 @@ spec:
           type: object
         status:
           description: ReaperStatus defines the observed state of Reaper
+          properties:
+            availableReplicas:
+              description: Total number of available pods (ready for at least minReadySeconds)
+                targeted by this deployment.
+              format: int32
+              type: integer
+            readyReplicas:
+              description: Total number of ready pods targeted by this deployment.
+              format: int32
+              type: integer
+            replicas:
+              description: Total number of non-terminated pods targeted by this deployment
+                (their labels match the selector).
+              format: int32
+              type: integer
+            updatedReplicas:
+              description: Total number of non-terminated pods targeted by this deployment
+                that have the desired template spec.
+              format: int32
+              type: integer
           type: object
       type: object
   version: v1alpha1

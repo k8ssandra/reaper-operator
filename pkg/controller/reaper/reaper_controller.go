@@ -136,6 +136,22 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 		return reconcile.Result{}, err
 	}
 
+	service := &corev1.Service{}
+	err = r.client.Get(context.TODO(),types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, service)
+	if err != nil && errors.IsNotFound(err) {
+		// Create the Service
+		service := r.newService(instance)
+		if err = r.client.Create(context.TODO(), service); err != nil {
+			reqLogger.Error(err, "Failed to create Service")
+			return reconcile.Result{}, err
+		} else {
+			return reconcile.Result{Requeue: true}, nil
+		}
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get Service")
+		return reconcile.Result{}, err
+	}
+
 	deployment := &appsv1.Deployment{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, deployment)
 	if err != nil && errors.IsNotFound(err) {
@@ -156,21 +172,13 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 		return reconcile.Result{}, err
 	}
 
-	service := &corev1.Service{}
-	err = r.client.Get(context.TODO(),types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, service)
-	if err != nil && errors.IsNotFound(err) {
-		// Create the Service
-		service := r.newService(instance)
-		if err = r.client.Create(context.TODO(), service); err != nil {
-			reqLogger.Error(err, "Failed to create Service")
+	if updateStatus(instance, deployment) {
+		if err = r.client.Status().Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update status")
 			return reconcile.Result{}, err
-		} else {
-			return reconcile.Result{Requeue: true}, nil
 		}
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get Service")
-		return reconcile.Result{}, err
 	}
+
 
 	return reconcile.Result{}, nil
 }
@@ -223,6 +231,32 @@ func checkDefaults(instance *reaperv1alpha1.Reaper) bool {
 
 	if instance.Spec.ServerConfig.ScheduleDaysBetween == nil {
 		instance.Spec.ServerConfig.ScheduleDaysBetween = int32Ptr(7)
+		updated = true
+	}
+
+	return updated
+}
+
+func updateStatus(instance *reaperv1alpha1.Reaper, deployment *appsv1.Deployment) bool {
+	updated := false
+
+	if instance.Status.AvailableReplicas != deployment.Status.AvailableReplicas {
+		instance.Status.AvailableReplicas = deployment.Status.AvailableReplicas
+		updated = true
+	}
+
+	if instance.Status.ReadyReplicas != deployment.Status.ReadyReplicas {
+		instance.Status.ReadyReplicas = deployment.Status.ReadyReplicas
+		updated = true
+	}
+
+	if instance.Status.Replicas != deployment.Status.Replicas {
+		instance.Status.Replicas = deployment.Status.Replicas
+		updated = true
+	}
+
+	if instance.Status.UpdatedReplicas != deployment.Status.UpdatedReplicas {
+		instance.Status.UpdatedReplicas = deployment.Status.UpdatedReplicas
 		updated = true
 	}
 
