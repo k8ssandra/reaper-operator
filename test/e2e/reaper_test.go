@@ -3,17 +3,18 @@ package e2e
 import (
 	goctx "context"
 	"github.com/jsanda/reaper-operator/pkg/apis"
+	"github.com/jsanda/reaper-operator/test/e2eutil"
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"github.com/jsanda/reaper-operator/test/e2eutil"
+	"k8s.io/apimachinery/pkg/types"
 	"testing"
 	"time"
 
-	reaperv1 "github.com/jsanda/reaper-operator/pkg/apis/reaper/v1alpha1"
+	"github.com/jsanda/reaper-operator/pkg/apis/reaper/v1alpha1"
 )
 
 func TestDeployReaperWithMemoryBackend(t *testing.T) {
-	reaperList := &reaperv1.ReaperList{}
+	reaperList := &v1alpha1.ReaperList{}
 	if err := framework.AddToFrameworkScheme(apis.AddToScheme, reaperList); err != nil {
 		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
 	}
@@ -26,7 +27,7 @@ func TestDeployReaperWithMemoryBackend(t *testing.T) {
 		t.Fatalf("Failed to get namespace: %s", err)
 	}
 
-	reaper := reaperv1.Reaper{
+	reaper := v1alpha1.Reaper{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "Reaper",
 			APIVersion: "reaper.cassandra-reaper.io/v1alpha1",
@@ -35,8 +36,8 @@ func TestDeployReaperWithMemoryBackend(t *testing.T) {
 			Name: "reaper-e2e",
 			Namespace: namespace,
 		},
-		Spec: reaperv1.ReaperSpec{
-			ServerConfig: reaperv1.ServerConfig{
+		Spec: v1alpha1.ReaperSpec{
+			ServerConfig: v1alpha1.ServerConfig{
 				StorageType: "memory",
 			},
 		},
@@ -47,7 +48,26 @@ func TestDeployReaperWithMemoryBackend(t *testing.T) {
 		t.Fatalf("Failed to create Reaper: %s\n", err)
 	}
 
-	if err = e2eutil.WaitForReaper(t, f, reaper.Namespace, reaper.Name, 3 * time.Second, 1 * time.Minute); err != nil {
+	if err = e2eutil.WaitForReaperToBeReady(t, f, reaper.Namespace, reaper.Name, 3 * time.Second, 1 * time.Minute); err != nil {
 		t.Fatalf("Timed out waiting for Reaper (%s) to be ready: %s\n", reaper.Name, err)
+	}
+
+	// Now delete the Reaper object and verify all underlying objects get cleaned up
+
+	instance := &v1alpha1.Reaper{}
+	if err = f.Client.Get(goctx.TODO(), types.NamespacedName{Namespace: reaper.Namespace, Name: reaper.Name}, instance); err != nil {
+		t.Fatalf("Failed to get Reaper (%s): %s", reaper.Name, err)
+	}
+
+	if err = f.Client.Delete(goctx.TODO(), instance); err != nil {
+		t.Errorf("Failed to delete Reaper (%s): %s", reaper.Name, err)
+	}
+
+	if err = e2eutil.WaitForDeploymentToBeDeleted(t, f, reaper.Namespace, reaper.Name, 5 * time.Second, 1 * time.Minute); err != nil {
+		t.Errorf("Timed out waiting for Deployment (%s) to get deleted: %s", reaper.Name, err)
+	}
+
+	if err = e2eutil.WaitForConfigMapToBeDeleted(t, f, reaper.Namespace, reaper.Name, 5 * time.Second, 1 * time.Minute); err != nil {
+		t.Errorf("Timed out waiting for ConfigMap (%s) to get deleted: %s", reaper.Name, err)
 	}
 }

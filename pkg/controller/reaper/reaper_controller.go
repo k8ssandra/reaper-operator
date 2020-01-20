@@ -174,8 +174,6 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 		return reconcile.Result{}, err
 	}
 
-	reqLogger.Info("UPDATE STATUS...")
-
 	if updateStatus(instance, deployment) {
 		if err = r.client.Status().Update(context.TODO(), instance); err != nil {
 			reqLogger.Error(err, "Failed to update status")
