@@ -2,8 +2,10 @@ package reaper
 
 import (
 	"context"
+	"fmt"
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
+	"time"
 
 	reaperv1alpha1 "github.com/jsanda/reaper-operator/pkg/apis/reaper/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -129,7 +131,7 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 			reqLogger.Error(err, "Failed to save ConfigMap")
 			return reconcile.Result{}, err
 		} else {
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 		}
 	} else if err != nil {
 		reqLogger.Error(err, "Failed to get ConfigMap")
@@ -165,12 +167,14 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 			reqLogger.Error(err, "Failed to create Deployment")
 			return reconcile.Result{}, err
 		} else {
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 		}
 	} else if err != nil {
 		reqLogger.Error(err, "Failed to get Deployment")
 		return reconcile.Result{}, err
 	}
+
+	reqLogger.Info("UPDATE STATUS...")
 
 	if updateStatus(instance, deployment) {
 		if err = r.client.Status().Update(context.TODO(), instance); err != nil {
@@ -179,6 +183,9 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 		}
 	}
 
+	if instance.Status.ReadyReplicas != instance.Status.Replicas {
+		return reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
+	}
 
 	return reconcile.Result{}, nil
 }
@@ -260,6 +267,7 @@ func updateStatus(instance *reaperv1alpha1.Reaper, deployment *appsv1.Deployment
 		updated = true
 	}
 
+	fmt.Printf("UPDATED? %s\n", updated)
 	return updated
 }
 
