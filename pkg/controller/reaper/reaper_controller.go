@@ -6,7 +6,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	"time"
 
-	reaperv1alpha1 "github.com/jsanda/reaper-operator/pkg/apis/reaper/v1alpha1"
+	"github.com/jsanda/reaper-operator/pkg/apis/reaper/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,7 +50,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource Reaper
-	err = c.Watch(&source.Kind{Type: &reaperv1alpha1.Reaper{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(&source.Kind{Type: &v1alpha1.Reaper{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
@@ -59,7 +59,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Watch for changes to secondary resource Pods and requeue the owner Reaper
 	//err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
 	//	IsController: true,
-	//	OwnerType:    &reaperv1alpha1.Reaper{},
+	//	OwnerType:    &v1alpha1.Reaper{},
 	//})
 	//if err != nil {
 	//	return err
@@ -91,7 +91,7 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 	reqLogger.Info("Reconciling Reaper")
 
 	// Fetch the Reaper instance
-	instance := &reaperv1alpha1.Reaper{}
+	instance := &v1alpha1.Reaper{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -191,7 +191,7 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileReaper) newServerConfigMap(instance *reaperv1alpha1.Reaper) (*corev1.ConfigMap, error) {
+func (r *ReconcileReaper) newServerConfigMap(instance *v1alpha1.Reaper) (*corev1.ConfigMap, error) {
 	output, err := yaml.Marshal(&instance.Spec.ServerConfig)
 	if err != nil {
 		return nil, err
@@ -214,38 +214,43 @@ func (r *ReconcileReaper) newServerConfigMap(instance *reaperv1alpha1.Reaper) (*
 	return cm, nil
 }
 
-func checkDefaults(instance *reaperv1alpha1.Reaper) bool {
+func checkDefaults(instance *v1alpha1.Reaper) bool {
 	updated := false
 
 	if instance.Spec.ServerConfig.HangingRepairTimeoutMins == nil {
-		instance.Spec.ServerConfig.HangingRepairTimeoutMins = int32Ptr(30)
+		instance.Spec.ServerConfig.HangingRepairTimeoutMins = int32Ptr(v1alpha1.DefaultHangingRepairTimeoutMins)
 		updated = true
 	}
 
 	if instance.Spec.ServerConfig.RepairIntensity == "" {
-		instance.Spec.ServerConfig.RepairIntensity = "0.9"
+		instance.Spec.ServerConfig.RepairIntensity = v1alpha1.DefaultRepairIntensity
 		updated = true
 	}
 
 	if instance.Spec.ServerConfig.RepairParallelism == "" {
-		instance.Spec.ServerConfig.RepairParallelism = "DATACENTER_AWARE"
+		instance.Spec.ServerConfig.RepairParallelism = v1alpha1.DefaultRepairParallelism
 		updated = true
 	}
 
 	if instance.Spec.ServerConfig.RepairRunThreadCount == nil {
-		instance.Spec.ServerConfig.RepairRunThreadCount = int32Ptr(15)
+		instance.Spec.ServerConfig.RepairRunThreadCount = int32Ptr(v1alpha1.DefaultRepairRunThreadCount)
 		updated = true
 	}
 
 	if instance.Spec.ServerConfig.ScheduleDaysBetween == nil {
-		instance.Spec.ServerConfig.ScheduleDaysBetween = int32Ptr(7)
+		instance.Spec.ServerConfig.ScheduleDaysBetween = int32Ptr(v1alpha1.DefaultScheduleDaysBetween)
+		updated = true
+	}
+
+	if instance.Spec.ServerConfig.StorageType == "" {
+		instance.Spec.ServerConfig.StorageType = v1alpha1.DefaultStorageType
 		updated = true
 	}
 
 	return updated
 }
 
-func updateStatus(instance *reaperv1alpha1.Reaper, deployment *appsv1.Deployment) bool {
+func updateStatus(instance *v1alpha1.Reaper, deployment *appsv1.Deployment) bool {
 	updated := false
 
 	if instance.Status.AvailableReplicas != deployment.Status.AvailableReplicas {
@@ -271,7 +276,7 @@ func updateStatus(instance *reaperv1alpha1.Reaper, deployment *appsv1.Deployment
 	return updated
 }
 
-func (r *ReconcileReaper) newService(instance *reaperv1alpha1.Reaper) *corev1.Service {
+func (r *ReconcileReaper) newService(instance *v1alpha1.Reaper) *corev1.Service {
 	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "Service",
@@ -298,7 +303,7 @@ func (r *ReconcileReaper) newService(instance *reaperv1alpha1.Reaper) *corev1.Se
 	}
 }
 
-func (r *ReconcileReaper) newDeployment(instance *reaperv1alpha1.Reaper) *appsv1.Deployment {
+func (r *ReconcileReaper) newDeployment(instance *v1alpha1.Reaper) *appsv1.Deployment {
 	selector := metav1.LabelSelector{
 		MatchExpressions: []metav1.LabelSelectorRequirement{
 			{
@@ -373,7 +378,7 @@ func (r *ReconcileReaper) newDeployment(instance *reaperv1alpha1.Reaper) *appsv1
 	}
 }
 
-func createLabels(instance *reaperv1alpha1.Reaper) map[string]string {
+func createLabels(instance *v1alpha1.Reaper) map[string]string {
 	return map[string]string{
 		"app": "reaper",
 		"reaper": instance.Name,
