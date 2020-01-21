@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/jsanda/reaper-operator/pkg/apis"
 	"github.com/jsanda/reaper-operator/pkg/apis/reaper/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -69,6 +70,7 @@ func TestReconcile(t *testing.T) {
 	t.Run("SetDefaults", testSetDefaults)
 	t.Run("ConfigMapCreated", testConfigMapCreated)
 	t.Run("ServiceCreated", testServiceCreated)
+	t.Run("DeploymentCreated", testDeploymentCreated)
 }
 
 func testSetDefaults(t *testing.T) {
@@ -143,6 +145,21 @@ func testServiceCreated(t *testing.T) {
 	}
 }
 
+func testDeploymentCreated(t *testing.T) {
+	reaper := createReaper()
+	cm := createConfigMap(reaper)
+	svc := createService(reaper)
+
+	objs := []runtime.Object{reaper, cm, svc}
+
+	r := setupReconcileWithRequeue(t, objs...)
+
+	deployment := &appsv1.Deployment{}
+	if err := r.client.Get(context.TODO(), namespaceName, deployment); err != nil {
+		t.Errorf("Failed to get Deployment: (%s)", err)
+	}
+}
+
 func createReaper() *v1alpha1.Reaper {
 	return &v1alpha1.Reaper{
 		ObjectMeta: metav1.ObjectMeta{
@@ -164,6 +181,15 @@ func createReaper() *v1alpha1.Reaper {
 
 func createConfigMap(reaper *v1alpha1.Reaper) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: reaper.Namespace,
+			Name: reaper.Name,
+		},
+	}
+}
+
+func createService(reaper *v1alpha1.Reaper) *corev1.Service {
+	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: reaper.Namespace,
 			Name: reaper.Name,
