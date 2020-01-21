@@ -2,8 +2,10 @@ package reaper
 
 import (
 	"context"
+	"github.com/jsanda/reaper-operator/pkg/apis"
 	"github.com/jsanda/reaper-operator/pkg/apis/reaper/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -12,39 +14,22 @@ import (
 	"testing"
 )
 
-func TestSetDefaults(t *testing.T) {
-	var (
-		name            = "reaper-operator"
-		namespace       = "reaper"
-		namespaceName = types.NamespacedName{
-			Namespace: namespace,
-			Name:      name,
-		}
-	)
-
-	reaper := &v1alpha1.Reaper{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name: name,
-		},
-		Spec: v1alpha1.ReaperSpec{
-		},
+var (
+	name            = "reaper-operator"
+	namespace       = "reaper"
+	namespaceName = types.NamespacedName{
+		Namespace: namespace,
+		Name:      name,
 	}
+)
 
-	// Objects to track in the fake client
-	objs := []runtime.Object{reaper}
-
-	// Register operator types with the runtime scheme
+func setupReconcile(t *testing.T, state ...runtime.Object) (*ReconcileReaper, reconcile.Result) {
 	s := scheme.Scheme
-	s.AddKnownTypes(v1alpha1.SchemeGroupVersion, reaper)
-
-	// Create a fake client to mock API calls
-	cl := fake.NewFakeClientWithScheme(s, objs...)
-
-	// Create a ReconcileReaper object with the scheme and fake client
-	r := &ReconcileReaper{scheme: s, client: cl}
-
-	// Mock request to simulate Reconcile() being called on an event for a watched resource
+	if err := apis.AddToScheme(s); err != nil {
+		t.FailNow()
+	}
+	cl := fake.NewFakeClientWithScheme(s, state...)
+	r := &ReconcileReaper{client: cl, scheme: scheme.Scheme}
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Name:      name,
@@ -55,14 +40,53 @@ func TestSetDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reconcile: (%v)", err)
 	}
-	// Check the result of reconciliation to make sure it has the desired state
+
+	return r, res
+}
+
+func setupReconcileWithRequeue(t *testing.T, state ...runtime.Object) *ReconcileReaper {
+	r, res := setupReconcile(t, state...)
+
+	// Check the result of reconciliation to make sure it has the desired state.
 	if !res.Requeue {
 		t.Error("reconcile did not requeue request as expected")
 	}
 
+	return r
+}
+
+func setupReconcileWithoutRequeue(t *testing.T, state ...runtime.Object) *ReconcileReaper {
+	r, res := setupReconcile(t, state...)
+
+	if res.Requeue {
+		t.Error("did not expect reconcile to requeue the request")
+	}
+
+	return r
+}
+
+func TestReconcile(t *testing.T) {
+	t.Run("SetDefaults", testSetDefaults)
+	t.Run("ConfigMapCreated", testConfigMapCreated)
+}
+
+func testSetDefaults(t *testing.T) {
+	reaper := &v1alpha1.Reaper{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name: name,
+		},
+		Spec: v1alpha1.ReaperSpec{
+		},
+	}
+
+	objs := []runtime.Object{reaper}
+
+	r := setupReconcileWithRequeue(t, objs...)
+
 	// verify default values set
 	instance := &v1alpha1.Reaper{}
-	if err = r.client.Get(context.TODO(), namespaceName, instance); err != nil {
+	if err := r.client.Get(context.TODO(), namespaceName, instance); err != nil {
 		t.Fatalf("Failed to get Reaper: (%v)", err)
 	}
 
@@ -88,5 +112,46 @@ func TestSetDefaults(t *testing.T) {
 
 	if instance.Spec.ServerConfig.StorageType != v1alpha1.DefaultStorageType {
 		t.Errorf("StorageType (%s) is not the expected value: %s", instance.Spec.ServerConfig.StorageType, v1alpha1.DefaultStorageType)
+	}
+}
+
+func testConfigMapCreated(t *testing.T) {
+	reaper := createReaper()
+
+	objs := []runtime.Object{reaper}
+
+	r := setupReconcileWithRequeue(t, objs...)
+
+	cm := &corev1.ConfigMap{}
+	if err := r.client.Get(context.TODO(), namespaceName, cm); err != nil {
+		t.Errorf("Failed to get ConfigMap: (%s)", err)
+	}
+}
+
+func createReaper() *v1alpha1.Reaper {
+	return &v1alpha1.Reaper{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name: name,
+		},
+		Spec: v1alpha1.ReaperSpec{
+			ServerConfig: v1alpha1.ServerConfig{
+				HangingRepairTimeoutMins: int32Ptr(60),
+				RepairIntensity: "0.75",
+				RepairParallelism: "DATACENTER_AWARE",
+				RepairRunThreadCount: int32Ptr(20),
+				ScheduleDaysBetween: int32Ptr(10),
+				StorageType: v1alpha1.DefaultStorageType,
+			},
+		},
+	}
+}
+
+func createConfigMap(reaper *v1alpha1.Reaper) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: reaper.Namespace,
+			Name: reaper.Name,
+		},
 	}
 }
