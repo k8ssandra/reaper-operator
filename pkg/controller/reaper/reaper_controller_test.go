@@ -68,6 +68,7 @@ func setupReconcileWithoutRequeue(t *testing.T, state ...runtime.Object) *Reconc
 func TestReconcile(t *testing.T) {
 	t.Run("SetDefaults", testSetDefaults)
 	t.Run("ConfigMapCreated", testConfigMapCreated)
+	t.Run("ServiceCreated", testServiceCreated)
 }
 
 func testSetDefaults(t *testing.T) {
@@ -125,6 +126,20 @@ func testConfigMapCreated(t *testing.T) {
 	cm := &corev1.ConfigMap{}
 	if err := r.client.Get(context.TODO(), namespaceName, cm); err != nil {
 		t.Errorf("Failed to get ConfigMap: (%s)", err)
+	}
+}
+
+func testServiceCreated(t *testing.T) {
+	reaper := createReaper()
+	cm := createConfigMap(reaper)
+
+	objs := []runtime.Object{reaper, cm}
+
+	r := setupReconcileWithRequeue(t, objs...)
+
+	svc := &corev1.Service{}
+	if err := r.client.Get(context.TODO(), namespaceName, svc); err != nil {
+		t.Errorf("Failed to get Service: (%s)", err)
 	}
 }
 
