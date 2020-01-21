@@ -70,4 +70,8 @@ func TestDeployReaperWithMemoryBackend(t *testing.T) {
 	if err = e2eutil.WaitForConfigMapToBeDeleted(t, f, reaper.Namespace, reaper.Name, 5 * time.Second, 1 * time.Minute); err != nil {
 		t.Errorf("Timed out waiting for ConfigMap (%s) to get deleted: %s", reaper.Name, err)
 	}
+
+	if err = e2eutil.WaitForServiceToBeDeleted(t, f, reaper.Namespace, reaper.Name, 5 * time.Second, 1 * time.Minute); err != nil {
+		t.Errorf("Timed out waiting for Service (%s) to get deleted: %s", reaper.Name, err)
+	}
 }

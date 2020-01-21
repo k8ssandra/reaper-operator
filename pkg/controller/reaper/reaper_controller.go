@@ -2,7 +2,6 @@ package reaper
 
 import (
 	"context"
-	"fmt"
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	"time"
@@ -143,6 +142,10 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 	if err != nil && errors.IsNotFound(err) {
 		// Create the Service
 		service := r.newService(instance)
+		if err = controllerutil.SetControllerReference(instance, service, r.scheme); err != nil {
+			reqLogger.Error(err, "Failed to set owner reference on Reaper Service")
+			return reconcile.Result{}, err
+		}
 		if err = r.client.Create(context.TODO(), service); err != nil {
 			reqLogger.Error(err, "Failed to create Service")
 			return reconcile.Result{}, err
@@ -265,7 +268,6 @@ func updateStatus(instance *reaperv1alpha1.Reaper, deployment *appsv1.Deployment
 		updated = true
 	}
 
-	fmt.Printf("UPDATED? %s\n", updated)
 	return updated
 }
 

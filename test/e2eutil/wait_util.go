@@ -75,6 +75,17 @@ func WaitForConfigMapToBeDeleted(t *testing.T,
 	return waitForObjectToBeDeleted(t, f, cm, namespace, name, retryInteral, timeout)
 }
 
+func WaitForServiceToBeDeleted(t *testing.T,
+	f *framework.Framework,
+	namespace string,
+	name string,
+	retryInteral time.Duration,
+	timeout time.Duration) error {
+
+	svc := &corev1.Service{}
+	return waitForObjectToBeDeleted(t, f, svc, namespace, name, retryInteral, timeout)
+}
+
 func waitForObjectToBeDeleted(t *testing.T,
 	f *framework.Framework,
 	obj runtime.Object,
