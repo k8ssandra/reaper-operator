@@ -101,7 +101,7 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
+		return reconcile.Result{Requeue: true, RequeueAfter: 30 * time.Second}, err
 	}
 
 	instance = instance.DeepCopy()
