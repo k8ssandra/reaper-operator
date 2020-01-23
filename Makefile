@@ -42,6 +42,12 @@ unit-test:
 	@echo Running tests:
 	go test -v -race -cover ./pkg/...
 
+.PHONY: create-e2e-ns
+create-e2e-ns:
+	./scripts/create-ns.sh $(E2E_NS)
+
+.PHONY: e2e-setup: create-e2e-ns
+
 .PHONY: e2e-test
 e2e-test:
 	@echo Running e2e tests
