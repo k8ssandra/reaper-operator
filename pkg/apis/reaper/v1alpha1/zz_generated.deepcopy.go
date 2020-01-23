@@ -142,6 +142,11 @@ func (in *ServerConfig) DeepCopyInto(out *ServerConfig) {
 		*out = new(int32)
 		**out = **in
 	}
+	if in.EnableCrossOrigin != nil {
+		in, out := &in.EnableCrossOrigin, &out.EnableCrossOrigin
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

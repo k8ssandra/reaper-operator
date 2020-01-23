@@ -14,6 +14,7 @@ const (
 	DefaultRepairRunThreadCount = 15
 	DefaultScheduleDaysBetween = 7
 	DefaultStorageType = "memory"
+	DefaultEnableCrossOrigin = true
 )
 
 type ServerConfig struct {
@@ -64,6 +65,12 @@ type ServerConfig struct {
 	//
 	// Defaults to 7
 	ScheduleDaysBetween *int32 `json:"scheduleDaysBetween,omitempty" yaml:"scheduleDaysBetween,omitempty"`
+
+	// Optional setting which can be used to enable the CORS headers for running an external GUI application. When
+	// enabled it will allow REST requests incoming from other origins than the domain that hosts Reaper.
+	//
+	// Defaults to true
+	EnableCrossOrigin *bool `json:"enableCrossOrigin,omitempty" yaml:"enableCrossOrigin,omitempty"`
 }
 
 type AutoScheduling struct {

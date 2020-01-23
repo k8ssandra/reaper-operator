@@ -93,7 +93,9 @@ func testSetDefaults(t *testing.T) {
 		t.Fatalf("Failed to get Reaper: (%v)", err)
 	}
 
-	if *instance.Spec.ServerConfig.HangingRepairTimeoutMins != v1alpha1.DefaultHangingRepairTimeoutMins {
+	if instance.Spec.ServerConfig.HangingRepairTimeoutMins == nil {
+		t.Errorf("HangingRepairTimeoutMins is nil. Expected (%d)", v1alpha1.DefaultHangingRepairTimeoutMins)
+	} else if *instance.Spec.ServerConfig.HangingRepairTimeoutMins != v1alpha1.DefaultHangingRepairTimeoutMins {
 		t.Errorf("HangingRepairTimeoutMins (%d) is not the expected value: %d", *instance.Spec.ServerConfig.HangingRepairTimeoutMins, v1alpha1.DefaultHangingRepairTimeoutMins)
 	}
 
@@ -105,16 +107,26 @@ func testSetDefaults(t *testing.T) {
 		t.Errorf("RepairParallelism (%s) is not the expected value: %s", instance.Spec.ServerConfig.RepairParallelism, v1alpha1.DefaultRepairParallelism)
 	}
 
-	if *instance.Spec.ServerConfig.RepairRunThreadCount != v1alpha1.DefaultRepairRunThreadCount {
+	if instance.Spec.ServerConfig.RepairRunThreadCount == nil {
+		t.Errorf("RepairRunThreadCount is nil. Expected(%d)", v1alpha1.DefaultRepairRunThreadCount)
+	} else if *instance.Spec.ServerConfig.RepairRunThreadCount != v1alpha1.DefaultRepairRunThreadCount {
 		t.Errorf("RepairRunThreadCount (%d) is not the expected value: %d", *instance.Spec.ServerConfig.RepairRunThreadCount, v1alpha1.DefaultRepairRunThreadCount)
 	}
 
-	if *instance.Spec.ServerConfig.ScheduleDaysBetween != v1alpha1.DefaultScheduleDaysBetween {
+	if instance.Spec.ServerConfig.ScheduleDaysBetween == nil {
+		t.Errorf("ScheduleDaysBetween is nil. Expected (%d)", v1alpha1.DefaultScheduleDaysBetween)
+	} else if *instance.Spec.ServerConfig.ScheduleDaysBetween != v1alpha1.DefaultScheduleDaysBetween {
 		t.Errorf("ScheduleDaysBetween (%d) is not the expected value: %d", *instance.Spec.ServerConfig.ScheduleDaysBetween, v1alpha1.DefaultScheduleDaysBetween)
 	}
 
 	if instance.Spec.ServerConfig.StorageType != v1alpha1.DefaultStorageType {
 		t.Errorf("StorageType (%s) is not the expected value: %s", instance.Spec.ServerConfig.StorageType, v1alpha1.DefaultStorageType)
+	}
+
+	if instance.Spec.ServerConfig.EnableCrossOrigin == nil {
+		t.Errorf("EnableCrossOrigin is nil. Expected (%t)", v1alpha1.DefaultEnableCrossOrigin)
+	} else if *instance.Spec.ServerConfig.EnableCrossOrigin != v1alpha1.DefaultEnableCrossOrigin {
+		t.Errorf("EnableCrossOrigin (%t) is not the expected value %t", *instance.Spec.ServerConfig.EnableCrossOrigin, v1alpha1.DefaultEnableCrossOrigin)
 	}
 }
 
@@ -173,6 +185,7 @@ func createReaper() *v1alpha1.Reaper {
 				RepairParallelism: "DATACENTER_AWARE",
 				RepairRunThreadCount: int32Ptr(20),
 				ScheduleDaysBetween: int32Ptr(10),
+				EnableCrossOrigin: boolPtr(false),
 				StorageType: v1alpha1.DefaultStorageType,
 			},
 		},

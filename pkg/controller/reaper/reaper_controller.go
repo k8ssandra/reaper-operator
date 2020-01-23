@@ -247,6 +247,11 @@ func checkDefaults(instance *v1alpha1.Reaper) bool {
 		updated = true
 	}
 
+	if instance.Spec.ServerConfig.EnableCrossOrigin == nil {
+		instance.Spec.ServerConfig.EnableCrossOrigin = boolPtr(v1alpha1.DefaultEnableCrossOrigin)
+		updated = true
+	}
+
 	return updated
 }
 
@@ -387,4 +392,8 @@ func createLabels(instance *v1alpha1.Reaper) map[string]string {
 
 func int32Ptr(n int32) *int32 {
 	return &n
+}
+
+func boolPtr(b bool) *bool {
+	return &b
 }
