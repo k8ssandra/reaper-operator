@@ -41,10 +41,10 @@ jobs:
             export GO111MODULE=on
             make unit-test
       - run:
-          name: build image
+          name: build e2e image
           command: |
             export GO111MODULE=on
-            make build-image
+            make build-e2e-image
       - save_cache:
           name: cache go modules
           key: build-{{ .Branch }}-{{ checksum "go.sum" }}
@@ -74,3 +74,8 @@ jobs:
             export KUBECONFIG="$(kind get kubeconfig-path --name="reaper")"
             make e2e-test
           no_output_timeout: 15m
+      - run:
+          name: push tested image to docker hub
+          command: |
+            docker login --username $DOCKERHUB_USER --password $DOCKERHUB_PASSWORD
+            make push-image
