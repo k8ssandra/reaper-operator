@@ -50,6 +50,6 @@ create-e2e-ns:
 e2e-setup: create-e2e-ns
 
 .PHONY: e2e-test
-e2e-test:
+e2e-test: e2e-setup
 	@echo Running e2e tests
 	operator-sdk test local ./test/e2e --namespace $(E2E_NS)
