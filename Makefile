@@ -46,7 +46,8 @@ unit-test:
 create-e2e-ns:
 	./scripts/create-ns.sh $(E2E_NS)
 
-.PHONY: e2e-setup: create-e2e-ns
+.PHONY: e2e-setup
+e2e-setup: create-e2e-ns
 
 .PHONY: e2e-test
 e2e-test:
