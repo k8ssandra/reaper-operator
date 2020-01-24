@@ -16,6 +16,8 @@ const (
 	DefaultStorageType = "memory"
 	DefaultEnableCrossOrigin = true
 	DefaultEnableDynamicSeedList = true
+	DefaultJmxConnectionTimeoutInSeconds = 20
+	DefaultSegmentCountPerNode = 16
 )
 
 type ServerConfig struct {
@@ -35,7 +37,6 @@ type ServerConfig struct {
 	// Note: It is recommended to avoid using incremental repair before Cassandra 4.0 as subtle bugs can lead to
 	// overstreaming and cluster instabililty
 	IncrementalRepair bool `json:"incrementalRepair,omitempty" yaml:"incrementalRepair"`
-	//IncrementalRepair bool `json:"incrementalRepair,omitempty" yaml:"incrementalRepair,omitempty"`
 
 	// Repair intensity defines the amount of time to sleep between triggering each repair segment while running a
 	// repair run. When intensity is 1.0, it means that Reaper doesn’t sleep at all before triggering next segment, and
@@ -78,6 +79,34 @@ type ServerConfig struct {
 	//
 	// Defaults to true
 	EnableDynamicSeedList *bool `json:"enableDynamicSeedList,omitempty" yaml:"enableDynamicSeedList,omitempty"`
+
+	// Disables repairs of any tables that use either the TimeWindowCompactionStrategy or DateTieredCompactionStrategy.
+	// This automatic blacklisting is not stored in schedules or repairs. It is applied when repairs are triggered and
+	// visible in the UI for running repairs. Not storing which tables are TWCS/DTCS ensures changes to a table’s
+	// compaction strategy are honored on every new repair.
+	//
+	// Note: It is recommended to enable this option as repairing these tables, when they contain TTL’d data, causes
+	// overlaps between partitions across the configured time windows the sstables reside in. This leads to an
+	// increased disk usage as the older sstables are unable to be expired despite only containing TTL’s data.
+	// Repairing DTCS tables has additional issues and is generally not recommended.
+	//
+	// Defaults to false
+	BlacklistTwcsTables bool `json:"blacklistTwcsTables,omitempty" yaml:"blacklistTwcsTables"`
+
+	// Controls the timeout for establishing JMX connections. The value should be low enough to avoid stalling simple
+	// operations in multi region clusters, but high enough to allow connections under normal conditions.
+	//
+	// Defaults to 20
+	JmxConnectionTimeoutInSeconds *int32 `json:"jmxConnectionTimeoutInSeconds,omitempty" yaml:"jmxConnectionTimeoutInSeconds,omitempty"`
+
+	// Defines the default amount of repair segments to create for newly registered Cassandra repair runs, for each
+	// node in the cluster. When running a repair run by Reaper, each segment is repaired separately by the Reaper
+	// process, until all the segments in a token ring are repaired. The count might be slightly off the defined value,
+	// as clusters residing in multiple data centers require additional small token ranges in addition to the expected.
+	// This value can be overwritten when executing a repair run via Reaper.
+	//
+	// Defaults to 16
+	SegmentCountPerNode *int32 `json:"segmentCountPerNode,omitempty" yaml:"segmentCountPerNode,omitempty"`
 }
 
 type AutoScheduling struct {

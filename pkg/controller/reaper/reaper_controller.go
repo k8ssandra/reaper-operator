@@ -257,6 +257,16 @@ func checkDefaults(instance *v1alpha1.Reaper) bool {
 		updated = true
 	}
 
+	if instance.Spec.ServerConfig.JmxConnectionTimeoutInSeconds == nil {
+		instance.Spec.ServerConfig.JmxConnectionTimeoutInSeconds = int32Ptr(v1alpha1.DefaultJmxConnectionTimeoutInSeconds)
+		updated = true
+	}
+
+	if instance.Spec.ServerConfig.SegmentCountPerNode == nil {
+		instance.Spec.ServerConfig.SegmentCountPerNode = int32Ptr(v1alpha1.DefaultSegmentCountPerNode)
+		updated = true
+	}
+
 	return updated
 }
 

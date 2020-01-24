@@ -134,6 +134,18 @@ func testSetDefaults(t *testing.T) {
 	} else if *instance.Spec.ServerConfig.EnableDynamicSeedList != v1alpha1.DefaultEnableDynamicSeedList {
 		t.Errorf("EnableDynamicSeedList (%t) is not the expected value (%t)", *instance.Spec.ServerConfig.EnableDynamicSeedList, v1alpha1.DefaultEnableDynamicSeedList)
 	}
+
+	if instance.Spec.ServerConfig.JmxConnectionTimeoutInSeconds == nil {
+		t.Errorf("JmxConnectionTimeoutInSeconds is nil. Expected (%d)", v1alpha1.DefaultJmxConnectionTimeoutInSeconds)
+	} else if *instance.Spec.ServerConfig.JmxConnectionTimeoutInSeconds != v1alpha1.DefaultJmxConnectionTimeoutInSeconds {
+		t.Errorf("JmxConnectionTimeoutInSeconds (%d) is not the expected value (%d)", *instance.Spec.ServerConfig.JmxConnectionTimeoutInSeconds, v1alpha1.DefaultJmxConnectionTimeoutInSeconds)
+	}
+
+	if instance.Spec.ServerConfig.SegmentCountPerNode == nil {
+		t.Errorf("SegmentCountPerNode is nil. Expected (%d)", v1alpha1.DefaultSegmentCountPerNode)
+	} else if *instance.Spec.ServerConfig.SegmentCountPerNode != v1alpha1.DefaultSegmentCountPerNode {
+		t.Errorf("SegmentCountPerNode (%d) is not the expected value (%d)", *instance.Spec.ServerConfig.SegmentCountPerNode, v1alpha1.DefaultSegmentCountPerNode)
+	}
 }
 
 func testConfigMapCreated(t *testing.T) {
@@ -194,6 +206,8 @@ func createReaper() *v1alpha1.Reaper {
 				EnableCrossOrigin: boolPtr(false),
 				StorageType: v1alpha1.DefaultStorageType,
 				EnableDynamicSeedList: boolPtr(false),
+				JmxConnectionTimeoutInSeconds: int32Ptr(10),
+				SegmentCountPerNode: int32Ptr(32),
 			},
 		},
 	}

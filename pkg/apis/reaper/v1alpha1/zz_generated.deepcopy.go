@@ -152,6 +152,16 @@ func (in *ServerConfig) DeepCopyInto(out *ServerConfig) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.JmxConnectionTimeoutInSeconds != nil {
+		in, out := &in.JmxConnectionTimeoutInSeconds, &out.JmxConnectionTimeoutInSeconds
+		*out = new(int32)
+		**out = **in
+	}
+	if in.SegmentCountPerNode != nil {
+		in, out := &in.SegmentCountPerNode, &out.SegmentCountPerNode
+		*out = new(int32)
+		**out = **in
+	}
 	return
 }
 
