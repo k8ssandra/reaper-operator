@@ -147,6 +147,11 @@ func (in *ServerConfig) DeepCopyInto(out *ServerConfig) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.EnableDynamicSeedList != nil {
+		in, out := &in.EnableDynamicSeedList, &out.EnableDynamicSeedList
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

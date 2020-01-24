@@ -75,7 +75,7 @@ jobs:
             make e2e-test
           no_output_timeout: 15m
       - deploy:
-          name: Push image to docker hub
+          name: Push tested image to docker hub
           command: |
             docker login --username $DOCKERHUB_USER --password $DOCKERHUB_PASSWORD
             make push-image

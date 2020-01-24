@@ -96,37 +96,43 @@ func testSetDefaults(t *testing.T) {
 	if instance.Spec.ServerConfig.HangingRepairTimeoutMins == nil {
 		t.Errorf("HangingRepairTimeoutMins is nil. Expected (%d)", v1alpha1.DefaultHangingRepairTimeoutMins)
 	} else if *instance.Spec.ServerConfig.HangingRepairTimeoutMins != v1alpha1.DefaultHangingRepairTimeoutMins {
-		t.Errorf("HangingRepairTimeoutMins (%d) is not the expected value: %d", *instance.Spec.ServerConfig.HangingRepairTimeoutMins, v1alpha1.DefaultHangingRepairTimeoutMins)
+		t.Errorf("HangingRepairTimeoutMins (%d) is not the expected value (%d)", *instance.Spec.ServerConfig.HangingRepairTimeoutMins, v1alpha1.DefaultHangingRepairTimeoutMins)
 	}
 
 	if instance.Spec.ServerConfig.RepairIntensity != v1alpha1.DefaultRepairIntensity {
-		t.Errorf("RepairIntensity (%s) is not the expected value: %s", instance.Spec.ServerConfig.RepairIntensity, v1alpha1.DefaultRepairIntensity)
+		t.Errorf("RepairIntensity (%s) is not the expected value (%s)", instance.Spec.ServerConfig.RepairIntensity, v1alpha1.DefaultRepairIntensity)
 	}
 
 	if instance.Spec.ServerConfig.RepairParallelism != v1alpha1.DefaultRepairParallelism {
-		t.Errorf("RepairParallelism (%s) is not the expected value: %s", instance.Spec.ServerConfig.RepairParallelism, v1alpha1.DefaultRepairParallelism)
+		t.Errorf("RepairParallelism (%s) is not the expected value (%s)", instance.Spec.ServerConfig.RepairParallelism, v1alpha1.DefaultRepairParallelism)
 	}
 
 	if instance.Spec.ServerConfig.RepairRunThreadCount == nil {
 		t.Errorf("RepairRunThreadCount is nil. Expected(%d)", v1alpha1.DefaultRepairRunThreadCount)
 	} else if *instance.Spec.ServerConfig.RepairRunThreadCount != v1alpha1.DefaultRepairRunThreadCount {
-		t.Errorf("RepairRunThreadCount (%d) is not the expected value: %d", *instance.Spec.ServerConfig.RepairRunThreadCount, v1alpha1.DefaultRepairRunThreadCount)
+		t.Errorf("RepairRunThreadCount (%d) is not the expected value (%d)", *instance.Spec.ServerConfig.RepairRunThreadCount, v1alpha1.DefaultRepairRunThreadCount)
 	}
 
 	if instance.Spec.ServerConfig.ScheduleDaysBetween == nil {
 		t.Errorf("ScheduleDaysBetween is nil. Expected (%d)", v1alpha1.DefaultScheduleDaysBetween)
 	} else if *instance.Spec.ServerConfig.ScheduleDaysBetween != v1alpha1.DefaultScheduleDaysBetween {
-		t.Errorf("ScheduleDaysBetween (%d) is not the expected value: %d", *instance.Spec.ServerConfig.ScheduleDaysBetween, v1alpha1.DefaultScheduleDaysBetween)
+		t.Errorf("ScheduleDaysBetween (%d) is not the expected value (%d)", *instance.Spec.ServerConfig.ScheduleDaysBetween, v1alpha1.DefaultScheduleDaysBetween)
 	}
 
 	if instance.Spec.ServerConfig.StorageType != v1alpha1.DefaultStorageType {
-		t.Errorf("StorageType (%s) is not the expected value: %s", instance.Spec.ServerConfig.StorageType, v1alpha1.DefaultStorageType)
+		t.Errorf("StorageType (%s) is not the expected value (%s)", instance.Spec.ServerConfig.StorageType, v1alpha1.DefaultStorageType)
 	}
 
 	if instance.Spec.ServerConfig.EnableCrossOrigin == nil {
 		t.Errorf("EnableCrossOrigin is nil. Expected (%t)", v1alpha1.DefaultEnableCrossOrigin)
 	} else if *instance.Spec.ServerConfig.EnableCrossOrigin != v1alpha1.DefaultEnableCrossOrigin {
-		t.Errorf("EnableCrossOrigin (%t) is not the expected value %t", *instance.Spec.ServerConfig.EnableCrossOrigin, v1alpha1.DefaultEnableCrossOrigin)
+		t.Errorf("EnableCrossOrigin (%t) is not the expected value (%t)", *instance.Spec.ServerConfig.EnableCrossOrigin, v1alpha1.DefaultEnableCrossOrigin)
+	}
+
+	if instance.Spec.ServerConfig.EnableDynamicSeedList == nil {
+		t.Errorf("EnableDynamicSeedList is nil. Expected (%t)", v1alpha1.DefaultEnableDynamicSeedList)
+	} else if *instance.Spec.ServerConfig.EnableDynamicSeedList != v1alpha1.DefaultEnableDynamicSeedList {
+		t.Errorf("EnableDynamicSeedList (%t) is not the expected value (%t)", *instance.Spec.ServerConfig.EnableDynamicSeedList, v1alpha1.DefaultEnableDynamicSeedList)
 	}
 }
 
@@ -187,6 +193,7 @@ func createReaper() *v1alpha1.Reaper {
 				ScheduleDaysBetween: int32Ptr(10),
 				EnableCrossOrigin: boolPtr(false),
 				StorageType: v1alpha1.DefaultStorageType,
+				EnableDynamicSeedList: boolPtr(false),
 			},
 		},
 	}

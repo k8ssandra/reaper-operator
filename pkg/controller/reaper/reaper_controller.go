@@ -252,6 +252,11 @@ func checkDefaults(instance *v1alpha1.Reaper) bool {
 		updated = true
 	}
 
+	if instance.Spec.ServerConfig.EnableDynamicSeedList == nil {
+		instance.Spec.ServerConfig.EnableDynamicSeedList = boolPtr(v1alpha1.DefaultEnableDynamicSeedList)
+		updated = true
+	}
+
 	return updated
 }
 

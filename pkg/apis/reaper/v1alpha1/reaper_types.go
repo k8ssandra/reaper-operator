@@ -15,6 +15,7 @@ const (
 	DefaultScheduleDaysBetween = 7
 	DefaultStorageType = "memory"
 	DefaultEnableCrossOrigin = true
+	DefaultEnableDynamicSeedList = true
 )
 
 type ServerConfig struct {
@@ -71,6 +72,12 @@ type ServerConfig struct {
 	//
 	// Defaults to true
 	EnableCrossOrigin *bool `json:"enableCrossOrigin,omitempty" yaml:"enableCrossOrigin,omitempty"`
+
+	// Allow Reaper to add all nodes in the cluster as contact points when adding a new cluster, instead of just
+	//adding the provided node.
+	//
+	// Defaults to true
+	EnableDynamicSeedList *bool `json:"enableDynamicSeedList,omitempty" yaml:"enableDynamicSeedList,omitempty"`
 }
 
 type AutoScheduling struct {
