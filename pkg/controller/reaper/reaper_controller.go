@@ -2,6 +2,7 @@ package reaper
 
 import (
 	"context"
+	"fmt"
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	"time"
@@ -54,16 +55,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err != nil {
 		return err
 	}
-
-	// TODO(user): Modify this to be the types you create that are owned by the primary resource
-	// Watch for changes to secondary resource Pods and requeue the owner Reaper
-	//err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
-	//	IsController: true,
-	//	OwnerType:    &v1alpha1.Reaper{},
-	//})
-	//if err != nil {
-	//	return err
-	//}
 
 	return nil
 }
@@ -196,6 +187,8 @@ func (r *ReconcileReaper) newServerConfigMap(instance *v1alpha1.Reaper) (*corev1
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Printf("CONFIG = \n%s", string(output))
 
 	cm := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{

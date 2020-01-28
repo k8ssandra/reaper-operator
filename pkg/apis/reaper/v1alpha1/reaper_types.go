@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -18,12 +19,15 @@ const (
 	DefaultEnableDynamicSeedList = true
 	DefaultJmxConnectionTimeoutInSeconds = 20
 	DefaultSegmentCountPerNode = 16
+	DefaultKeyspace = "reaper"
 )
 
 type ServerConfig struct {
 	AutoScheduling AutoScheduling `json:"autoScheduling,omitempty" yaml:"autoScheduling,omitempty"`
 
 	StorageType string `json:"storageType,omitempty" yaml:"storageType,omitempty"`
+
+	CassandraBackend *CassandraBackend `json:"cassandraBackend" yaml:"cassandra,omitempty"`
 
 	// The amount of time in minutes to wait for a single repair to finish. Defaults to 30. If this timeout is reached,
 	// the repair segment in question will be cancelled, if possible, and then scheduled for later repair again within
@@ -109,6 +113,25 @@ type ServerConfig struct {
 	SegmentCountPerNode *int32 `json:"segmentCountPerNode,omitempty" yaml:"segmentCountPerNode,omitempty"`
 }
 
+// Specifies the replication strategy for a keyspace
+type ReplicationConfig struct {
+	// Specifies the replication_factor when SimpleStrategy is used
+	SimpleStrategy *int32 `json:"simpleStrategy,omitempty"`
+
+	// Specifies the replication_factor when NetworkTopologyStrategy is used. The mapping is data center name to RF.
+	NetworkTopologyStrategy *map[string]int32 `json:"networkTopologyStrategy,omitempty"`
+}
+
+type CassandraBackend struct {
+	ClusterName string `json:"clusterName" yaml:"clusterName"`
+
+	// The headless service that provides endpoints for the Cassandra pods
+	CassandraService string `json:"cassandraService" yaml:"contactPoints"`
+
+	// Defaults to reaper
+	Keyspace string `json:"keyspace,omitempty" yaml:"keyspace,omitempty"`
+}
+
 type AutoScheduling struct {
 	// Enables or disables auto scheduling
 	Enabled bool `json:"enabled,omitempty" yaml:"enabled,omitempty"`
@@ -138,11 +161,42 @@ type ReaperSpec struct {
 	ServerConfig ServerConfig `json:"serverConfig,omitempty" yaml:"serverConfig,omitempty"`
 }
 
+type ReaperConditionType string
+
+const (
+	// With a Cassandra Reaper currently does all schema initialization except for creating the keyspace. Ideally
+	// all schema initialized will be moved out of Reaper to avoid race conditions that can cause schema disagreement.
+	SchemaInitialized ReaperConditionType = "SchemaInitialized"
+)
+
+type ReaperCondition struct {
+	// Type of reaper condition
+	Type ReaperConditionType `json:"type"`
+
+	// Status of the condition, one of True, False, Unknown.
+	Status corev1.ConditionStatus `json:"status"`
+
+	// Last time the condition was checked.
+	LastProbeTime metav1.Time `json:"lastProbeTime,omitempty"`
+
+	// Last time the condition transit from one status to another.
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
+
+	// (brief) reason for the condition's last transition.
+	Reason string `json:"reason,omitempty"`
+
+	// Human readable message indicating details about last transition.
+	Message string `json:"message,omitempty"`
+}
+
 // ReaperStatus defines the observed state of Reaper
 type ReaperStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+
+	// The latest available observations of an object's current state.
+	Conditions []ReaperCondition `json:"conditions,omitempty"`
 
 	// Total number of non-terminated pods targeted by this deployment (their labels match the selector).
 	Replicas int32 `json:"replicas,omitempty"`
@@ -151,7 +205,6 @@ type ReaperStatus struct {
 	UpdatedReplicas int32 `json:"updatedReplicas,omitempty"`
 
 	// Total number of ready pods targeted by this deployment.
-	// +optional
 	ReadyReplicas int32 `json:"readyReplicas,omitempty"`
 
 	// Total number of available pods (ready for at least minReadySeconds) targeted by this deployment.
