@@ -77,8 +77,9 @@ func TestReconcile(t *testing.T) {
 	t.Run("SetDefaults", testSetDefaults)
 	t.Run("ConfigMapCreated", testConfigMapCreated)
 	t.Run("ServiceCreated", testServiceCreated)
-	t.Run("SchemaJobRun", testSchemaJobRun)
+	t.Run("SchemaJobRun", testSchemaJobCreated)
 	t.Run("DeploymentCreated", testDeploymentCreated)
+	// TODO Add deployment not created tests for when job has not finished and when job has failed
 }
 
 func testSetDefaults(t *testing.T) {
@@ -183,7 +184,7 @@ func testServiceCreated(t *testing.T) {
 	}
 }
 
-func testSchemaJobRun(t *testing.T) {
+func testSchemaJobCreated(t *testing.T) {
 	reaper := createReaper()
 	cm := createConfigMap(reaper)
 	svc := createService(reaper)
@@ -203,8 +204,9 @@ func testDeploymentCreated(t *testing.T) {
 	reaper := createReaper()
 	cm := createConfigMap(reaper)
 	svc := createService(reaper)
+	job := createCompletedSchemaJob(reaper)
 
-	objs := []runtime.Object{reaper, cm, svc}
+	objs := []runtime.Object{reaper, cm, svc, job}
 
 	r := setupReconcileWithRequeue(t, objs...)
 
@@ -256,6 +258,23 @@ func createService(reaper *v1alpha1.Reaper) *corev1.Service {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: reaper.Namespace,
 			Name: reaper.Name,
+		},
+	}
+}
+
+func createCompletedSchemaJob(reaper *v1alpha1.Reaper) *v1batch.Job {
+	return &v1batch.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: reaper.Namespace,
+			Name: getSchemaJobName(reaper),
+		},
+		Status: v1batch.JobStatus{
+			Conditions: []v1batch.JobCondition{
+				{
+					Type: v1batch.JobComplete,
+					Status: corev1.ConditionTrue,
+				},
+			},
 		},
 	}
 }
