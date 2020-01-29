@@ -5,9 +5,9 @@ import (
 	"github.com/jsanda/reaper-operator/pkg/apis"
 	"github.com/jsanda/reaper-operator/pkg/apis/reaper/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	corev1 "k8s.io/api/core/v1"
 	v1batch "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -78,7 +78,8 @@ func TestReconcile(t *testing.T) {
 	t.Run("ConfigMapCreated", testConfigMapCreated)
 	t.Run("ServiceCreated", testServiceCreated)
 	t.Run("SchemaJobRun", testSchemaJobCreated)
-	t.Run("DeploymentCreated", testDeploymentCreated)
+	t.Run("DeploymentCreateWhenSchemaJobCompleted", testDeploymentCreatedWhenSchemaJobCompleted)
+	t.Run("DeploymentNotCreatedWhenSchemaJobNotComplete", testDeploymentNotCreatedWhenSchemaJobNotCompleted)
 	// TODO Add deployment not created tests for when job has not finished and when job has failed
 }
 
@@ -200,11 +201,11 @@ func testSchemaJobCreated(t *testing.T) {
 	}
 }
 
-func testDeploymentCreated(t *testing.T) {
+func testDeploymentCreatedWhenSchemaJobCompleted(t *testing.T) {
 	reaper := createReaper()
 	cm := createConfigMap(reaper)
 	svc := createService(reaper)
-	job := createCompletedSchemaJob(reaper)
+	job := createSchemaJobComplete(reaper)
 
 	objs := []runtime.Object{reaper, cm, svc, job}
 
@@ -213,6 +214,22 @@ func testDeploymentCreated(t *testing.T) {
 	deployment := &appsv1.Deployment{}
 	if err := r.client.Get(context.TODO(), namespaceName, deployment); err != nil {
 		t.Errorf("Failed to get Deployment: (%s)", err)
+	}
+}
+
+func testDeploymentNotCreatedWhenSchemaJobNotCompleted(t *testing.T) {
+	reaper := createReaper()
+	cm := createConfigMap(reaper)
+	svc := createService(reaper)
+	job := createSchemaJobNotComplete(reaper)
+
+	objs := []runtime.Object{reaper, cm, svc, job}
+
+	r := setupReconcileWithRequeue(t, objs...)
+
+	deployment := &appsv1.Deployment{}
+	if err := r.client.Get(context.TODO(), namespaceName, deployment); err == nil {
+		t.Errorf("Did not expect Deployment to be created")
 	}
 }
 
@@ -262,7 +279,15 @@ func createService(reaper *v1alpha1.Reaper) *corev1.Service {
 	}
 }
 
-func createCompletedSchemaJob(reaper *v1alpha1.Reaper) *v1batch.Job {
+func createSchemaJobComplete(reaper *v1alpha1.Reaper) *v1batch.Job {
+	return createSchemaJob(reaper, corev1.ConditionTrue)
+}
+
+func createSchemaJobNotComplete(reaper *v1alpha1.Reaper) *v1batch.Job {
+	return createSchemaJob(reaper, corev1.ConditionFalse)
+}
+
+func createSchemaJob(reaper *v1alpha1.Reaper, status corev1.ConditionStatus) *v1batch.Job {
 	return &v1batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: reaper.Namespace,
@@ -272,7 +297,7 @@ func createCompletedSchemaJob(reaper *v1alpha1.Reaper) *v1batch.Job {
 			Conditions: []v1batch.JobCondition{
 				{
 					Type: v1batch.JobComplete,
-					Status: corev1.ConditionTrue,
+					Status: status,
 				},
 			},
 		},

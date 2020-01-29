@@ -169,6 +169,8 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 		} else if err != nil {
 			reqLogger.Error(err, "Failed to get schema Job")
 			return reconcile.Result{}, err
+		} else if jobIsNotComplete(schemaJob) {
+			return reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 		}
 
 		deployment := &appsv1.Deployment{}
@@ -380,6 +382,15 @@ func (r *ReconcileReaper) newSchemaJob(instance *v1alpha1.Reaper) *v1batch.Job {
 
 func getSchemaJobName(r *v1alpha1.Reaper) string {
 	return fmt.Sprintf("%s-schema", r.Name)
+}
+
+func jobIsNotComplete(job *v1batch.Job) bool {
+	for _, cond := range job.Status.Conditions {
+		if cond.Type == v1batch.JobComplete && cond.Status == corev1.ConditionFalse {
+			return true
+		}
+	}
+	return false;
 }
 
 func (r *ReconcileReaper) newDeployment(instance *v1alpha1.Reaper) *appsv1.Deployment {
