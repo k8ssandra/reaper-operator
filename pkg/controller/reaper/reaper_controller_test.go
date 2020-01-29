@@ -7,6 +7,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1batch "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -22,6 +23,12 @@ var (
 		Namespace: namespace,
 		Name:      name,
 	}
+)
+
+const (
+	CassandraClusterName = "reaper-test"
+	CassandraServiceName = "reaper-test"
+	Keyspace             = "reaper-test"
 )
 
 func setupReconcile(t *testing.T, state ...runtime.Object) (*ReconcileReaper, reconcile.Result) {
@@ -70,6 +77,7 @@ func TestReconcile(t *testing.T) {
 	t.Run("SetDefaults", testSetDefaults)
 	t.Run("ConfigMapCreated", testConfigMapCreated)
 	t.Run("ServiceCreated", testServiceCreated)
+	t.Run("SchemaJobRun", testSchemaJobRun)
 	t.Run("DeploymentCreated", testDeploymentCreated)
 }
 
@@ -175,6 +183,22 @@ func testServiceCreated(t *testing.T) {
 	}
 }
 
+func testSchemaJobRun(t *testing.T) {
+	reaper := createReaper()
+	cm := createConfigMap(reaper)
+	svc := createService(reaper)
+
+	objs := []runtime.Object{reaper, cm, svc}
+
+	r := setupReconcileWithRequeue(t, objs...)
+
+	job := &v1batch.Job{}
+	jobName := getSchemaJobName(reaper)
+	if err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: namespace, Name: jobName}, job); err != nil {
+		t.Errorf("Failed to get job (%s): (%s)", jobName, err)
+	}
+}
+
 func testDeploymentCreated(t *testing.T) {
 	reaper := createReaper()
 	cm := createConfigMap(reaper)
@@ -208,6 +232,11 @@ func createReaper() *v1alpha1.Reaper {
 				EnableDynamicSeedList: boolPtr(false),
 				JmxConnectionTimeoutInSeconds: int32Ptr(10),
 				SegmentCountPerNode: int32Ptr(32),
+				CassandraBackend: &v1alpha1.CassandraBackend{
+					ClusterName: CassandraClusterName,
+					CassandraService: CassandraServiceName,
+					Keyspace: Keyspace,
+				},
 			},
 		},
 	}

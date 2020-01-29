@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1batch "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -97,86 +98,109 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 
 	instance = instance.DeepCopy()
 
-	if checkDefaults(instance) {
-		if err = r.client.Update(context.TODO(), instance); err != nil {
-			return reconcile.Result{}, err
-		}
-		return reconcile.Result{Requeue: true}, nil
-	}
-
-	serverConfig := &corev1.ConfigMap{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, serverConfig)
-	if err != nil && errors.IsNotFound(err) {
-		// create server config configmap
-		cm, err := r.newServerConfigMap(instance)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create new ConfigMap")
-			return reconcile.Result{}, err
-		}
-		if err = controllerutil.SetControllerReference(instance, cm, r.scheme); err != nil {
-			reqLogger.Error(err, "Failed to set owner reference on Reaper server config ConfigMap")
-			return reconcile.Result{}, err
-		}
-		if err = r.client.Create(context.TODO(), cm); err != nil {
-			reqLogger.Error(err, "Failed to save ConfigMap")
-			return reconcile.Result{}, err
-		} else {
-			return reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
-		}
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get ConfigMap")
-		return reconcile.Result{}, err
-	}
-
-	service := &corev1.Service{}
-	err = r.client.Get(context.TODO(),types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, service)
-	if err != nil && errors.IsNotFound(err) {
-		// Create the Service
-		service := r.newService(instance)
-		if err = controllerutil.SetControllerReference(instance, service, r.scheme); err != nil {
-			reqLogger.Error(err, "Failed to set owner reference on Reaper Service")
-			return reconcile.Result{}, err
-		}
-		if err = r.client.Create(context.TODO(), service); err != nil {
-			reqLogger.Error(err, "Failed to create Service")
-			return reconcile.Result{}, err
-		} else {
+	if len(instance.Status.Conditions) == 0  {
+		if checkDefaults(instance) {
+			if err = r.client.Update(context.TODO(), instance); err != nil {
+				return reconcile.Result{}, err
+			}
 			return reconcile.Result{Requeue: true}, nil
 		}
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get Service")
-		return reconcile.Result{}, err
-	}
 
-	deployment := &appsv1.Deployment{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, deployment)
-	if err != nil && errors.IsNotFound(err) {
-		// Create the Deployment
-		deployment := r.newDeployment(instance)
-		if err = controllerutil.SetControllerReference(instance, deployment, r.scheme); err != nil {
-			reqLogger.Error(err, "Failed to set owner reference on Reaper Deployment")
+		serverConfig := &corev1.ConfigMap{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, serverConfig)
+		if err != nil && errors.IsNotFound(err) {
+			// create server config configmap
+			cm, err := r.newServerConfigMap(instance)
+			if err != nil {
+				reqLogger.Error(err, "Failed to create new ConfigMap")
+				return reconcile.Result{}, err
+			}
+			if err = controllerutil.SetControllerReference(instance, cm, r.scheme); err != nil {
+				reqLogger.Error(err, "Failed to set owner reference on Reaper server config ConfigMap")
+				return reconcile.Result{}, err
+			}
+			if err = r.client.Create(context.TODO(), cm); err != nil {
+				reqLogger.Error(err, "Failed to save ConfigMap")
+				return reconcile.Result{}, err
+			} else {
+				return reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
+			}
+		} else if err != nil {
+			reqLogger.Error(err, "Failed to get ConfigMap")
 			return reconcile.Result{}, err
 		}
-		if err = r.client.Create(context.TODO(), deployment); err != nil {
-			reqLogger.Error(err, "Failed to create Deployment")
+
+		service := &corev1.Service{}
+		err = r.client.Get(context.TODO(),types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, service)
+		if err != nil && errors.IsNotFound(err) {
+			// Create the Service
+			service = r.newService(instance)
+			if err = controllerutil.SetControllerReference(instance, service, r.scheme); err != nil {
+				reqLogger.Error(err, "Failed to set owner reference on Reaper Service")
+				return reconcile.Result{}, err
+			}
+			if err = r.client.Create(context.TODO(), service); err != nil {
+				reqLogger.Error(err, "Failed to create Service")
+				return reconcile.Result{}, err
+			} else {
+				return reconcile.Result{Requeue: true}, nil
+			}
+		} else if err != nil {
+			reqLogger.Error(err, "Failed to get Service")
 			return reconcile.Result{}, err
-		} else {
+		}
+
+		schemaJob := &v1batch.Job{}
+		jobName := getSchemaJobName(instance)
+		err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: instance.Namespace, Name: jobName}, schemaJob)
+		if err != nil && errors.IsNotFound(err) {
+			// Create the job
+			schemaJob = r.newSchemaJob(instance)
+			if err = controllerutil.SetControllerReference(instance, schemaJob, r.scheme); err != nil {
+				reqLogger.Error(err, "Failed to set owner reference", "SchemaJob", jobName)
+				return reconcile.Result{}, err
+			}
+			if err = r.client.Create(context.TODO(), schemaJob); err != nil {
+				reqLogger.Error(err, "Failed to create schema Job")
+				return reconcile.Result{}, err
+			} else {
+				return reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
+			}
+		} else if err != nil {
+			reqLogger.Error(err, "Failed to get schema Job")
+			return reconcile.Result{}, err
+		}
+
+		deployment := &appsv1.Deployment{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, deployment)
+		if err != nil && errors.IsNotFound(err) {
+			// Create the Deployment
+			deployment = r.newDeployment(instance)
+			if err = controllerutil.SetControllerReference(instance, deployment, r.scheme); err != nil {
+				reqLogger.Error(err, "Failed to set owner reference on Reaper Deployment")
+				return reconcile.Result{}, err
+			}
+			if err = r.client.Create(context.TODO(), deployment); err != nil {
+				reqLogger.Error(err, "Failed to create Deployment")
+				return reconcile.Result{}, err
+			} else {
+				return reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
+			}
+		} else if err != nil {
+			reqLogger.Error(err, "Failed to get Deployment")
+			return reconcile.Result{}, err
+		}
+
+		if updateStatus(instance, deployment) {
+			if err = r.client.Status().Update(context.TODO(), instance); err != nil {
+				reqLogger.Error(err, "Failed to update status")
+				return reconcile.Result{}, err
+			}
+		}
+
+		if instance.Status.ReadyReplicas != instance.Status.Replicas {
 			return reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 		}
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get Deployment")
-		return reconcile.Result{}, err
-	}
-
-	if updateStatus(instance, deployment) {
-		if err = r.client.Status().Update(context.TODO(), instance); err != nil {
-			reqLogger.Error(err, "Failed to update status")
-			return reconcile.Result{}, err
-		}
-	}
-
-	if instance.Status.ReadyReplicas != instance.Status.Replicas {
-		return reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 	}
 
 	return reconcile.Result{}, nil
@@ -187,8 +211,6 @@ func (r *ReconcileReaper) newServerConfigMap(instance *v1alpha1.Reaper) (*corev1
 	if err != nil {
 		return nil, err
 	}
-
-	fmt.Printf("CONFIG = \n%s", string(output))
 
 	cm := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -314,6 +336,50 @@ func (r *ReconcileReaper) newService(instance *v1alpha1.Reaper) *corev1.Service 
 			Selector: createLabels(instance),
 		},
 	}
+}
+
+func (r *ReconcileReaper) newSchemaJob(instance *v1alpha1.Reaper) *v1batch.Job {
+	cassandra := *instance.Spec.ServerConfig.CassandraBackend
+	return &v1batch.Job{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Job",
+			APIVersion: "batch/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+				Namespace: instance.Namespace,
+				Name: getSchemaJobName(instance),
+		},
+		Spec: v1batch.JobSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					RestartPolicy: corev1.RestartPolicyOnFailure,
+					Containers: []corev1.Container{
+						{
+							Name: getSchemaJobName(instance),
+							Image: "jsanda/create_keyspace:latest",
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Env: []corev1.EnvVar{
+								{
+									Name: "KEYSPACE",
+									Value: cassandra.Keyspace,
+								},
+								{
+									Name: "CONTACT_POINTS",
+									Value: cassandra.CassandraService,
+								},
+								// TODO Add replication_factor. There is already a function in tlp-stress-operator
+								//      that does the serialization. I need to move that function to a shared lib.
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func getSchemaJobName(r *v1alpha1.Reaper) string {
+	return fmt.Sprintf("%s-schema", r.Name)
 }
 
 func (r *ReconcileReaper) newDeployment(instance *v1alpha1.Reaper) *appsv1.Deployment {
