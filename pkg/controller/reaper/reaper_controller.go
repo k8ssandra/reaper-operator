@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/jsanda/reaper-operator/pkg/apis/reaper/v1alpha1"
+	v1batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1batch "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -169,9 +169,11 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 		} else if err != nil {
 			reqLogger.Error(err, "Failed to get schema Job")
 			return reconcile.Result{}, err
-		} else if jobIsNotComplete(schemaJob) {
+		} else if !jobFinished(schemaJob) {
 			return reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
-		}
+		} else if failed, err := jobFailed(schemaJob); failed {
+			return reconcile.Result{}, err
+		} // else the job has completed successfully
 
 		deployment := &appsv1.Deployment{}
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, deployment)
@@ -384,13 +386,34 @@ func getSchemaJobName(r *v1alpha1.Reaper) string {
 	return fmt.Sprintf("%s-schema", r.Name)
 }
 
-func jobIsNotComplete(job *v1batch.Job) bool {
-	for _, cond := range job.Status.Conditions {
-		if cond.Type == v1batch.JobComplete && cond.Status == corev1.ConditionFalse {
+func jobFinished(job *v1batch.Job) bool {
+	for _, c := range job.Status.Conditions {
+		if (c.Type == v1batch.JobComplete || c.Type == v1batch.JobFailed) && c.Status == corev1.ConditionTrue {
 			return true
 		}
 	}
-	return false;
+	return false
+}
+
+func jobComplete(job *v1batch.Job) bool {
+	if job.Status.CompletionTime == nil {
+		return false
+	}
+	for _, cond := range job.Status.Conditions {
+		if cond.Type == v1batch.JobComplete && cond.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
+}
+
+func jobFailed(job *v1batch.Job) (bool, error) {
+	for _, cond := range job.Status.Conditions {
+		if cond.Type == v1batch.JobFailed && cond.Status == corev1.ConditionTrue {
+			return true, fmt.Errorf("schema job failed: %s", cond.Message)
+		}
+	}
+	return false, nil
 }
 
 func (r *ReconcileReaper) newDeployment(instance *v1alpha1.Reaper) *appsv1.Deployment {

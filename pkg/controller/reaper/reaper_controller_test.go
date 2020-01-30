@@ -31,7 +31,7 @@ const (
 	Keyspace             = "reaper-test"
 )
 
-func setupReconcile(t *testing.T, state ...runtime.Object) (*ReconcileReaper, reconcile.Result) {
+func setupReconcile(t *testing.T, state ...runtime.Object) (*ReconcileReaper, reconcile.Result, error) {
 	s := scheme.Scheme
 	if err := apis.AddToScheme(s); err != nil {
 		t.FailNow()
@@ -45,15 +45,13 @@ func setupReconcile(t *testing.T, state ...runtime.Object) (*ReconcileReaper, re
 		},
 	}
 	res, err := r.Reconcile(req)
-	if err != nil {
-		t.Fatalf("reconcile: (%v)", err)
-	}
 
-	return r, res
+	return r, res, err
 }
 
+// TODO The function should return the error from calling Reconcile
 func setupReconcileWithRequeue(t *testing.T, state ...runtime.Object) *ReconcileReaper {
-	r, res := setupReconcile(t, state...)
+	r, res, _ := setupReconcile(t, state...)
 
 	// Check the result of reconciliation to make sure it has the desired state.
 	if !res.Requeue {
@@ -63,8 +61,9 @@ func setupReconcileWithRequeue(t *testing.T, state ...runtime.Object) *Reconcile
 	return r
 }
 
+// TODO The function should return the error from calling Reconcile
 func setupReconcileWithoutRequeue(t *testing.T, state ...runtime.Object) *ReconcileReaper {
-	r, res := setupReconcile(t, state...)
+	r, res, _ := setupReconcile(t, state...)
 
 	if res.Requeue {
 		t.Error("did not expect reconcile to requeue the request")
@@ -80,7 +79,7 @@ func TestReconcile(t *testing.T) {
 	t.Run("SchemaJobRun", testSchemaJobCreated)
 	t.Run("DeploymentCreateWhenSchemaJobCompleted", testDeploymentCreatedWhenSchemaJobCompleted)
 	t.Run("DeploymentNotCreatedWhenSchemaJobNotComplete", testDeploymentNotCreatedWhenSchemaJobNotCompleted)
-	// TODO Add deployment not created tests for when job has not finished and when job has failed
+	t.Run("DeploymentNotCreatedWhenSchemaJobFailed", testDeploymentNotCreatedWhenSchemaJobFailed)
 }
 
 func testSetDefaults(t *testing.T) {
@@ -221,11 +220,27 @@ func testDeploymentNotCreatedWhenSchemaJobNotCompleted(t *testing.T) {
 	reaper := createReaper()
 	cm := createConfigMap(reaper)
 	svc := createService(reaper)
-	job := createSchemaJobNotComplete(reaper)
+	job := createSchemaJob(reaper)
 
 	objs := []runtime.Object{reaper, cm, svc, job}
 
 	r := setupReconcileWithRequeue(t, objs...)
+
+	deployment := &appsv1.Deployment{}
+	if err := r.client.Get(context.TODO(), namespaceName, deployment); err == nil {
+		t.Errorf("Did not expect Deployment to be created")
+	}
+}
+
+func testDeploymentNotCreatedWhenSchemaJobFailed(t *testing.T) {
+	reaper := createReaper()
+	cm := createConfigMap(reaper)
+	svc := createService(reaper)
+	job := createSchemaJobFailed(reaper)
+
+	objs := []runtime.Object{reaper, cm, svc, job}
+
+	r := setupReconcileWithoutRequeue(t, objs...)
 
 	deployment := &appsv1.Deployment{}
 	if err := r.client.Get(context.TODO(), namespaceName, deployment); err == nil {
@@ -280,14 +295,25 @@ func createService(reaper *v1alpha1.Reaper) *corev1.Service {
 }
 
 func createSchemaJobComplete(reaper *v1alpha1.Reaper) *v1batch.Job {
-	return createSchemaJob(reaper, corev1.ConditionTrue)
+	completionTime := metav1.Now()
+	return &v1batch.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: reaper.Namespace,
+			Name: getSchemaJobName(reaper),
+		},
+		Status: v1batch.JobStatus{
+			CompletionTime: &completionTime,
+			Conditions: []v1batch.JobCondition{
+				{
+					Type: v1batch.JobComplete,
+					Status: corev1.ConditionTrue,
+				},
+			},
+		},
+	}
 }
 
-func createSchemaJobNotComplete(reaper *v1alpha1.Reaper) *v1batch.Job {
-	return createSchemaJob(reaper, corev1.ConditionFalse)
-}
-
-func createSchemaJob(reaper *v1alpha1.Reaper, status corev1.ConditionStatus) *v1batch.Job {
+func createSchemaJobFailed(reaper *v1alpha1.Reaper) *v1batch.Job {
 	return &v1batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: reaper.Namespace,
@@ -296,10 +322,21 @@ func createSchemaJob(reaper *v1alpha1.Reaper, status corev1.ConditionStatus) *v1
 		Status: v1batch.JobStatus{
 			Conditions: []v1batch.JobCondition{
 				{
-					Type: v1batch.JobComplete,
-					Status: status,
+					Type: v1batch.JobFailed,
+					Status: corev1.ConditionTrue,
 				},
 			},
+		},
+	}
+}
+
+
+
+func createSchemaJob(reaper *v1alpha1.Reaper) *v1batch.Job {
+	return &v1batch.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: reaper.Namespace,
+			Name: getSchemaJobName(reaper),
 		},
 	}
 }
