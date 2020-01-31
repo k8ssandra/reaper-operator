@@ -29,6 +29,10 @@ import (
 
 var log = logf.Log.WithName("controller_reaper")
 
+const (
+	ReaperImage = "jsanda/cassandra-reaper-k8s:2.0.2-b6bfb774ccbb"
+)
+
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
 * business logic.  Delete these comments after modifying this file.*
@@ -489,8 +493,8 @@ func (r *ReconcileReaper) newDeployment(instance *v1alpha1.Reaper) *appsv1.Deplo
 					Containers: []corev1.Container{
 						{
 							Name: "reaper",
-							ImagePullPolicy: corev1.PullAlways,
-							Image: "jsanda/cassandra-reaper-k8s:latest",
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Image: ReaperImage,
 							Ports: []corev1.ContainerPort{
 								{
 									Name: "ui",
