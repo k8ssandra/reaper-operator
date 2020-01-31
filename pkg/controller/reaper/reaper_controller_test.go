@@ -267,9 +267,9 @@ func createReaper() *v1alpha1.Reaper {
 				JmxConnectionTimeoutInSeconds: int32Ptr(10),
 				SegmentCountPerNode: int32Ptr(32),
 				CassandraBackend: &v1alpha1.CassandraBackend{
-					ClusterName: CassandraClusterName,
-					CassandraService: CassandraServiceName,
-					Keyspace: Keyspace,
+					ClusterName:   CassandraClusterName,
+					ContactPoints: []string {CassandraServiceName},
+					Keyspace:      Keyspace,
 				},
 			},
 		},

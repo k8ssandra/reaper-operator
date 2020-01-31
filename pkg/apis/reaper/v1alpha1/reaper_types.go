@@ -122,14 +122,26 @@ type ReplicationConfig struct {
 	NetworkTopologyStrategy *map[string]int32 `json:"networkTopologyStrategy,omitempty"`
 }
 
+type AuthProvider struct {
+	Type string `json:"type,omitempty" yaml:"type,omitempty"`
+
+	Username string `json:"username,omitempty" yaml:"username,omitempty"`
+
+	Password string `json:"password,omitempty" yaml:"password,omitempty"`
+}
+
 type CassandraBackend struct {
 	ClusterName string `json:"clusterName" yaml:"clusterName"`
 
 	// The headless service that provides endpoints for the Cassandra pods
-	CassandraService string `json:"cassandraService" yaml:"contactPoints"`
+	ContactPoints []string `json:"contactPoints" yaml:"contactPoints"`
 
 	// Defaults to reaper
 	Keyspace string `json:"keyspace,omitempty" yaml:"keyspace,omitempty"`
+
+	Replication ReplicationConfig `json:"replication" yaml:"-"`
+
+	AuthProvider AuthProvider `json:"authProvider,omitempty" yaml:"authProvider,omitempty"`
 }
 
 type AutoScheduling struct {

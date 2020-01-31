@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jsanda/reaper-operator/pkg/apis/reaper/v1alpha1"
@@ -99,6 +101,7 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 	instance = instance.DeepCopy()
 
 	if len(instance.Status.Conditions) == 0  {
+		reqLogger.Info("Checking defaults")
 		if checkDefaults(instance) {
 			if err = r.client.Update(context.TODO(), instance); err != nil {
 				return reconcile.Result{}, err
@@ -106,6 +109,7 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 			return reconcile.Result{Requeue: true}, nil
 		}
 
+		reqLogger.Info("Reconciling configmap")
 		serverConfig := &corev1.ConfigMap{}
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, serverConfig)
 		if err != nil && errors.IsNotFound(err) {
@@ -130,6 +134,7 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 			return reconcile.Result{}, err
 		}
 
+		reqLogger.Info("Reconciling service")
 		service := &corev1.Service{}
 		err = r.client.Get(context.TODO(),types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, service)
 		if err != nil && errors.IsNotFound(err) {
@@ -150,6 +155,7 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 			return reconcile.Result{}, err
 		}
 
+		reqLogger.Info("Reconciling schema job")
 		schemaJob := &v1batch.Job{}
 		jobName := getSchemaJobName(instance)
 		err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: instance.Namespace, Name: jobName}, schemaJob)
@@ -175,6 +181,7 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 			return reconcile.Result{}, err
 		} // else the job has completed successfully
 
+		reqLogger.Info("Reconciling deployment")
 		deployment := &appsv1.Deployment{}
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, deployment)
 		if err != nil && errors.IsNotFound(err) {
@@ -286,6 +293,15 @@ func checkDefaults(instance *v1alpha1.Reaper) bool {
 		updated = true
 	}
 
+	if instance.Spec.ServerConfig.CassandraBackend == nil {
+		instance.Spec.ServerConfig.CassandraBackend.AuthProvider = v1alpha1.AuthProvider{
+			Type: "plainText",
+			Username: "cassandra",
+			Password: "cassandra",
+		}
+		updated = true
+	}
+
 	return updated
 }
 
@@ -369,16 +385,39 @@ func (r *ReconcileReaper) newSchemaJob(instance *v1alpha1.Reaper) *v1batch.Job {
 								},
 								{
 									Name: "CONTACT_POINTS",
-									Value: cassandra.CassandraService,
+									Value: strings.Join(cassandra.ContactPoints, ","),
 								},
 								// TODO Add replication_factor. There is already a function in tlp-stress-operator
 								//      that does the serialization. I need to move that function to a shared lib.
+								{
+									Name: "REPLICATION",
+									Value: convert(cassandra.Replication),
+								},
 							},
 						},
 					},
 				},
 			},
 		},
+	}
+}
+
+func convert(r v1alpha1.ReplicationConfig) string {
+	if r.SimpleStrategy != nil {
+		replicationFactor := strconv.FormatInt(int64(*r.SimpleStrategy), 10)
+		return fmt.Sprintf(`{'class': 'SimpleStrategy', 'replication_factor': %s}`, replicationFactor)
+	} else {
+		var sb strings.Builder
+		dcs := make([]string, 0)
+		for k, v := range *r.NetworkTopologyStrategy {
+			sb.WriteString("'")
+			sb.WriteString(k)
+			sb.WriteString("': ")
+			sb.WriteString(strconv.FormatInt(int64(v), 10))
+			dcs = append(dcs, sb.String())
+			sb.Reset()
+		}
+		return fmt.Sprintf("{'class': 'NetworkTopologyStrategy', %s}", strings.Join(dcs, ", "))
 	}
 }
 
