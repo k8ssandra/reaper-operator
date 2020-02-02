@@ -262,7 +262,7 @@ func createReaper() *v1alpha1.Reaper {
 				RepairRunThreadCount: int32Ptr(20),
 				ScheduleDaysBetween: int32Ptr(10),
 				EnableCrossOrigin: boolPtr(false),
-				StorageType: v1alpha1.DefaultStorageType,
+				StorageType: v1alpha1.Cassandra,
 				EnableDynamicSeedList: boolPtr(false),
 				JmxConnectionTimeoutInSeconds: int32Ptr(10),
 				SegmentCountPerNode: int32Ptr(32),
@@ -270,6 +270,9 @@ func createReaper() *v1alpha1.Reaper {
 					ClusterName:   CassandraClusterName,
 					ContactPoints: []string {CassandraServiceName},
 					Keyspace:      Keyspace,
+					Replication: v1alpha1.ReplicationConfig{
+						SimpleStrategy: int32Ptr(2),
+					},
 				},
 			},
 		},

@@ -163,33 +163,35 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 			return reconcile.Result{}, err
 		}
 
-		reqLogger.Info("Reconciling schema job")
-		schemaJob := &v1batch.Job{}
-		jobName := getSchemaJobName(instance)
-		err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: instance.Namespace, Name: jobName}, schemaJob)
-		if err != nil && errors.IsNotFound(err) {
-			// Create the job
-			schemaJob = r.newSchemaJob(instance)
-			reqLogger.Info("Creating schema job", "Reaper.Namespace", instance.Namespace, "Reaper.Name",
-				instance.Name, "Job.Name", schemaJob.Name)
-			if err = controllerutil.SetControllerReference(instance, schemaJob, r.scheme); err != nil {
-				reqLogger.Error(err, "Failed to set owner reference", "SchemaJob", jobName)
+		if instance.Spec.ServerConfig.StorageType == v1alpha1.Cassandra {
+			reqLogger.Info("Reconciling schema job")
+			schemaJob := &v1batch.Job{}
+			jobName := getSchemaJobName(instance)
+			err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: instance.Namespace, Name: jobName}, schemaJob)
+			if err != nil && errors.IsNotFound(err) {
+				// Create the job
+				schemaJob = r.newSchemaJob(instance)
+				reqLogger.Info("Creating schema job", "Reaper.Namespace", instance.Namespace, "Reaper.Name",
+					instance.Name, "Job.Name", schemaJob.Name)
+				if err = controllerutil.SetControllerReference(instance, schemaJob, r.scheme); err != nil {
+					reqLogger.Error(err, "Failed to set owner reference", "SchemaJob", jobName)
+					return reconcile.Result{}, err
+				}
+				if err = r.client.Create(context.TODO(), schemaJob); err != nil {
+					reqLogger.Error(err, "Failed to create schema Job")
+					return reconcile.Result{}, err
+				} else {
+					return reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
+				}
+			} else if err != nil {
+				reqLogger.Error(err, "Failed to get schema Job")
 				return reconcile.Result{}, err
-			}
-			if err = r.client.Create(context.TODO(), schemaJob); err != nil {
-				reqLogger.Error(err, "Failed to create schema Job")
-				return reconcile.Result{}, err
-			} else {
+			} else if !jobFinished(schemaJob) {
 				return reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
-			}
-		} else if err != nil {
-			reqLogger.Error(err, "Failed to get schema Job")
-			return reconcile.Result{}, err
-		} else if !jobFinished(schemaJob) {
-			return reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
-		} else if failed, err := jobFailed(schemaJob); failed {
-			return reconcile.Result{}, err
-		} // else the job has completed successfully
+			} else if failed, err := jobFailed(schemaJob); failed {
+				return reconcile.Result{}, err
+			} // else the job has completed successfully
+		}
 
 		reqLogger.Info("Reconciling deployment")
 		deployment := &appsv1.Deployment{}
@@ -280,7 +282,7 @@ func checkDefaults(instance *v1alpha1.Reaper) bool {
 		updated = true
 	}
 
-	if instance.Spec.ServerConfig.StorageType == "" {
+	if instance.Spec.ServerConfig.StorageType == v1alpha1.Undefined {
 		instance.Spec.ServerConfig.StorageType = v1alpha1.DefaultStorageType
 		updated = true
 	}
@@ -306,10 +308,12 @@ func checkDefaults(instance *v1alpha1.Reaper) bool {
 	}
 
 	if instance.Spec.ServerConfig.CassandraBackend == nil {
-		instance.Spec.ServerConfig.CassandraBackend.AuthProvider = v1alpha1.AuthProvider{
-			Type: "plainText",
-			Username: "cassandra",
-			Password: "cassandra",
+		instance.Spec.ServerConfig.CassandraBackend = &v1alpha1.CassandraBackend{
+			AuthProvider: v1alpha1.AuthProvider{
+				Type: "plainText",
+				Username: "cassandra",
+				Password: "cassandra",
+			},
 		}
 		updated = true
 	}

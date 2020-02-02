@@ -8,13 +8,24 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+type StorageType int
+
+const (
+	Undefined = iota
+	Memory
+	Cassandra
+)
+
+func (s StorageType) String() string {
+	return [...]string{"memory", "cassandra"}[s]
+}
+
 const (
 	DefaultHangingRepairTimeoutMins = 30
 	DefaultRepairIntensity = "0.9"
 	DefaultRepairParallelism = "DATACENTER_AWARE"
 	DefaultRepairRunThreadCount = 15
 	DefaultScheduleDaysBetween = 7
-	DefaultStorageType = "memory"
 	DefaultEnableCrossOrigin = true
 	DefaultEnableDynamicSeedList = true
 	DefaultJmxConnectionTimeoutInSeconds = 20
@@ -22,10 +33,12 @@ const (
 	DefaultKeyspace = "reaper"
 )
 
+const DefaultStorageType StorageType = Memory
+
 type ServerConfig struct {
 	AutoScheduling AutoScheduling `json:"autoScheduling,omitempty" yaml:"autoScheduling,omitempty"`
 
-	StorageType string `json:"storageType,omitempty" yaml:"storageType,omitempty"`
+	StorageType StorageType `json:"storageType,omitempty" yaml:"storageType,omitempty"`
 
 	CassandraBackend *CassandraBackend `json:"cassandraBackend" yaml:"cassandra,omitempty"`
 
