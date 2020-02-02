@@ -123,6 +123,8 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 				reqLogger.Error(err, "Failed to create new ConfigMap")
 				return reconcile.Result{}, err
 			}
+			reqLogger.Info("Creating configmap", "Reaper.Namespace", instance.Namespace, "Reaper.Name",
+				instance.Name, "ConfigMap.Name", cm.Name)
 			if err = controllerutil.SetControllerReference(instance, cm, r.scheme); err != nil {
 				reqLogger.Error(err, "Failed to set owner reference on Reaper server config ConfigMap")
 				return reconcile.Result{}, err
@@ -144,6 +146,8 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 		if err != nil && errors.IsNotFound(err) {
 			// Create the Service
 			service = r.newService(instance)
+			reqLogger.Info("Creating service", "Reaper.Namespace", instance.Namespace, "Reaper.Name",
+				instance.Name, "Service.Name", service.Name)
 			if err = controllerutil.SetControllerReference(instance, service, r.scheme); err != nil {
 				reqLogger.Error(err, "Failed to set owner reference on Reaper Service")
 				return reconcile.Result{}, err
@@ -166,6 +170,8 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 		if err != nil && errors.IsNotFound(err) {
 			// Create the job
 			schemaJob = r.newSchemaJob(instance)
+			reqLogger.Info("Creating schema job", "Reaper.Namespace", instance.Namespace, "Reaper.Name",
+				instance.Name, "Job.Name", schemaJob.Name)
 			if err = controllerutil.SetControllerReference(instance, schemaJob, r.scheme); err != nil {
 				reqLogger.Error(err, "Failed to set owner reference", "SchemaJob", jobName)
 				return reconcile.Result{}, err
@@ -191,6 +197,8 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 		if err != nil && errors.IsNotFound(err) {
 			// Create the Deployment
 			deployment = r.newDeployment(instance)
+			reqLogger.Info("Creating deployment", "Reaper.Namespace", instance.Namespace, "Reaper.Name",
+				instance.Name, "Deployment.Name", deployment.Name)
 			if err = controllerutil.SetControllerReference(instance, deployment, r.scheme); err != nil {
 				reqLogger.Error(err, "Failed to set owner reference on Reaper Deployment")
 				return reconcile.Result{}, err
