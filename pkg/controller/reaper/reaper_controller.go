@@ -282,7 +282,7 @@ func checkDefaults(instance *v1alpha1.Reaper) bool {
 		updated = true
 	}
 
-	if instance.Spec.ServerConfig.StorageType == v1alpha1.Undefined {
+	if instance.Spec.ServerConfig.StorageType == "" {
 		instance.Spec.ServerConfig.StorageType = v1alpha1.DefaultStorageType
 		updated = true
 	}
