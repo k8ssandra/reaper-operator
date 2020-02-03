@@ -31,7 +31,7 @@ import (
 var log = logf.Log.WithName("controller_reaper")
 
 const (
-	ReaperImage = "jsanda/cassandra-reaper-k8s:2.0.2-b6bfb774ccbb"
+	ReaperImage = "jsanda/reaper-k8s:2.0.2-b6bfb774ccbb"
 )
 
 /**
