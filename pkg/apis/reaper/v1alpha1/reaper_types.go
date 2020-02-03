@@ -24,7 +24,7 @@ const (
 	DefaultJmxConnectionTimeoutInSeconds = 20
 	DefaultSegmentCountPerNode = 16
 	DefaultKeyspace = "reaper"
-	DefaultStorageType StorageType = Memory
+	DefaultStorageType = Memory
 )
 
 type ServerConfig struct {

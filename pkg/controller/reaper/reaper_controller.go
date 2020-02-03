@@ -3,6 +3,7 @@ package reaper
 import (
 	"context"
 	"fmt"
+	"github.com/jsanda/reaper-operator/pkg/config"
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	"strconv"
@@ -46,7 +47,11 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileReaper{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcileReaper{
+		client: mgr.GetClient(),
+		scheme: mgr.GetScheme(),
+		validator: config.NewValidator(),
+	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -75,6 +80,8 @@ type ReconcileReaper struct {
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
+
+	validator config.Validator
 }
 
 // Reconcile reads that state of the cluster for a Reaper object and makes changes based on the state read
@@ -103,6 +110,10 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 	}
 
 	instance = instance.DeepCopy()
+
+	if err := r.validator.Validate(instance.Spec.ServerConfig); err != nil {
+		return reconcile.Result{}, err
+	}
 
 	if len(instance.Status.Conditions) == 0  {
 		reqLogger.Info("Checking defaults")
