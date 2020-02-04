@@ -39,7 +39,7 @@ func WaitForCassKopCluster(
 			return false, err
 		}
 		if cc.Status.Phase != "Running" {
-			t.Logf("Waiting for CassandraCassandra %s (%s)\n", name, cc.Status.Phase)
+			t.Logf("Waiting for CassandraCluster %s (%s)\n", name, cc.Status.Phase)
 			return false, nil
 		}
 		return true, nil
