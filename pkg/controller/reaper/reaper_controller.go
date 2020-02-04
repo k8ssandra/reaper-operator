@@ -437,7 +437,7 @@ func (r *ReconcileReaper) newDeployment(instance *v1alpha1.Reaper) *appsv1.Deplo
 				Port: intstr.FromInt(8081),
 			},
 		},
-		InitialDelaySeconds: 20,
+		InitialDelaySeconds: 60,
 		PeriodSeconds: 3,
 	}
 
