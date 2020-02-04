@@ -96,8 +96,7 @@ create-e2e-ns:
 
 .PHONY: e2e-setup
 e2e-setup: CASSKOP_NS = $(E2E_NS)
-e2e-setup: do-deploy-casskop
-e2e-setup: create-e2e-ns
+e2e-setup: create-e2e-ns do-deploy-casskop
 
 .PHONY: e2e-test
 e2e-test: e2e-setup
