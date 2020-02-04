@@ -122,21 +122,34 @@ func TestDeployReaperWithCassandraBackend(t *testing.T) {
 		t.Fatalf("Failed waiting for CassandraCluster to become ready: %s\n", err)
 	}
 
-	//reaper := v1alpha1.Reaper{
-	//	TypeMeta: metav1.TypeMeta{
-	//		Kind: "Reaper",
-	//		APIVersion: "reaper.cassandra-reaper.io/v1alpha1",
-	//	},
-	//	ObjectMeta: metav1.ObjectMeta{
-	//		Name: "reaper-e2e",
-	//		Namespace: namespace,
-	//	},
-	//	Spec: v1alpha1.ReaperSpec{
-	//		ServerConfig: v1alpha1.ServerConfig{
-	//			StorageType: "memory",
-	//		},
-	//	},
-	//}
+	reaper := v1alpha1.Reaper{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Reaper",
+			APIVersion: "reaper.cassandra-reaper.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "reaper-e2e",
+			Namespace: namespace,
+		},
+		Spec: v1alpha1.ReaperSpec{
+			ServerConfig: v1alpha1.ServerConfig{
+				StorageType: "cassandra",
+				CassandraBackend: &v1alpha1.CassandraBackend{
+					ClusterName: cassandraClusterName,
+					ContactPoints: []string{"reaper-cluster"},
+					Keyspace: "reaper",
+				},
+			},
+		},
+	}
+
+	if err = f.Client.Create(goctx.TODO(), &reaper, cleanupWithPolling(ctx)); err != nil {
+		t.Fatalf("Failed to create Reaper: %s\n", err)
+	}
+
+	if err = e2eutil.WaitForReaperToBeReady(t, f, reaper.Namespace, reaper.Name, 3 * time.Second, 1 * time.Minute); err != nil {
+		t.Fatalf("Timed out waiting for Reaper (%s) to be ready: %s\n", reaper.Name, err)
+	}
 }
 
 func createCassandraCluster(name string, namespace string, f *framework.Framework, ctx *framework.TestCtx) error {
