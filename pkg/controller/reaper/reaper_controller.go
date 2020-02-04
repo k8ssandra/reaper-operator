@@ -429,6 +429,18 @@ func (r *ReconcileReaper) newDeployment(instance *v1alpha1.Reaper) *appsv1.Deplo
 			},
 		},
 	}
+
+	healthProbe := &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/healthcheck",
+				Port: intstr.FromInt(8081),
+			},
+		},
+		InitialDelaySeconds: 3,
+		PeriodSeconds: 3,
+	}
+
 	return &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "Deployment",
@@ -456,7 +468,14 @@ func (r *ReconcileReaper) newDeployment(instance *v1alpha1.Reaper) *appsv1.Deplo
 									ContainerPort: 8080,
 									Protocol: "TCP",
 								},
+								{
+									Name: "admin",
+									ContainerPort: 8081,
+									Protocol: "TCP",
+								},
 							},
+							LivenessProbe: healthProbe,
+							ReadinessProbe: healthProbe,
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name: "reaper-config",

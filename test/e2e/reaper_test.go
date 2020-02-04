@@ -39,10 +39,6 @@ func TestDeployReaperWithMemoryBackend(t *testing.T) {
 	if err := framework.AddToFrameworkScheme(apis.AddToScheme, reaperList); err != nil {
 		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
 	}
-	ccList := &casskop.CassandraClusterList{}
-	if err := framework.AddToFrameworkScheme(casskopapi.AddToScheme, ccList); err != nil {
-		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
-	}
 	ctx, f := e2eutil.InitOperator(t)
 	defer ctx.Cleanup()
 
@@ -103,6 +99,11 @@ func TestDeployReaperWithMemoryBackend(t *testing.T) {
 func TestDeployReaperWithCassandraBackend(t *testing.T) {
 	reaperList := &v1alpha1.ReaperList{}
 	if err := framework.AddToFrameworkScheme(apis.AddToScheme, reaperList); err != nil {
+		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
+	}
+
+	ccList := &casskop.CassandraClusterList{}
+	if err := framework.AddToFrameworkScheme(casskopapi.AddToScheme, ccList); err != nil {
 		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
 	}
 

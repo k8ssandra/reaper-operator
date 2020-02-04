@@ -12,7 +12,7 @@ REV=$(shell git rev-parse --short=12 HEAD)
 IMAGE_BASE=$(REG)/$(ORG)/$(PROJECT)
 PRE_TEST_TAG=$(BRANCH)-$(REV)-TEST
 POST_TEST_TAG=$(BRANCH)-$(REV)
-E2E_IMAGE=$(IMAGE_BASE):$(PRE_TEST_TAG)
+E2E_IMAGE?=$(IMAGE_BASE):$(PRE_TEST_TAG)
 BRANCH_REV_IMAGE=$(IMAGE_BASE):$(POST_TEST_TAG)
 REV_IMAGE=$(IMAGE_BASE):$(REV)
 BRANCH_LATEST_IMAGE=$(IMAGE_BASE):$(BRANCH)-latest
@@ -28,6 +28,10 @@ E2E_NS?=reaper-e2e
 .PHONY: clean
 clean:
 	rm -rf build/_output
+
+.PHONY: e2e-image
+e2e-image:
+	@echo E2E_IMAGE = $(E2E_IMAGE)
 
 .PHONY: run
 run:
@@ -101,4 +105,9 @@ e2e-setup: create-e2e-ns do-deploy-casskop
 .PHONY: e2e-test
 e2e-test: e2e-setup
 	@echo Running e2e tests
-	operator-sdk test local ./test/e2e --image $(E2E_IMAGE) --namespace $(E2E_NS)
+	operator-sdk test local ./test/e2e --image $(E2E_IMAGE) --namespace $(E2E_NS) --debug
+
+.PHONY: e2e-test-local
+e2e-test-local: e2e-setup
+	@echo Running e2e tests
+	operator-sdk test local ./test/e2e --up-local --namespace $(E2E_NS)
