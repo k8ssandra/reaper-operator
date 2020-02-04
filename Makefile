@@ -82,11 +82,21 @@ unit-test:
 	@echo Running tests:
 	go test -v -race -cover ./pkg/...
 
+.PHONY: do-deploy-casskop
+do-deploy-casskop:
+	kubectl -n $(CASSKOP_NS) apply -f config/casskop
+
+.PHONY: deploy-casskop
+deploy-casskop: CASSKOP_NS ?= $(DEV_NS)
+deploy-casskop: do-deploy-casskop
+
 .PHONY: create-e2e-ns
 create-e2e-ns:
 	./scripts/create-ns.sh $(E2E_NS)
 
 .PHONY: e2e-setup
+e2e-setup: CASSKOP_NS = $(E2E_NS)
+e2e-setup: do-deploy-casskop
 e2e-setup: create-e2e-ns
 
 .PHONY: e2e-test

@@ -3,6 +3,7 @@ package e2eutil
 import (
 	goctx "context"
 	"github.com/jsanda/reaper-operator/pkg/apis/reaper/v1alpha1"
+	casskop "github.com/Orange-OpenSource/cassandra-k8s-operator/pkg/apis/db/v1alpha1"
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	"github.com/operator-framework/operator-sdk/pkg/test/e2eutil"
 	appsv1 "k8s.io/api/apps/v1"
@@ -16,6 +17,34 @@ import (
 )
 
 type ReaperConditionFunc func(reaper *v1alpha1.Reaper) (bool, error)
+
+// Waits for the CassandraCluster with namespace/name to be ready. Specifically, this
+// function checks for CassandraCluster.State.Phase == Running.
+func WaitForCassKopCluster(
+	t *testing.T,
+	f *framework.Framework,
+	namespace string,
+	name string,
+	retryInterval time.Duration,
+	timeout time.Duration,) error {
+
+	return wait.Poll(retryInterval, timeout, func() (bool, error) {
+		cc := &casskop.CassandraCluster{}
+		err := f.Client.Get(goctx.TODO(), types.NamespacedName{Name: name, Namespace: namespace}, cc)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				t.Logf("Waiting for availability of CassandraCluster %s\n", name)
+				return false, nil
+			}
+			return false, err
+		}
+		if cc.Status.Phase != "Running" {
+			t.Logf("Waiting for CassandraCassandra %s (%s)\n", name, cc.Status.Phase)
+			return false, nil
+		}
+		return true, nil
+	})
+}
 
 func WaitForOperatorDeployment(t *testing.T,
 	f *framework.Framework,
