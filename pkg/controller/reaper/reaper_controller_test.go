@@ -124,7 +124,8 @@ func TestReconcile(t *testing.T) {
 		t.FailNow()
 	}
 
-	//t.Run("SetDefaults", testSetDefaults)
+	t.Run("ValidationFails", testValidationFails)
+	t.Run("SetDefaults", testSetDefaults)
 	t.Run("ConfigMapCreated", testConfigMapCreated)
 	t.Run("ServiceCreated", testServiceCreated)
 	t.Run("SchemaJobRun", testSchemaJobCreated)
@@ -160,80 +161,32 @@ func testValidationFails(t *testing.T) {
 	}
 }
 
-//func testSetDefaults(t *testing.T) {
-//	reaper := &v1alpha1.Reaper{
-//		ObjectMeta: metav1.ObjectMeta{
-//			Namespace: namespace,
-//			Name: name,
-//		},
-//		Spec: v1alpha1.ReaperSpec{
-//		},
-//	}
-//
-//	objs := []runtime.Object{reaper}
-//
-//	r := setupReconcileWithRequeue(t, objs...)
-//
-//	// verify default values set
-//	instance := &v1alpha1.Reaper{}
-//	if err := r.client.Get(context.TODO(), namespaceName, instance); err != nil {
-//		t.Fatalf("Failed to get Reaper: (%v)", err)
-//	}
-//
-//	if instance.Spec.ServerConfig.HangingRepairTimeoutMins == nil {
-//		t.Errorf("HangingRepairTimeoutMins is nil. Expected (%d)", v1alpha1.DefaultHangingRepairTimeoutMins)
-//	} else if *instance.Spec.ServerConfig.HangingRepairTimeoutMins != v1alpha1.DefaultHangingRepairTimeoutMins {
-//		t.Errorf("HangingRepairTimeoutMins (%d) is not the expected value (%d)", *instance.Spec.ServerConfig.HangingRepairTimeoutMins, v1alpha1.DefaultHangingRepairTimeoutMins)
-//	}
-//
-//	if instance.Spec.ServerConfig.RepairIntensity != v1alpha1.DefaultRepairIntensity {
-//		t.Errorf("RepairIntensity (%s) is not the expected value (%s)", instance.Spec.ServerConfig.RepairIntensity, v1alpha1.DefaultRepairIntensity)
-//	}
-//
-//	if instance.Spec.ServerConfig.RepairParallelism != v1alpha1.DefaultRepairParallelism {
-//		t.Errorf("RepairParallelism (%s) is not the expected value (%s)", instance.Spec.ServerConfig.RepairParallelism, v1alpha1.DefaultRepairParallelism)
-//	}
-//
-//	if instance.Spec.ServerConfig.RepairRunThreadCount == nil {
-//		t.Errorf("RepairRunThreadCount is nil. Expected(%d)", v1alpha1.DefaultRepairRunThreadCount)
-//	} else if *instance.Spec.ServerConfig.RepairRunThreadCount != v1alpha1.DefaultRepairRunThreadCount {
-//		t.Errorf("RepairRunThreadCount (%d) is not the expected value (%d)", *instance.Spec.ServerConfig.RepairRunThreadCount, v1alpha1.DefaultRepairRunThreadCount)
-//	}
-//
-//	if instance.Spec.ServerConfig.ScheduleDaysBetween == nil {
-//		t.Errorf("ScheduleDaysBetween is nil. Expected (%d)", v1alpha1.DefaultScheduleDaysBetween)
-//	} else if *instance.Spec.ServerConfig.ScheduleDaysBetween != v1alpha1.DefaultScheduleDaysBetween {
-//		t.Errorf("ScheduleDaysBetween (%d) is not the expected value (%d)", *instance.Spec.ServerConfig.ScheduleDaysBetween, v1alpha1.DefaultScheduleDaysBetween)
-//	}
-//
-//	if instance.Spec.ServerConfig.StorageType != v1alpha1.DefaultStorageType {
-//		t.Errorf("StorageType (%s) is not the expected value (%s)", instance.Spec.ServerConfig.StorageType, v1alpha1.DefaultStorageType)
-//	}
-//
-//	if instance.Spec.ServerConfig.EnableCrossOrigin == nil {
-//		t.Errorf("EnableCrossOrigin is nil. Expected (%t)", v1alpha1.DefaultEnableCrossOrigin)
-//	} else if *instance.Spec.ServerConfig.EnableCrossOrigin != v1alpha1.DefaultEnableCrossOrigin {
-//		t.Errorf("EnableCrossOrigin (%t) is not the expected value (%t)", *instance.Spec.ServerConfig.EnableCrossOrigin, v1alpha1.DefaultEnableCrossOrigin)
-//	}
-//
-//	if instance.Spec.ServerConfig.EnableDynamicSeedList == nil {
-//		t.Errorf("EnableDynamicSeedList is nil. Expected (%t)", v1alpha1.DefaultEnableDynamicSeedList)
-//	} else if *instance.Spec.ServerConfig.EnableDynamicSeedList != v1alpha1.DefaultEnableDynamicSeedList {
-//		t.Errorf("EnableDynamicSeedList (%t) is not the expected value (%t)", *instance.Spec.ServerConfig.EnableDynamicSeedList, v1alpha1.DefaultEnableDynamicSeedList)
-//	}
-//
-//	if instance.Spec.ServerConfig.JmxConnectionTimeoutInSeconds == nil {
-//		t.Errorf("JmxConnectionTimeoutInSeconds is nil. Expected (%d)", v1alpha1.DefaultJmxConnectionTimeoutInSeconds)
-//	} else if *instance.Spec.ServerConfig.JmxConnectionTimeoutInSeconds != v1alpha1.DefaultJmxConnectionTimeoutInSeconds {
-//		t.Errorf("JmxConnectionTimeoutInSeconds (%d) is not the expected value (%d)", *instance.Spec.ServerConfig.JmxConnectionTimeoutInSeconds, v1alpha1.DefaultJmxConnectionTimeoutInSeconds)
-//	}
-//
-//	if instance.Spec.ServerConfig.SegmentCountPerNode == nil {
-//		t.Errorf("SegmentCountPerNode is nil. Expected (%d)", v1alpha1.DefaultSegmentCountPerNode)
-//	} else if *instance.Spec.ServerConfig.SegmentCountPerNode != v1alpha1.DefaultSegmentCountPerNode {
-//		t.Errorf("SegmentCountPerNode (%d) is not the expected value (%d)", *instance.Spec.ServerConfig.SegmentCountPerNode, v1alpha1.DefaultSegmentCountPerNode)
-//	}
-//}
+func testSetDefaults(t *testing.T) {
+	v := &NoOpValidator{defaultsUpdated: true}
+
+	reaper := &v1alpha1.Reaper{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name: name,
+		},
+		Spec: v1alpha1.ReaperSpec{
+		},
+	}
+
+	objs := []runtime.Object{reaper}
+	r := createReconcilerWithValidator(v, objs...)
+	req := newRequest()
+
+	res, err := r.Reconcile(req)
+
+	if err != nil {
+		t.Errorf("did not expect error to be returned")
+	}
+
+	if !res.Requeue {
+		t.Errorf("expected requeue when defaults are not set")
+	}
+}
 
 func testConfigMapCreated(t *testing.T) {
 	reaper := createReaper()

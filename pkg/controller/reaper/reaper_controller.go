@@ -115,15 +115,14 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 		return reconcile.Result{}, err
 	}
 
-	if len(instance.Status.Conditions) == 0  {
-		reqLogger.Info("Checking defaults")
-		if checkDefaults(instance) {
-			if err = r.client.Update(context.TODO(), instance); err != nil {
-				return reconcile.Result{}, err
-			}
-			return reconcile.Result{Requeue: true}, nil
+	if r.validator.SetDefaults(&instance.Spec.ServerConfig) {
+		if err = r.client.Update(context.TODO(), instance); err != nil {
+			return reconcile.Result{}, err
 		}
+		return reconcile.Result{Requeue: true}, nil
+	}
 
+	if len(instance.Status.Conditions) == 0  {
 		reqLogger.Info("Reconciling configmap")
 		serverConfig := &corev1.ConfigMap{}
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, serverConfig)
@@ -263,73 +262,6 @@ func (r *ReconcileReaper) newServerConfigMap(instance *v1alpha1.Reaper) (*corev1
 	}
 
 	return cm, nil
-}
-
-func checkDefaults(instance *v1alpha1.Reaper) bool {
-	updated := false
-
-	if instance.Spec.ServerConfig.HangingRepairTimeoutMins == nil {
-		instance.Spec.ServerConfig.HangingRepairTimeoutMins = int32Ptr(v1alpha1.DefaultHangingRepairTimeoutMins)
-		updated = true
-	}
-
-	if instance.Spec.ServerConfig.RepairIntensity == "" {
-		instance.Spec.ServerConfig.RepairIntensity = v1alpha1.DefaultRepairIntensity
-		updated = true
-	}
-
-	if instance.Spec.ServerConfig.RepairParallelism == "" {
-		instance.Spec.ServerConfig.RepairParallelism = v1alpha1.DefaultRepairParallelism
-		updated = true
-	}
-
-	if instance.Spec.ServerConfig.RepairRunThreadCount == nil {
-		instance.Spec.ServerConfig.RepairRunThreadCount = int32Ptr(v1alpha1.DefaultRepairRunThreadCount)
-		updated = true
-	}
-
-	if instance.Spec.ServerConfig.ScheduleDaysBetween == nil {
-		instance.Spec.ServerConfig.ScheduleDaysBetween = int32Ptr(v1alpha1.DefaultScheduleDaysBetween)
-		updated = true
-	}
-
-	if instance.Spec.ServerConfig.StorageType == "" {
-		instance.Spec.ServerConfig.StorageType = v1alpha1.DefaultStorageType
-		updated = true
-	}
-
-	if instance.Spec.ServerConfig.EnableCrossOrigin == nil {
-		instance.Spec.ServerConfig.EnableCrossOrigin = boolPtr(v1alpha1.DefaultEnableCrossOrigin)
-		updated = true
-	}
-
-	if instance.Spec.ServerConfig.EnableDynamicSeedList == nil {
-		instance.Spec.ServerConfig.EnableDynamicSeedList = boolPtr(v1alpha1.DefaultEnableDynamicSeedList)
-		updated = true
-	}
-
-	if instance.Spec.ServerConfig.JmxConnectionTimeoutInSeconds == nil {
-		instance.Spec.ServerConfig.JmxConnectionTimeoutInSeconds = int32Ptr(v1alpha1.DefaultJmxConnectionTimeoutInSeconds)
-		updated = true
-	}
-
-	if instance.Spec.ServerConfig.SegmentCountPerNode == nil {
-		instance.Spec.ServerConfig.SegmentCountPerNode = int32Ptr(v1alpha1.DefaultSegmentCountPerNode)
-		updated = true
-	}
-
-	if instance.Spec.ServerConfig.CassandraBackend == nil {
-		instance.Spec.ServerConfig.CassandraBackend = &v1alpha1.CassandraBackend{
-			AuthProvider: v1alpha1.AuthProvider{
-				Type: "plainText",
-				Username: "cassandra",
-				Password: "cassandra",
-			},
-		}
-		updated = true
-	}
-
-	return updated
 }
 
 func updateStatus(instance *v1alpha1.Reaper, deployment *appsv1.Deployment) bool {
