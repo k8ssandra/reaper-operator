@@ -47,28 +47,6 @@ func (v *NoOpValidator) SetDefaults(cfg *v1alpha1.ServerConfig) bool {
 	return v.defaultsUpdated
 }
 
-func setupReconcile(t *testing.T, state ...runtime.Object) (*ReconcileReaper, reconcile.Result, error) {
-	s := scheme.Scheme
-	if err := apis.AddToScheme(s); err != nil {
-		t.FailNow()
-	}
-	cl := fake.NewFakeClientWithScheme(s, state...)
-	r := &ReconcileReaper{
-		client: cl,
-		scheme: scheme.Scheme,
-		validator: &NoOpValidator{},
-	}
-	req := reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Name:      name,
-			Namespace: namespace,
-		},
-	}
-	res, err := r.Reconcile(req)
-
-	return r, res, err
-}
-
 func newRequest() reconcile.Request {
 	return reconcile.Request{
 		NamespacedName: types.NamespacedName{
@@ -94,29 +72,6 @@ func createReconcilerWithValidator(v config.Validator, state ...runtime.Object) 
 		scheme: scheme.Scheme,
 		validator: v,
 	}
-}
-
-// TODO The function should return the error from calling Reconcile
-func setupReconcileWithRequeue(t *testing.T, state ...runtime.Object) *ReconcileReaper {
-	r, res, _ := setupReconcile(t, state...)
-
-	// Check the result of reconciliation to make sure it has the desired state.
-	if !res.Requeue {
-		t.Error("reconcile did not requeue request as expected")
-	}
-
-	return r
-}
-
-// TODO The function should return the error from calling Reconcile
-func setupReconcileWithoutRequeue(t *testing.T, state ...runtime.Object) *ReconcileReaper {
-	r, res, _ := setupReconcile(t, state...)
-
-	if res.Requeue {
-		t.Error("did not expect reconcile to requeue the request")
-	}
-
-	return r
 }
 
 func TestReconcile(t *testing.T) {
@@ -193,7 +148,17 @@ func testConfigMapCreated(t *testing.T) {
 
 	objs := []runtime.Object{reaper}
 
-	r := setupReconcileWithRequeue(t, objs...)
+	r := createReconciler(objs...)
+	req := newRequest()
+	res, err := r.Reconcile(req)
+
+	if err != nil {
+		t.Errorf("did not expect Reconcile to return error (%s)", err)
+	}
+
+	if !res.Requeue {
+		t.Errorf("expected requeue after creating ConfigMap")
+	}
 
 	cm := &corev1.ConfigMap{}
 	if err := r.client.Get(context.TODO(), namespaceName, cm); err != nil {
@@ -207,7 +172,17 @@ func testServiceCreated(t *testing.T) {
 
 	objs := []runtime.Object{reaper, cm}
 
-	r := setupReconcileWithRequeue(t, objs...)
+	r := createReconciler(objs...)
+	req := newRequest()
+	res, err := r.Reconcile(req)
+
+	if err != nil {
+		t.Errorf("did not expect Reconcile to return error (%s)", err)
+	}
+
+	if !res.Requeue {
+		t.Errorf("expected requeue after creating Service")
+	}
 
 	svc := &corev1.Service{}
 	if err := r.client.Get(context.TODO(), namespaceName, svc); err != nil {
@@ -222,7 +197,17 @@ func testSchemaJobCreated(t *testing.T) {
 
 	objs := []runtime.Object{reaper, cm, svc}
 
-	r := setupReconcileWithRequeue(t, objs...)
+	r := createReconciler(objs...)
+	req := newRequest()
+	res, err := r.Reconcile(req)
+
+	if err != nil {
+		t.Errorf("did not Reconcile to return error (%s)", err)
+	}
+
+	if !res.Requeue {
+		t.Errorf("expected requeue after creating schema Job")
+	}
 
 	job := &v1batch.Job{}
 	jobName := getSchemaJobName(reaper)
@@ -239,7 +224,17 @@ func testDeploymentCreatedWhenSchemaJobCompleted(t *testing.T) {
 
 	objs := []runtime.Object{reaper, cm, svc, job}
 
-	r := setupReconcileWithRequeue(t, objs...)
+	r := createReconciler(objs...)
+	req := newRequest()
+	res, err := r.Reconcile(req)
+
+	if err != nil {
+		t.Errorf("did not expect Reconcile to return error (%s)", err)
+	}
+
+	if !res.Requeue {
+		t.Errorf("Expected requeue after creating Deployment")
+	}
 
 	deployment := &appsv1.Deployment{}
 	if err := r.client.Get(context.TODO(), namespaceName, deployment); err != nil {
@@ -255,7 +250,17 @@ func testDeploymentNotCreatedWhenSchemaJobNotCompleted(t *testing.T) {
 
 	objs := []runtime.Object{reaper, cm, svc, job}
 
-	r := setupReconcileWithRequeue(t, objs...)
+	r := createReconciler(objs...)
+	req := newRequest()
+	res, err := r.Reconcile(req)
+
+	if err != nil {
+		t.Errorf("did not expect Reconcile to return error (%s)", err)
+	}
+
+	if !res.Requeue {
+		t.Errorf("Expected requeue schema job not complete")
+	}
 
 	deployment := &appsv1.Deployment{}
 	if err := r.client.Get(context.TODO(), namespaceName, deployment); err == nil {
@@ -271,7 +276,17 @@ func testDeploymentNotCreatedWhenSchemaJobFailed(t *testing.T) {
 
 	objs := []runtime.Object{reaper, cm, svc, job}
 
-	r := setupReconcileWithoutRequeue(t, objs...)
+	r := createReconciler(objs...)
+	req := newRequest()
+	res, err := r.Reconcile(req)
+
+	if err == nil {
+		t.Errorf("expected Reconcile to return an error")
+	}
+
+	if res.Requeue {
+		t.Errorf("did not expect requeue when schema job fails")
+	}
 
 	deployment := &appsv1.Deployment{}
 	if err := r.client.Get(context.TODO(), namespaceName, deployment); err == nil {
