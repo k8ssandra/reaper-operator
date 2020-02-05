@@ -415,6 +415,13 @@ func jobFailed(job *v1batch.Job) (bool, error) {
 }
 
 func (r *ReconcileReaper) newDeployment(instance *v1alpha1.Reaper) *appsv1.Deployment {
+	var initialDelay int32
+	if instance.Spec.ServerConfig.StorageType == v1alpha1.Memory {
+		initialDelay = 10
+	} else {
+		initialDelay = 60
+	}
+
 	selector := metav1.LabelSelector{
 		MatchExpressions: []metav1.LabelSelectorRequirement{
 			{
@@ -437,7 +444,7 @@ func (r *ReconcileReaper) newDeployment(instance *v1alpha1.Reaper) *appsv1.Deplo
 				Port: intstr.FromInt(8081),
 			},
 		},
-		InitialDelaySeconds: 30,
+		InitialDelaySeconds: initialDelay,
 		PeriodSeconds: 3,
 	}
 

@@ -148,7 +148,7 @@ func TestDeployReaperWithCassandraBackend(t *testing.T) {
 		t.Fatalf("Failed to create Reaper: %s\n", err)
 	}
 
-	if err = e2eutil.WaitForReaperToBeReady(t, f, reaper.Namespace, reaper.Name, 3 * time.Second, 1 * time.Minute); err != nil {
+	if err = e2eutil.WaitForReaperToBeReady(t, f, reaper.Namespace, reaper.Name, 3 * time.Second, 3 * time.Minute); err != nil {
 		t.Fatalf("Timed out waiting for Reaper (%s) to be ready: %s\n", reaper.Name, err)
 	}
 }
