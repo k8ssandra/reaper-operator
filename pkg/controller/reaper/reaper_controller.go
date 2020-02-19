@@ -255,6 +255,7 @@ func (r *ReconcileReaper) newServerConfigMap(instance *v1alpha1.Reaper) (*corev1
 		ObjectMeta: metav1.ObjectMeta{
 			Name: instance.Name,
 			Namespace: instance.Namespace,
+			Labels: createLabels(instance),
 		},
 		Data: map[string]string{
 			"reaper.yaml": string(output),
@@ -291,6 +292,8 @@ func updateStatus(instance *v1alpha1.Reaper, deployment *appsv1.Deployment) bool
 }
 
 func (r *ReconcileReaper) newService(instance *v1alpha1.Reaper) *corev1.Service {
+	labels := createLabels(instance)
+
 	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "Service",
@@ -299,6 +302,7 @@ func (r *ReconcileReaper) newService(instance *v1alpha1.Reaper) *corev1.Service 
 		ObjectMeta: metav1.ObjectMeta{
 			Name: instance.Name,
 			Namespace: instance.Namespace,
+			Labels: labels,
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -312,7 +316,7 @@ func (r *ReconcileReaper) newService(instance *v1alpha1.Reaper) *corev1.Service 
 					},
 				},
 			},
-			Selector: createLabels(instance),
+			Selector: labels,
 		},
 	}
 }
@@ -327,6 +331,7 @@ func (r *ReconcileReaper) newSchemaJob(instance *v1alpha1.Reaper) *v1batch.Job {
 		ObjectMeta: metav1.ObjectMeta{
 				Namespace: instance.Namespace,
 				Name: getSchemaJobName(instance),
+				Labels: createLabels(instance),
 		},
 		Spec: v1batch.JobSpec{
 			Template: corev1.PodTemplateSpec{
@@ -456,6 +461,7 @@ func (r *ReconcileReaper) newDeployment(instance *v1alpha1.Reaper) *appsv1.Deplo
 		ObjectMeta: metav1.ObjectMeta{
 			Name: instance.Name,
 			Namespace: instance.Namespace,
+			Labels: createLabels(instance),
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &selector,

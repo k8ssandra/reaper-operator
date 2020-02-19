@@ -164,6 +164,8 @@ func testConfigMapCreated(t *testing.T) {
 	if err := r.client.Get(context.TODO(), namespaceName, cm); err != nil {
 		t.Errorf("Failed to get ConfigMap: (%s)", err)
 	}
+
+	checkLabelsSet(t, reaper, cm)
 }
 
 func testServiceCreated(t *testing.T) {
@@ -188,6 +190,8 @@ func testServiceCreated(t *testing.T) {
 	if err := r.client.Get(context.TODO(), namespaceName, svc); err != nil {
 		t.Errorf("Failed to get Service: (%s)", err)
 	}
+
+	checkLabelsSet(t, reaper, svc)
 }
 
 func testSchemaJobCreated(t *testing.T) {
@@ -214,6 +218,8 @@ func testSchemaJobCreated(t *testing.T) {
 	if err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: namespace, Name: jobName}, job); err != nil {
 		t.Errorf("Failed to get job (%s): (%s)", jobName, err)
 	}
+
+	checkLabelsSet(t, reaper, job)
 }
 
 func testDeploymentCreatedWhenSchemaJobCompleted(t *testing.T) {
@@ -240,6 +246,8 @@ func testDeploymentCreatedWhenSchemaJobCompleted(t *testing.T) {
 	if err := r.client.Get(context.TODO(), namespaceName, deployment); err != nil {
 		t.Errorf("Failed to get Deployment: (%s)", err)
 	}
+
+	checkLabelsSet(t, reaper, deployment)
 }
 
 func testDeploymentNotCreatedWhenSchemaJobNotCompleted(t *testing.T) {
@@ -387,5 +395,21 @@ func createSchemaJob(reaper *v1alpha1.Reaper) *v1batch.Job {
 			Namespace: reaper.Namespace,
 			Name: getSchemaJobName(reaper),
 		},
+	}
+}
+
+func checkLabelsSet(t *testing.T, r *v1alpha1.Reaper, o metav1.Object) {
+	labels := o.GetLabels()
+
+	if val, found := labels["app"]; !found {
+		t.Errorf("expected to find label app")
+	} else if val != "reaper" {
+		t.Errorf("expected label app = reaper")
+	}
+
+	if val, found := labels["reaper"]; !found {
+		t.Errorf("expected to find label reaper")
+	} else if val != r.Name {
+		t.Errorf("expected label reaper = %s", r.Name)
 	}
 }
