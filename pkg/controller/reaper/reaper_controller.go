@@ -51,6 +51,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 		client: mgr.GetClient(),
 		scheme: mgr.GetScheme(),
 		validator: config.NewValidator(),
+		configMapReconciler: NewConfigMapReconciler(mgr.GetClient(), mgr.GetScheme()),
 	}
 }
 
@@ -82,6 +83,8 @@ type ReconcileReaper struct {
 	scheme *runtime.Scheme
 
 	validator config.Validator
+
+	configMapReconciler ReaperConfigMapReconciler
 }
 
 // Reconcile reads that state of the cluster for a Reaper object and makes changes based on the state read
@@ -123,32 +126,10 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 	}
 
 	if len(instance.Status.Conditions) == 0  {
-		reqLogger.Info("Reconciling configmap")
-		serverConfig := &corev1.ConfigMap{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, serverConfig)
-		if err != nil && errors.IsNotFound(err) {
-			// create server config configmap
-			cm, err := r.newServerConfigMap(instance)
-			if err != nil {
-				reqLogger.Error(err, "Failed to create new ConfigMap")
-				return reconcile.Result{}, err
-			}
-			reqLogger.Info("Creating configmap", "Reaper.Namespace", instance.Namespace, "Reaper.Name",
-				instance.Name, "ConfigMap.Name", cm.Name)
-			if err = controllerutil.SetControllerReference(instance, cm, r.scheme); err != nil {
-				reqLogger.Error(err, "Failed to set owner reference on Reaper server config ConfigMap")
-				return reconcile.Result{}, err
-			}
-			if err = r.client.Create(context.TODO(), cm); err != nil {
-				reqLogger.Error(err, "Failed to save ConfigMap")
-				return reconcile.Result{}, err
-			} else {
-				return reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
-			}
-		} else if err != nil {
-			reqLogger.Error(err, "Failed to get ConfigMap")
-			return reconcile.Result{}, err
+		if result, err := r.configMapReconciler.ReconcileConfigMap(context.Background(), instance); result != nil {
+			return *result, err
 		}
+
 
 		reqLogger.Info("Reconciling service")
 		service := &corev1.Service{}
