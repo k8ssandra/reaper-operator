@@ -50,6 +50,7 @@ func TestReconcilers(t *testing.T) {
 	t.Run("ReconcileCassandraSchemaJobNotFinished", testReconcileCassandraSchemaJobNotFinished)
 	t.Run("ReconcileCassandraSchemaJobCompleted", testReconcileCassandraSchemaJobCompleted)
 	t.Run("ReconcileCassandraSchemaJobFailed", testReconcileCassandraSchemaJobFailed)
+	t.Run("ReconcileSchemaInvalidStorage", testReconcileSchemaInvalidStorage)
 }
 
 func testReconcileConfigMapNotFound(t *testing.T) {
@@ -149,6 +150,23 @@ func testReconcileMemorySchema(t *testing.T) {
 
 	if err != nil {
 		t.Errorf("expected error (nil), got (%s)", err)
+	}
+}
+
+func testReconcileSchemaInvalidStorage(t *testing.T) {
+	reaper := createReaperWithMemoryStorage()
+	reaper.Spec.ServerConfig.StorageType = "invalid"
+
+	r := createSchemaReconciler()
+
+	result, err := r.ReconcileSchema(context.TODO(), reaper)
+
+	if result != nil {
+		t.Errorf("expected result (nil), got (%v)", result)
+	}
+
+	if err == nil {
+		t.Errorf("expceted non-nil error")
 	}
 }
 
