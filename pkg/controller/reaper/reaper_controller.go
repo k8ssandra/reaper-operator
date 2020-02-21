@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/jsanda/reaper-operator/pkg/config"
-	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	"strconv"
 	"strings"
@@ -52,6 +51,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 		scheme: mgr.GetScheme(),
 		validator: config.NewValidator(),
 		configMapReconciler: NewConfigMapReconciler(mgr.GetClient(), mgr.GetScheme()),
+		serviceReconciler: NewServiceReconciler(mgr.GetClient(), mgr.GetScheme()),
 	}
 }
 
@@ -85,6 +85,8 @@ type ReconcileReaper struct {
 	validator config.Validator
 
 	configMapReconciler ReaperConfigMapReconciler
+
+	serviceReconciler ReaperServiceReconciler
 }
 
 // Reconcile reads that state of the cluster for a Reaper object and makes changes based on the state read
@@ -98,9 +100,11 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Reaper")
 
+	ctx := context.Background()
+
 	// Fetch the Reaper instance
 	instance := &v1alpha1.Reaper{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	err := r.client.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -119,39 +123,19 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 	}
 
 	if r.validator.SetDefaults(&instance.Spec.ServerConfig) {
-		if err = r.client.Update(context.TODO(), instance); err != nil {
+		if err = r.client.Update(ctx, instance); err != nil {
 			return reconcile.Result{}, err
 		}
 		return reconcile.Result{Requeue: true}, nil
 	}
 
 	if len(instance.Status.Conditions) == 0  {
-		if result, err := r.configMapReconciler.ReconcileConfigMap(context.Background(), instance); result != nil {
+		if result, err := r.configMapReconciler.ReconcileConfigMap(ctx, instance); result != nil || err != nil {
 			return *result, err
 		}
 
-
-		reqLogger.Info("Reconciling service")
-		service := &corev1.Service{}
-		err = r.client.Get(context.TODO(),types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, service)
-		if err != nil && errors.IsNotFound(err) {
-			// Create the Service
-			service = r.newService(instance)
-			reqLogger.Info("Creating service", "Reaper.Namespace", instance.Namespace, "Reaper.Name",
-				instance.Name, "Service.Name", service.Name)
-			if err = controllerutil.SetControllerReference(instance, service, r.scheme); err != nil {
-				reqLogger.Error(err, "Failed to set owner reference on Reaper Service")
-				return reconcile.Result{}, err
-			}
-			if err = r.client.Create(context.TODO(), service); err != nil {
-				reqLogger.Error(err, "Failed to create Service")
-				return reconcile.Result{}, err
-			} else {
-				return reconcile.Result{Requeue: true}, nil
-			}
-		} else if err != nil {
-			reqLogger.Error(err, "Failed to get Service")
-			return reconcile.Result{}, err
+		if result, err := r.serviceReconciler.ReconcileService(ctx, instance); result != nil || err != nil {
+			return *result, err
 		}
 
 		if instance.Spec.ServerConfig.StorageType == v1alpha1.Cassandra {
@@ -222,30 +206,6 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileReaper) newServerConfigMap(instance *v1alpha1.Reaper) (*corev1.ConfigMap, error) {
-	output, err := yaml.Marshal(&instance.Spec.ServerConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	cm := &corev1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{
-			Kind: "ConfigMap",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: instance.Name,
-			Namespace: instance.Namespace,
-			Labels: createLabels(instance),
-		},
-		Data: map[string]string{
-			"reaper.yaml": string(output),
-		},
-	}
-
-	return cm, nil
-}
-
 func updateStatus(instance *v1alpha1.Reaper, deployment *appsv1.Deployment) bool {
 	updated := false
 
@@ -270,36 +230,6 @@ func updateStatus(instance *v1alpha1.Reaper, deployment *appsv1.Deployment) bool
 	}
 
 	return updated
-}
-
-func (r *ReconcileReaper) newService(instance *v1alpha1.Reaper) *corev1.Service {
-	labels := createLabels(instance)
-
-	return &corev1.Service{
-		TypeMeta: metav1.TypeMeta{
-			Kind: "Service",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: instance.Name,
-			Namespace: instance.Namespace,
-			Labels: labels,
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Port: 8080,
-					Name: "ui",
-					Protocol: corev1.ProtocolTCP,
-					TargetPort: intstr.IntOrString{
-						Type: intstr.String,
-						StrVal: "ui",
-					},
-				},
-			},
-			Selector: labels,
-		},
-	}
 }
 
 func (r *ReconcileReaper) newSchemaJob(instance *v1alpha1.Reaper) *v1batch.Job {

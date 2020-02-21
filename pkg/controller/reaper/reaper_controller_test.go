@@ -49,11 +49,19 @@ func (v *NoOpValidator) SetDefaults(cfg *v1alpha1.ServerConfig) bool {
 
 type NoOpConfigMapReconciler struct {
 	result *reconcile.Result
-
 	err error
 }
 
-func (r *NoOpConfigMapReconciler) ReconcileConfigMap(ctx context.Context, reaper *v1alpha1.Reaper) (*reconcile.Result, error) {
+type NoOpReconciler struct {
+	result *reconcile.Result
+	err error
+}
+
+func (r *NoOpReconciler) ReconcileConfigMap(ctx context.Context, reaper *v1alpha1.Reaper) (*reconcile.Result, error) {
+	return r.result, r.err
+}
+
+func (r *NoOpReconciler) ReconcileService(ctx context.Context, reaper *v1alpha1.Reaper) (*reconcile.Result, error) {
 	return r.result, r.err
 }
 
@@ -68,21 +76,25 @@ func newRequest() reconcile.Request {
 
 func createReconciler(state ...runtime.Object) *ReconcileReaper {
 	cl := fake.NewFakeClientWithScheme(s, state...)
+	noOpReconciler := &NoOpReconciler{result: nil, err: nil}
 	return &ReconcileReaper{
 		client: cl,
 		scheme: scheme.Scheme,
 		validator: &NoOpValidator{},
-		configMapReconciler: &NoOpConfigMapReconciler{result: nil, err: nil},
+		configMapReconciler: noOpReconciler,
+		serviceReconciler: noOpReconciler,
 	}
 }
 
 func createReconcilerWithValidator(v config.Validator, state ...runtime.Object) *ReconcileReaper {
 	cl := fake.NewFakeClientWithScheme(s, state...)
+	noOpReconciler := &NoOpReconciler{result: nil, err: nil}
 	return &ReconcileReaper{
 		client: cl,
 		scheme: scheme.Scheme,
 		validator: v,
-		configMapReconciler: &NoOpConfigMapReconciler{result: nil, err: nil},
+		configMapReconciler: noOpReconciler,
+		serviceReconciler: noOpReconciler,
 	}
 }
 
@@ -94,7 +106,7 @@ func TestReconcile(t *testing.T) {
 	t.Run("ValidationFails", testValidationFails)
 	t.Run("SetDefaults", testSetDefaults)
 	//t.Run("ConfigMapCreated", testConfigMapCreated)
-	t.Run("ServiceCreated", testServiceCreated)
+	//t.Run("ServiceCreated", testServiceCreated)
 	t.Run("SchemaJobRun", testSchemaJobCreated)
 	t.Run("DeploymentCreateWhenSchemaJobCompleted", testDeploymentCreatedWhenSchemaJobCompleted)
 	t.Run("DeploymentNotCreatedWhenSchemaJobNotComplete", testDeploymentNotCreatedWhenSchemaJobNotCompleted)

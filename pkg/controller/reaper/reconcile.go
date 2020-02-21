@@ -8,6 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"time"
@@ -25,7 +26,17 @@ type ReaperConfigMapReconciler interface {
 	ReconcileConfigMap(ctx context.Context, r *v1alpha1.Reaper) (*reconcile.Result, error)
 }
 
+type ReaperServiceReconciler interface {
+	ReconcileService(ctx context.Context, r *v1alpha1.Reaper) (*reconcile.Result, error)
+}
+
 type configMapReconciler struct {
+	client client.Client
+
+	scheme *runtime.Scheme
+}
+
+type serviceReconciler struct {
 	client client.Client
 
 	scheme *runtime.Scheme
@@ -33,6 +44,10 @@ type configMapReconciler struct {
 
 func NewConfigMapReconciler(c client.Client, s *runtime.Scheme) ReaperConfigMapReconciler {
 	return &configMapReconciler{client: c, scheme: s}
+}
+
+func NewServiceReconciler(c client.Client, s *runtime.Scheme) ReaperServiceReconciler {
+	return &serviceReconciler{client: c, scheme: s}
 }
 
 func (r *configMapReconciler) ReconcileConfigMap(ctx context.Context, reaper *v1alpha1.Reaper) (*reconcile.Result, error) {
@@ -88,4 +103,61 @@ func (r *configMapReconciler) newServerConfigMap(reaper *v1alpha1.Reaper) (*core
 	}
 
 	return cm, nil
+}
+
+func (r *serviceReconciler) ReconcileService(ctx context.Context, reaper *v1alpha1.Reaper) (*reconcile.Result, error) {
+	reqLogger := log.WithValues("Reaper.Namespace", reaper.Namespace, "Reaper.Name", reaper.Name)
+	reqLogger.Info("Reconciling service")
+	service := &corev1.Service{}
+	err := r.client.Get(ctx,types.NamespacedName{Name: reaper.Name, Namespace: reaper.Namespace}, service)
+	if err != nil && errors.IsNotFound(err) {
+		// Create the Service
+		service = r.newService(reaper)
+		reqLogger.Info("Creating service", "Service.Name", service.Name)
+		if err = controllerutil.SetControllerReference(reaper, service, r.scheme); err != nil {
+			reqLogger.Error(err, "Failed to set owner reference on Reaper Service")
+			return &reconcile.Result{}, err
+		}
+		if err = r.client.Create(ctx, service); err != nil {
+			reqLogger.Error(err, "Failed to create Service")
+			return &reconcile.Result{}, err
+		} else {
+			return &reconcile.Result{Requeue: true}, nil
+		}
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get Service")
+		return &reconcile.Result{}, err
+	}
+
+	return nil, nil
+}
+
+func (r *serviceReconciler) newService(reaper *v1alpha1.Reaper) *corev1.Service {
+	labels := createLabels(reaper)
+
+	return &corev1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      reaper.Name,
+			Namespace: reaper.Namespace,
+			Labels:    labels,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Port: 8080,
+					Name: "ui",
+					Protocol: corev1.ProtocolTCP,
+					TargetPort: intstr.IntOrString{
+						Type: intstr.String,
+						StrVal: "ui",
+					},
+				},
+			},
+			Selector: labels,
+		},
+	}
 }

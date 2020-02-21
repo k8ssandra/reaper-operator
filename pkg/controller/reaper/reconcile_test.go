@@ -18,6 +18,14 @@ func createConfigMapReconciler(state ...runtime.Object) *configMapReconciler {
 	}
 }
 
+func createServiceReconciler(state ...runtime.Object) *serviceReconciler {
+	cl := fake.NewFakeClientWithScheme(s, state...)
+	return &serviceReconciler{
+		client: cl,
+		scheme: scheme.Scheme,
+	}
+}
+
 func TestReconcileConfigMap(t *testing.T) {
 	if err := apis.AddToScheme(scheme.Scheme); err != nil {
 		t.FailNow()
@@ -25,6 +33,8 @@ func TestReconcileConfigMap(t *testing.T) {
 
 	t.Run("ReconcileConfigMapNotFound", testReconcileConfigMapNotFound)
 	t.Run("ReconcileConfigMapFound", testReconcileConfigMapFound)
+	t.Run("ReconcileServiceNotFound", testReconcileServiceNotFound)
+	t.Run("ReconcileServiceFound", testReconcileServiceFound)
 }
 
 func testReconcileConfigMapNotFound(t *testing.T) {
@@ -66,5 +76,47 @@ func testReconcileConfigMapFound(t *testing.T) {
 
 	if err != nil {
 		t.Errorf("expect error (nil), got (%s)", err)
+	}
+}
+
+func testReconcileServiceNotFound(t *testing.T) {
+	reaper := createReaper()
+
+	r := createServiceReconciler()
+
+	result, err := r.ReconcileService(context.TODO(), reaper)
+
+	if result == nil {
+		t.Errorf("expected non-nil result")
+	} else if !result.Requeue {
+		t.Errorf("expected requeue")
+	}
+
+	if err != nil {
+		t.Errorf("did not expect an error but got: (%s)", err)
+	}
+
+	svc := &corev1.Service{}
+	if err := r.client.Get(context.TODO(), namespaceName, svc); err != nil {
+		t.Errorf("failed to get Service: (%s)", err)
+	}
+}
+
+func testReconcileServiceFound(t *testing.T) {
+	reaper := createReaper()
+	svc := createService(reaper)
+
+	objs := []runtime.Object{reaper, svc}
+
+	r := createServiceReconciler(objs...)
+
+	result, err := r.ReconcileService(context.TODO(), reaper)
+
+	if result != nil {
+		t.Errorf("expected result (nil), got (%v)", result)
+	}
+
+	if err != nil {
+		t.Errorf("expected error (nil), got (%s)", err)
 	}
 }
