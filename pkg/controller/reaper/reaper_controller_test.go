@@ -366,6 +366,14 @@ func createReaper() *v1alpha1.Reaper {
 	}
 }
 
+func createReaperWithMemoryStorage() *v1alpha1.Reaper {
+	r := createReaper()
+	r.Spec.ServerConfig.StorageType = v1alpha1.Memory
+	r.Spec.ServerConfig.CassandraBackend = nil
+
+	return r
+}
+
 func createConfigMap(reaper *v1alpha1.Reaper) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/jsanda/reaper-operator/pkg/apis/reaper/v1alpha1"
-	v1batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -207,51 +206,6 @@ func updateStatus(instance *v1alpha1.Reaper, deployment *appsv1.Deployment) bool
 	}
 
 	return updated
-}
-
-func (r *ReconcileReaper) newSchemaJob(instance *v1alpha1.Reaper) *v1batch.Job {
-	cassandra := *instance.Spec.ServerConfig.CassandraBackend
-	return &v1batch.Job{
-		TypeMeta: metav1.TypeMeta{
-			Kind: "Job",
-			APIVersion: "batch/v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-				Namespace: instance.Namespace,
-				Name: getSchemaJobName(instance),
-				Labels: createLabels(instance),
-		},
-		Spec: v1batch.JobSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					RestartPolicy: corev1.RestartPolicyOnFailure,
-					Containers: []corev1.Container{
-						{
-							Name: getSchemaJobName(instance),
-							Image: "jsanda/create_keyspace:latest",
-							ImagePullPolicy: corev1.PullIfNotPresent,
-							Env: []corev1.EnvVar{
-								{
-									Name: "KEYSPACE",
-									Value: cassandra.Keyspace,
-								},
-								{
-									Name: "CONTACT_POINTS",
-									Value: strings.Join(cassandra.ContactPoints, ","),
-								},
-								// TODO Add replication_factor. There is already a function in tlp-stress-operator
-								//      that does the serialization. I need to move that function to a shared lib.
-								{
-									Name: "REPLICATION",
-									Value: convert(cassandra.Replication),
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
 }
 
 func convert(r v1alpha1.ReplicationConfig) string {

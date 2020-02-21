@@ -45,10 +45,11 @@ func TestReconcilers(t *testing.T) {
 	t.Run("ReconcileConfigMapFound", testReconcileConfigMapFound)
 	t.Run("ReconcileServiceNotFound", testReconcileServiceNotFound)
 	t.Run("ReconcileServiceFound", testReconcileServiceFound)
-	t.Run("ReconcileSchemaJobCreated", testReconcileSchemaJobCreated)
-	t.Run("ReconcileSchemaJobNotFinished", testReconcileSchemaJobNotFinished)
-	t.Run("ReconcileSchemaJobCompleted", testReconcileSchemaJobCompleted)
-	t.Run("ReconcileSchemaJobFailed", testReconcileSchemaJobFailed)
+	t.Run("ReconcileMemorySchema", testReconcileMemorySchema)
+	t.Run("ReconcileCassandraSchemaJobCreated", testReconcileCassandraSchemaJobCreated)
+	t.Run("ReconcileCassandraSchemaJobNotFinished", testReconcileCassandraSchemaJobNotFinished)
+	t.Run("ReconcileCassandraSchemaJobCompleted", testReconcileCassandraSchemaJobCompleted)
+	t.Run("ReconcileCassandraSchemaJobFailed", testReconcileCassandraSchemaJobFailed)
 }
 
 func testReconcileConfigMapNotFound(t *testing.T) {
@@ -135,7 +136,23 @@ func testReconcileServiceFound(t *testing.T) {
 	}
 }
 
-func testReconcileSchemaJobCreated(t *testing.T) {
+func testReconcileMemorySchema(t *testing.T) {
+	reaper := createReaperWithMemoryStorage()
+
+	r := createSchemaReconciler()
+
+	result, err := r.ReconcileSchema(context.TODO(), reaper)
+
+	if result != nil {
+		t.Errorf("expected result (nil), got (%v)", result)
+	}
+
+	if err != nil {
+		t.Errorf("expected error (nil), got (%s)", err)
+	}
+}
+
+func testReconcileCassandraSchemaJobCreated(t *testing.T) {
 	reaper := createReaper()
 
 	r := createSchemaReconciler()
@@ -159,7 +176,7 @@ func testReconcileSchemaJobCreated(t *testing.T) {
 	}
 }
 
-func testReconcileSchemaJobNotFinished(t *testing.T) {
+func testReconcileCassandraSchemaJobNotFinished(t *testing.T) {
 	reaper := createReaper()
 	job := createSchemaJob(reaper)
 
@@ -180,7 +197,7 @@ func testReconcileSchemaJobNotFinished(t *testing.T) {
 	}
 }
 
-func testReconcileSchemaJobCompleted(t *testing.T) {
+func testReconcileCassandraSchemaJobCompleted(t *testing.T) {
 	reaper := createReaper()
 	job := createSchemaJobComplete(reaper)
 
@@ -199,7 +216,7 @@ func testReconcileSchemaJobCompleted(t *testing.T) {
 	}
 }
 
-func testReconcileSchemaJobFailed(t *testing.T) {
+func testReconcileCassandraSchemaJobFailed(t *testing.T) {
 	reaper := createReaper()
 	job := createSchemaJobFailed(reaper)
 

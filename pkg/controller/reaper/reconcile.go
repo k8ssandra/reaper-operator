@@ -186,39 +186,47 @@ func (r *serviceReconciler) newService(reaper *v1alpha1.Reaper) *corev1.Service 
 
 func (r *schemaReconciler) ReconcileSchema(ctx context.Context, reaper *v1alpha1.Reaper) (*reconcile.Result, error) {
 	reqLogger := getRequestLogger(reaper)
-	if reaper.Spec.ServerConfig.StorageType == v1alpha1.Cassandra {
-		reqLogger.Info("Reconciling schema job")
-		schemaJob := &v1batch.Job{}
-		jobName := getSchemaJobName(reaper)
-		err := r.client.Get(ctx, types.NamespacedName{Namespace: reaper.Namespace, Name: jobName}, schemaJob)
-		if err != nil && errors.IsNotFound(err) {
-			// Create the job
-			schemaJob = r.newSchemaJob(reaper)
-			reqLogger.Info("Creating schema job", "Reaper.Namespace", reaper.Namespace, "Reaper.Name",
-				reaper.Name, "Job.Name", schemaJob.Name)
-			if err = controllerutil.SetControllerReference(reaper, schemaJob, r.scheme); err != nil {
-				reqLogger.Error(err, "Failed to set owner reference", "SchemaJob", jobName)
-				return &reconcile.Result{}, err
-			}
-			if err = r.client.Create(context.TODO(), schemaJob); err != nil {
-				reqLogger.Error(err, "Failed to create schema Job")
-				return &reconcile.Result{}, err
-			} else {
-				return &reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
-			}
-		} else if err != nil {
-			reqLogger.Error(err, "Failed to get schema Job")
+	switch reaper.Spec.ServerConfig.StorageType {
+	case v1alpha1.Memory:
+		return nil, nil
+	case v1alpha1.Cassandra:
+		return r.reconcileCassandraSchema(ctx, reaper, reqLogger)
+	default:
+		return nil, fmt.Errorf("unsupported storage type: (%s)", reaper.Spec.ServerConfig.StorageType)
+	}
+}
+
+func (r *schemaReconciler) reconcileCassandraSchema(ctx context.Context, reaper *v1alpha1.Reaper, reqLogger logr.Logger) (*reconcile.Result, error) {
+	reqLogger.Info("Reconciling schema job")
+	schemaJob := &v1batch.Job{}
+	jobName := getSchemaJobName(reaper)
+	err := r.client.Get(ctx, types.NamespacedName{Namespace: reaper.Namespace, Name: jobName}, schemaJob)
+	if err != nil && errors.IsNotFound(err) {
+		// Create the job
+		schemaJob = r.newSchemaJob(reaper)
+		reqLogger.Info("Creating schema job", "Reaper.Namespace", reaper.Namespace, "Reaper.Name",
+			reaper.Name, "Job.Name", schemaJob.Name)
+		if err = controllerutil.SetControllerReference(reaper, schemaJob, r.scheme); err != nil {
+			reqLogger.Error(err, "Failed to set owner reference", "SchemaJob", jobName)
 			return &reconcile.Result{}, err
-		} else if !jobFinished(schemaJob) {
-			return &reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
-		} else if failed, err := jobFailed(schemaJob); failed {
+		}
+		if err = r.client.Create(context.TODO(), schemaJob); err != nil {
+			reqLogger.Error(err, "Failed to create schema Job")
 			return &reconcile.Result{}, err
 		} else {
-			// the job completed successfully
-			return nil, nil
+			return &reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 		}
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get schema Job")
+		return &reconcile.Result{}, err
+	} else if !jobFinished(schemaJob) {
+		return &reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
+	} else if failed, err := jobFailed(schemaJob); failed {
+		return &reconcile.Result{}, err
+	} else {
+		// the job completed successfully
+		return nil, nil
 	}
-	return nil, fmt.Errorf("unsupported storage type: (%s)", reaper.Spec.ServerConfig.StorageType)
 }
 
 func getSchemaJobName(r *v1alpha1.Reaper) string {
