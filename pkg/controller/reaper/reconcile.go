@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/go-logr/logr"
 	"gopkg.in/yaml.v2"
+	appsv1 "k8s.io/api/apps/v1"
 	v1batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -42,6 +43,12 @@ type ReaperSchemaReconciler interface {
 	ReconcileSchema(ctx context.Context, r *v1alpha1.Reaper) (*reconcile.Result, error)
 }
 
+type ReaperDeploymentReconciler interface {
+	// Called to reconcile the Reaper deployment. Note that reconciliation will continue after calling this function
+	// only when both return values are nil.
+	ReconcileDeployment(ctx context.Context, r *v1alpha1.Reaper) (*reconcile.Result, error)
+}
+
 type configMapReconciler struct {
 	client client.Client
 
@@ -60,6 +67,12 @@ type schemaReconciler struct {
 	scheme *runtime.Scheme
 }
 
+type deploymentReconciler struct {
+	client client.Client
+
+	scheme *runtime.Scheme
+}
+
 func NewConfigMapReconciler(c client.Client, s *runtime.Scheme) ReaperConfigMapReconciler {
 	return &configMapReconciler{client: c, scheme: s}
 }
@@ -70,6 +83,10 @@ func NewServiceReconciler(c client.Client, s *runtime.Scheme) ReaperServiceRecon
 
 func NewSchemaReconciler(c client.Client, s *runtime.Scheme) ReaperSchemaReconciler {
 	return &schemaReconciler{client: c, scheme: s}
+}
+
+func NewDeploymentReconciler(c client.Client, s *runtime.Scheme) ReaperDeploymentReconciler {
+	return &deploymentReconciler{client: c, scheme: s}
 }
 
 func (r *configMapReconciler) ReconcileConfigMap(ctx context.Context, reaper *v1alpha1.Reaper) (*reconcile.Result, error) {
@@ -294,6 +311,136 @@ func jobFailed(job *v1batch.Job) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+func (r *deploymentReconciler) ReconcileDeployment(ctx context.Context, reaper *v1alpha1.Reaper) (*reconcile.Result, error) {
+	reqLogger := getRequestLogger(reaper)
+	reqLogger.Info("Reconciling deployment")
+	deployment := &appsv1.Deployment{}
+	err := r.client.Get(ctx, types.NamespacedName{Name: reaper.Name, Namespace: reaper.Namespace}, deployment)
+	if err != nil && errors.IsNotFound(err) {
+		// Create the Deployment
+		deployment = r.newDeployment(reaper)
+		reqLogger.Info("Creating deployment", "Reaper.Namespace", reaper.Namespace, "Reaper.Name",
+			reaper.Name, "Deployment.Name", deployment.Name)
+		if err = controllerutil.SetControllerReference(reaper, deployment, r.scheme); err != nil {
+			reqLogger.Error(err, "Failed to set owner reference on Reaper Deployment")
+			return &reconcile.Result{}, err
+		}
+		if err = r.client.Create(ctx, deployment); err != nil {
+			reqLogger.Error(err, "Failed to create Deployment")
+			return &reconcile.Result{}, err
+		} else {
+			return &reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
+		}
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get Deployment")
+		return &reconcile.Result{}, err
+	}
+
+	return nil, nil
+}
+
+func (r *deploymentReconciler) newDeployment(reaper *v1alpha1.Reaper) *appsv1.Deployment {
+	var initialDelay int32
+	if reaper.Spec.ServerConfig.StorageType == v1alpha1.Memory {
+		initialDelay = 10
+	} else {
+		initialDelay = 60
+	}
+
+	selector := metav1.LabelSelector{
+		MatchExpressions: []metav1.LabelSelectorRequirement{
+			{
+				Key: "app",
+				Operator: metav1.LabelSelectorOpIn,
+				Values: []string{"reaper"},
+			},
+			{
+				Key: "reaper",
+				Operator: metav1.LabelSelectorOpIn,
+				Values: []string{reaper.Name},
+			},
+		},
+	}
+
+	healthProbe := &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/healthcheck",
+				Port: intstr.FromInt(8081),
+			},
+		},
+		InitialDelaySeconds: initialDelay,
+		PeriodSeconds: 3,
+	}
+
+	return &appsv1.Deployment{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Deployment",
+			APIVersion: "apps/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      reaper.Name,
+			Namespace: reaper.Namespace,
+			Labels:    createLabels(reaper),
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &selector,
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: createLabels(reaper),
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "reaper",
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Image: ReaperImage,
+							Ports: []corev1.ContainerPort{
+								{
+									Name: "ui",
+									ContainerPort: 8080,
+									Protocol: "TCP",
+								},
+								{
+									Name: "admin",
+									ContainerPort: 8081,
+									Protocol: "TCP",
+								},
+							},
+							LivenessProbe: healthProbe,
+							ReadinessProbe: healthProbe,
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name: "reaper-config",
+									MountPath: "/etc/cassandra-reaper",
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "reaper-config",
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: reaper.Name,
+									},
+									Items: []corev1.KeyToPath{
+										{
+											Key: "reaper.yaml",
+											Path: "cassandra-reaper.yaml",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }
 
 func getRequestLogger(reaper *v1alpha1.Reaper) logr.Logger {
