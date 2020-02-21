@@ -3,8 +3,10 @@ package reaper
 import (
 	"context"
 	"github.com/jsanda/reaper-operator/pkg/apis"
+	v1batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"testing"
@@ -26,7 +28,15 @@ func createServiceReconciler(state ...runtime.Object) *serviceReconciler {
 	}
 }
 
-func TestReconcileConfigMap(t *testing.T) {
+func createSchemaReconciler(state ...runtime.Object) *schemaReconciler {
+	cl := fake.NewFakeClientWithScheme(s, state...)
+	return &schemaReconciler{
+		client: cl,
+		scheme: scheme.Scheme,
+	}
+}
+
+func TestReconcilers(t *testing.T) {
 	if err := apis.AddToScheme(scheme.Scheme); err != nil {
 		t.FailNow()
 	}
@@ -35,6 +45,10 @@ func TestReconcileConfigMap(t *testing.T) {
 	t.Run("ReconcileConfigMapFound", testReconcileConfigMapFound)
 	t.Run("ReconcileServiceNotFound", testReconcileServiceNotFound)
 	t.Run("ReconcileServiceFound", testReconcileServiceFound)
+	t.Run("ReconcileSchemaJobCreated", testReconcileSchemaJobCreated)
+	t.Run("ReconcileSchemaJobNotFinished", testReconcileSchemaJobNotFinished)
+	t.Run("ReconcileSchemaJobCompleted", testReconcileSchemaJobCompleted)
+	t.Run("ReconcileSchemaJobFailed", testReconcileSchemaJobFailed)
 }
 
 func testReconcileConfigMapNotFound(t *testing.T) {
@@ -118,5 +132,90 @@ func testReconcileServiceFound(t *testing.T) {
 
 	if err != nil {
 		t.Errorf("expected error (nil), got (%s)", err)
+	}
+}
+
+func testReconcileSchemaJobCreated(t *testing.T) {
+	reaper := createReaper()
+
+	r := createSchemaReconciler()
+
+	result, err := r.ReconcileSchema(context.TODO(), reaper)
+
+	if result == nil {
+		t.Errorf("expected non-nil result")
+	} else if !result.Requeue {
+		t.Errorf("expected requeue")
+	}
+
+	if err != nil {
+		t.Errorf("did not expect an error but got: (%s)", err)
+	}
+
+	job := &v1batch.Job{}
+	jobName := getSchemaJobName(reaper)
+	if err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: namespace, Name: jobName}, job); err != nil {
+		t.Errorf("Failed to get job (%s): (%s)", jobName, err)
+	}
+}
+
+func testReconcileSchemaJobNotFinished(t *testing.T) {
+	reaper := createReaper()
+	job := createSchemaJob(reaper)
+
+	objs := []runtime.Object{reaper, job}
+
+	r := createSchemaReconciler(objs...)
+
+	result, err := r.ReconcileSchema(context.TODO(), reaper)
+
+	if result == nil {
+		t.Errorf("expected result non-nil result")
+	} else if !result.Requeue {
+		t.Errorf("expected requeue")
+	}
+
+	if err != nil {
+		t.Errorf("did not expect an error but got: (%s)", err)
+	}
+}
+
+func testReconcileSchemaJobCompleted(t *testing.T) {
+	reaper := createReaper()
+	job := createSchemaJobComplete(reaper)
+
+	objs := []runtime.Object{reaper, job}
+
+	r := createSchemaReconciler(objs...)
+
+	result, err := r.ReconcileSchema(context.TODO(), reaper)
+
+	if result != nil {
+		t.Errorf("expected result (nil), got (%v)", result)
+	}
+
+	if err != nil {
+		t.Errorf("expected error (nil), got (%s)", err)
+	}
+}
+
+func testReconcileSchemaJobFailed(t *testing.T) {
+	reaper := createReaper()
+	job := createSchemaJobFailed(reaper)
+
+	objs := []runtime.Object{reaper, job}
+
+	r := createSchemaReconciler(objs...)
+
+	result, err := r.ReconcileSchema(context.TODO(), reaper)
+
+	if result == nil {
+		t.Errorf("expected result non-nil result")
+	} else if result.Requeue {
+		t.Errorf("did not expect requeue")
+	}
+
+	if err == nil {
+		t.Errorf("expceted non-nil error")
 	}
 }

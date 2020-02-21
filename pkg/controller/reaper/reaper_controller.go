@@ -52,6 +52,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 		validator: config.NewValidator(),
 		configMapReconciler: NewConfigMapReconciler(mgr.GetClient(), mgr.GetScheme()),
 		serviceReconciler: NewServiceReconciler(mgr.GetClient(), mgr.GetScheme()),
+		schemaReconciler: NewSchemaReconciler(mgr.GetClient(), mgr.GetScheme()),
 	}
 }
 
@@ -87,6 +88,8 @@ type ReconcileReaper struct {
 	configMapReconciler ReaperConfigMapReconciler
 
 	serviceReconciler ReaperServiceReconciler
+
+	schemaReconciler ReaperSchemaReconciler
 }
 
 // Reconcile reads that state of the cluster for a Reaper object and makes changes based on the state read
@@ -138,34 +141,8 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 			return *result, err
 		}
 
-		if instance.Spec.ServerConfig.StorageType == v1alpha1.Cassandra {
-			reqLogger.Info("Reconciling schema job")
-			schemaJob := &v1batch.Job{}
-			jobName := getSchemaJobName(instance)
-			err = r.client.Get(context.TODO(), types.NamespacedName{Namespace: instance.Namespace, Name: jobName}, schemaJob)
-			if err != nil && errors.IsNotFound(err) {
-				// Create the job
-				schemaJob = r.newSchemaJob(instance)
-				reqLogger.Info("Creating schema job", "Reaper.Namespace", instance.Namespace, "Reaper.Name",
-					instance.Name, "Job.Name", schemaJob.Name)
-				if err = controllerutil.SetControllerReference(instance, schemaJob, r.scheme); err != nil {
-					reqLogger.Error(err, "Failed to set owner reference", "SchemaJob", jobName)
-					return reconcile.Result{}, err
-				}
-				if err = r.client.Create(context.TODO(), schemaJob); err != nil {
-					reqLogger.Error(err, "Failed to create schema Job")
-					return reconcile.Result{}, err
-				} else {
-					return reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
-				}
-			} else if err != nil {
-				reqLogger.Error(err, "Failed to get schema Job")
-				return reconcile.Result{}, err
-			} else if !jobFinished(schemaJob) {
-				return reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
-			} else if failed, err := jobFailed(schemaJob); failed {
-				return reconcile.Result{}, err
-			} // else the job has completed successfully
+		if result, err := r.schemaReconciler.ReconcileSchema(ctx, instance); result != nil || err != nil {
+			return *result, err
 		}
 
 		reqLogger.Info("Reconciling deployment")
@@ -294,40 +271,6 @@ func convert(r v1alpha1.ReplicationConfig) string {
 		}
 		return fmt.Sprintf("{'class': 'NetworkTopologyStrategy', %s}", strings.Join(dcs, ", "))
 	}
-}
-
-func getSchemaJobName(r *v1alpha1.Reaper) string {
-	return fmt.Sprintf("%s-schema", r.Name)
-}
-
-func jobFinished(job *v1batch.Job) bool {
-	for _, c := range job.Status.Conditions {
-		if (c.Type == v1batch.JobComplete || c.Type == v1batch.JobFailed) && c.Status == corev1.ConditionTrue {
-			return true
-		}
-	}
-	return false
-}
-
-func jobComplete(job *v1batch.Job) bool {
-	if job.Status.CompletionTime == nil {
-		return false
-	}
-	for _, cond := range job.Status.Conditions {
-		if cond.Type == v1batch.JobComplete && cond.Status == corev1.ConditionTrue {
-			return true
-		}
-	}
-	return false
-}
-
-func jobFailed(job *v1batch.Job) (bool, error) {
-	for _, cond := range job.Status.Conditions {
-		if cond.Type == v1batch.JobFailed && cond.Status == corev1.ConditionTrue {
-			return true, fmt.Errorf("schema job failed: %s", cond.Message)
-		}
-	}
-	return false, nil
 }
 
 func (r *ReconcileReaper) newDeployment(instance *v1alpha1.Reaper) *appsv1.Deployment {
