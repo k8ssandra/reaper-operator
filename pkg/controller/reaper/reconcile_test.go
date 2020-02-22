@@ -314,7 +314,22 @@ func testReconcileDeploymentNotReady(t *testing.T) {
 }
 
 func testReconcileDeploymentReady(t *testing.T) {
+	reaper := createReaper()
+	deployment := createReadyDeployment(reaper)
 
+	objs := []runtime.Object{reaper, deployment}
+
+	r := createDeploymentReconciler(objs...)
+
+	result, err := r.ReconcileDeployment(context.TODO(), reaper)
+
+	if result != nil {
+		t.Errorf("expected result (nil), got (%v)", result)
+	}
+
+	if err != nil {
+		t.Errorf("expected err (nil), got (%s)", err)
+	}
 }
 
 func createReadyDeployment(reaper *v1alpha1.Reaper) *appsv1.Deployment {
@@ -327,6 +342,7 @@ func createReadyDeployment(reaper *v1alpha1.Reaper) *appsv1.Deployment {
 			// The operator currently only supports deploying a singe replica, but this will change at some
 			// point in the future.
 			ReadyReplicas: 1,
+			Replicas: 1,
 		},
 	}
 }
@@ -341,6 +357,7 @@ func createNotReadyDeployment(reaper *v1alpha1.Reaper) *appsv1.Deployment {
 			// The operator currently only supports deploying a singe replica, but this will change at some
 			// point in the future.
 			ReadyReplicas: 0,
+			Replicas: 1,
 		},
 	}
 }

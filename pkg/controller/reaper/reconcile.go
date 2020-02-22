@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -295,6 +296,25 @@ func (r *schemaReconciler) newSchemaJob(reaper *v1alpha1.Reaper) *v1batch.Job {
 	}
 }
 
+func convert(r v1alpha1.ReplicationConfig) string {
+	if r.SimpleStrategy != nil {
+		replicationFactor := strconv.FormatInt(int64(*r.SimpleStrategy), 10)
+		return fmt.Sprintf(`{'class': 'SimpleStrategy', 'replication_factor': %s}`, replicationFactor)
+	} else {
+		var sb strings.Builder
+		dcs := make([]string, 0)
+		for k, v := range *r.NetworkTopologyStrategy {
+			sb.WriteString("'")
+			sb.WriteString(k)
+			sb.WriteString("': ")
+			sb.WriteString(strconv.FormatInt(int64(v), 10))
+			dcs = append(dcs, sb.String())
+			sb.Reset()
+		}
+		return fmt.Sprintf("{'class': 'NetworkTopologyStrategy', %s}", strings.Join(dcs, ", "))
+	}
+}
+
 func jobFinished(job *v1batch.Job) bool {
 	for _, c := range job.Status.Conditions {
 		if (c.Type == v1batch.JobComplete || c.Type == v1batch.JobFailed) && c.Status == corev1.ConditionTrue {
@@ -336,6 +356,17 @@ func (r *deploymentReconciler) ReconcileDeployment(ctx context.Context, reaper *
 	} else if err != nil {
 		reqLogger.Error(err, "Failed to get Deployment")
 		return &reconcile.Result{}, err
+	}
+
+	if r.checkDeploymentStatus(reaper, deployment) {
+		if err = r.client.Status().Update(context.TODO(), reaper); err != nil {
+			reqLogger.Error(err, "Failed to update status")
+			return &reconcile.Result{}, err
+		}
+	}
+
+	if reaper.Status.ReadyReplicas != reaper.Status.Replicas {
+		return &reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 	}
 
 	return nil, nil
@@ -441,6 +472,32 @@ func (r *deploymentReconciler) newDeployment(reaper *v1alpha1.Reaper) *appsv1.De
 			},
 		},
 	}
+}
+
+func (r *deploymentReconciler) checkDeploymentStatus(reaper *v1alpha1.Reaper, deployment *appsv1.Deployment) bool {
+	updated := false
+
+	if reaper.Status.AvailableReplicas != deployment.Status.AvailableReplicas {
+		reaper.Status.AvailableReplicas = deployment.Status.AvailableReplicas
+		updated = true
+	}
+
+	if reaper.Status.ReadyReplicas != deployment.Status.ReadyReplicas {
+		reaper.Status.ReadyReplicas = deployment.Status.ReadyReplicas
+		updated = true
+	}
+
+	if reaper.Status.Replicas != deployment.Status.Replicas {
+		reaper.Status.Replicas = deployment.Status.Replicas
+		updated = true
+	}
+
+	if reaper.Status.UpdatedReplicas != deployment.Status.UpdatedReplicas {
+		reaper.Status.UpdatedReplicas = deployment.Status.UpdatedReplicas
+		updated = true
+	}
+
+	return updated
 }
 
 func getRequestLogger(reaper *v1alpha1.Reaper) logr.Logger {

@@ -64,6 +64,10 @@ func (r *NoOpReconciler) ReconcileSchema(ctx context.Context, reaper *v1alpha1.R
 	return r.result, r.err
 }
 
+func (r *NoOpReconciler) ReconcileDeployment(ctx context.Context, reaper *v1alpha1.Reaper) (*reconcile.Result, error) {
+	return r.result, r.err
+}
+
 func newRequest() reconcile.Request {
 	return reconcile.Request{
 		NamespacedName: types.NamespacedName{
@@ -96,6 +100,7 @@ func createReconcilerWithValidator(v config.Validator, state ...runtime.Object) 
 		configMapReconciler: noOpReconciler,
 		serviceReconciler: noOpReconciler,
 		schemaReconciler: noOpReconciler,
+		deploymentReconciler: noOpReconciler,
 	}
 }
 
@@ -106,6 +111,10 @@ func TestReconcile(t *testing.T) {
 
 	t.Run("ValidationFails", testValidationFails)
 	t.Run("SetDefaults", testSetDefaults)
+
+	// These tests are commented out since they have been moved to reconcile_test.go. I will
+	// replace the tests with mocks to verify the correct reconciler calls happen.
+
 	//t.Run("ConfigMapCreated", testConfigMapCreated)
 	//t.Run("ServiceCreated", testServiceCreated)
 	//t.Run("SchemaJobRun", testSchemaJobCreated)
