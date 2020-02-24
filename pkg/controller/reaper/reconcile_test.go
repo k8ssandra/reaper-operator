@@ -70,7 +70,9 @@ func TestReconcilers(t *testing.T) {
 func testReconcileConfigMapNotFound(t *testing.T) {
 	reaper := createReaper()
 
-	r := createConfigMapReconciler()
+	objs := []runtime.Object{reaper}
+
+	r := createConfigMapReconciler(objs...)
 
 	result, err := r.ReconcileConfigMap(context.TODO(), reaper)
 
@@ -87,6 +89,10 @@ func testReconcileConfigMapNotFound(t *testing.T) {
 	cm := &corev1.ConfigMap{}
 	if err := r.client.Get(context.TODO(), namespaceName, cm); err != nil {
 		t.Errorf("Failed to get ConfigMap: (%s)", err)
+	}
+
+	if reaper.Status.Configuration == "" {
+		t.Error("expected Reaper.Status.Configuration to be updated")
 	}
 }
 

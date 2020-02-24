@@ -5,6 +5,7 @@ go 1.13
 require (
 	github.com/Orange-OpenSource/cassandra-k8s-operator v0.3.2
 	github.com/go-logr/logr v0.1.0
+	github.com/mitchellh/hashstructure v1.0.0
 	github.com/operator-framework/operator-sdk v0.14.0
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/spf13/pflag v1.0.5

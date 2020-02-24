@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-logr/logr"
+	"github.com/mitchellh/hashstructure"
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	v1batch "k8s.io/api/batch/v1"
@@ -111,12 +112,26 @@ func (r *configMapReconciler) ReconcileConfigMap(ctx context.Context, reaper *v1
 			reqLogger.Error(err, "Failed to save ConfigMap")
 			return &reconcile.Result{}, err
 		} else {
+			if hash, err := hashstructure.Hash(reaper.Spec.ServerConfig, nil); err != nil {
+				reqLogger.Error(err, "failed to compute configuration hash")
+				return &reconcile.Result{}, err
+			} else {
+				reaper.Status.Configuration = strconv.FormatUint(hash, 10)
+				if err = r.client.Status().Update(ctx, reaper); err != nil {
+					reqLogger.Error(err, "failed to update status")
+					return &reconcile.Result{}, err
+				}
+			}
 			return &reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 		}
 	} else if err != nil {
 		reqLogger.Error(err, "Failed to get ConfigMap")
 		return &reconcile.Result{}, err
-	}
+	} // else if server config has changed,
+	  //
+	  // 1) update the configmap
+	  // update status to indicate restart required
+	  // 2) restart reaper pods
 
 	return nil, nil
 }
@@ -446,6 +461,7 @@ func (r *deploymentReconciler) newDeployment(reaper *v1alpha1.Reaper) *appsv1.De
 								{
 									Name: "reaper-config",
 									MountPath: "/etc/cassandra-reaper",
+									ReadOnly: true,
 								},
 							},
 						},

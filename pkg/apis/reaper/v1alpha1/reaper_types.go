@@ -226,6 +226,11 @@ type ReaperStatus struct {
 
 	// Total number of available pods (ready for at least minReadySeconds) targeted by this deployment.
 	AvailableReplicas int32 `json:"availableReplicas,omitempty"`
+
+	// A hash of the latest known Reaper configuration. If the hash of Reaper.Spec.ServerConfig differs from
+	// this value, it will trigger an update of Reaper's configuration file followed by a restart of Reaper
+	// itself.
+	Configuration string `json:"configuration,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
