@@ -27,11 +27,6 @@ import (
 
 var logger = logf.Log.WithName("reconcile")
 
-const (
-	configurationUpdatedReason = "configuration updated"
-	configurationUpdatedMessage = "starting configuration update"
-)
-
 type ReaperConfigMapReconciler interface {
 	// Called to reconcile the Reaper ConfigMap. Note that reconciliation will continue after calling this function
 	// only when both return values are nil.
@@ -159,13 +154,7 @@ func (r *configMapReconciler) ReconcileConfigMap(ctx context.Context, reaper *v1
 				return &reconcile.Result{}, err
 			} else {
 				reaper.Status.Configuration = hash
-				cond := v1alpha1.ReaperCondition{
-					Type: v1alpha1.ConfigurationUpdated,
-					Status: corev1.ConditionTrue,
-					LastTransitionTime: metav1.Now(),
-					Reason: configurationUpdatedReason,
-					Message: configurationUpdatedMessage,
-				}
+				cond := NewCondition(v1alpha1.ConfigurationUpdated, corev1.ConditionTrue, ConfigurationUpdatedReason, ConfigurationUpdatedMessage)
 				SetCondition(&reaper.Status, cond)
 				if err = r.client.Status().Update(ctx, reaper); err != nil {
 					reqLogger.Error(err, "failed to update status")

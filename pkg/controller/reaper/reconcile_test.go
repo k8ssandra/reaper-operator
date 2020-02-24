@@ -171,11 +171,11 @@ func testReconcileConfigUpdated(t *testing.T) {
 			if cond.LastTransitionTime.IsZero() {
 				t.Errorf("expected condition last transition time to set")
 			}
-			if cond.Reason != configurationUpdatedReason {
-				t.Errorf("expected condition reason (%s), got (%s)", configurationUpdatedReason, cond.Reason)
+			if cond.Reason != ConfigurationUpdatedReason {
+				t.Errorf("expected condition reason (%s), got (%s)", ConfigurationUpdatedReason, cond.Reason)
 			}
-			if cond.Message != configurationUpdatedMessage {
-				t.Errorf("expected condition message (%s), got (%s)", configurationUpdatedMessage, cond.Message)
+			if cond.Message != ConfigurationUpdatedMessage {
+				t.Errorf("expected condition message (%s), got (%s)", ConfigurationUpdatedMessage, cond.Message)
 			}
 		}
 	}

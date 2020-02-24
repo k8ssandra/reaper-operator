@@ -2,7 +2,28 @@ package reaper
 
 import (
 	"github.com/jsanda/reaper-operator/pkg/apis/reaper/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+type ConditionReason string
+
+type ConditionMessage string
+
+const (
+	ConfigurationUpdatedReason = "configuration updated"
+	ConfigurationUpdatedMessage = "starting configuration update"
+)
+
+func NewCondition(condType v1alpha1.ReaperConditionType, status corev1.ConditionStatus, reason ConditionReason, message ConditionMessage) v1alpha1.ReaperCondition {
+	return v1alpha1.ReaperCondition{
+		Type: condType,
+		Status: status,
+		LastTransitionTime: metav1.Now(),
+		Reason: string(reason),
+		Message: string(message),
+	}
+}
 
 func GetCondition(status *v1alpha1.ReaperStatus, condType v1alpha1.ReaperConditionType) *v1alpha1.ReaperCondition {
 	for i := range status.Conditions {
