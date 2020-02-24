@@ -184,6 +184,8 @@ const (
 	// With a Cassandra Reaper currently does all schema initialization except for creating the keyspace. Ideally
 	// all schema initialized will be moved out of Reaper to avoid race conditions that can cause schema disagreement.
 	SchemaInitialized ReaperConditionType = "SchemaInitialized"
+
+	ConfigurationUpdated ReaperConditionType = "ConfigurationUpdated"
 )
 
 type ReaperCondition struct {

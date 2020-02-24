@@ -54,6 +54,7 @@ func TestReconcilers(t *testing.T) {
 
 	t.Run("ReconcileConfigMapNotFound", testReconcileConfigMapNotFound)
 	t.Run("ReconcileConfigMapFound", testReconcileConfigMapFound)
+	t.Run("ReconcileConfigUpdated", testReconcileConfigUpdated)
 	t.Run("ReconcileServiceNotFound", testReconcileServiceNotFound)
 	t.Run("ReconcileServiceFound", testReconcileServiceFound)
 	t.Run("ReconcileMemorySchema", testReconcileMemorySchema)
@@ -104,6 +105,12 @@ func testReconcileConfigMapFound(t *testing.T) {
 
 	r := createConfigMapReconciler(objs...)
 
+	if hash, err := r.computeHash(reaper); err != nil {
+		t.Fatalf("failed to compute hash: %s", err)
+	} else {
+		reaper.Status.Configuration = hash
+	}
+
 	result, err := r.ReconcileConfigMap(context.TODO(), reaper)
 
 	if result != nil {
@@ -112,6 +119,65 @@ func testReconcileConfigMapFound(t *testing.T) {
 
 	if err != nil {
 		t.Errorf("expect error (nil), got (%s)", err)
+	}
+}
+
+func testReconcileConfigUpdated(t *testing.T) {
+	reaper := createReaper()
+	cm := createConfigMap(reaper)
+
+	objs := []runtime.Object{reaper, cm}
+
+	r := createConfigMapReconciler(objs...)
+
+	// First we need to set Reaper.Status.Configuration. Then we update Reaper.Spec.ServerConfig
+	// in order to trigger the config update
+
+	if hash, err := r.computeHash(reaper); err != nil {
+		t.Fatalf("failed to compute hash: %s", err)
+	} else {
+		reaper.Status.Configuration = hash
+	}
+
+	reaper.Spec.ServerConfig.SegmentCountPerNode = int32Ptr(64)
+
+	result, err := r.ReconcileConfigMap(context.TODO(), reaper)
+
+	if result == nil {
+		t.Errorf("expected non-nil result")
+	} else if !result.Requeue {
+		t.Errorf("expected requeue")
+	}
+
+	if err != nil {
+		t.Errorf("did not expect an error but got: (%s)", err)
+	}
+
+	if newHash, err := r.computeHash(reaper); err != nil {
+		t.Errorf("failed to compute updated hash: (%s)", err)
+	} else {
+		// Verify that the configuration hash has been updated
+		if reaper.Status.Configuration != newHash {
+			t.Errorf("Reaper.Status.Configuration not updated: expected (%s), got (%s)", newHash, reaper.Status.Configuration)
+		}
+
+		// Verify that the ConfigurationUpdated condition has been set
+		if cond := GetCondition(&reaper.Status, v1alpha1.ConfigurationUpdated); cond == nil {
+			t.Errorf("expected to find condition: (%s)", v1alpha1.ConfigurationUpdated)
+		} else {
+			if cond.Status != corev1.ConditionTrue {
+				t.Errorf("expected condition status (%s), got (%s)", corev1.ConditionTrue, cond.Status)
+			}
+			if cond.LastTransitionTime.IsZero() {
+				t.Errorf("expected condition last transition time to set")
+			}
+			if cond.Reason != configurationUpdatedReason {
+				t.Errorf("expected condition reason (%s), got (%s)", configurationUpdatedReason, cond.Reason)
+			}
+			if cond.Message != configurationUpdatedMessage {
+				t.Errorf("expected condition message (%s), got (%s)", configurationUpdatedMessage, cond.Message)
+			}
+		}
 	}
 }
 

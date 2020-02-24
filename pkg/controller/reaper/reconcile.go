@@ -27,6 +27,11 @@ import (
 
 var logger = logf.Log.WithName("reconcile")
 
+const (
+	configurationUpdatedReason = "configuration updated"
+	configurationUpdatedMessage = "starting configuration update"
+)
+
 type ReaperConfigMapReconciler interface {
 	// Called to reconcile the Reaper ConfigMap. Note that reconciliation will continue after calling this function
 	// only when both return values are nil.
@@ -112,11 +117,11 @@ func (r *configMapReconciler) ReconcileConfigMap(ctx context.Context, reaper *v1
 			reqLogger.Error(err, "Failed to save ConfigMap")
 			return &reconcile.Result{}, err
 		} else {
-			if hash, err := hashstructure.Hash(reaper.Spec.ServerConfig, nil); err != nil {
+			if hash, err := r.computeHash(reaper); err != nil {
 				reqLogger.Error(err, "failed to compute configuration hash")
 				return &reconcile.Result{}, err
 			} else {
-				reaper.Status.Configuration = strconv.FormatUint(hash, 10)
+				reaper.Status.Configuration = hash
 				if err = r.client.Status().Update(ctx, reaper); err != nil {
 					reqLogger.Error(err, "failed to update status")
 					return &reconcile.Result{}, err
@@ -127,37 +132,93 @@ func (r *configMapReconciler) ReconcileConfigMap(ctx context.Context, reaper *v1
 	} else if err != nil {
 		reqLogger.Error(err, "Failed to get ConfigMap")
 		return &reconcile.Result{}, err
-	} // else if server config has changed,
-	  //
-	  // 1) update the configmap
-	  // update status to indicate restart required
-	  // 2) restart reaper pods
+	}
+
+	// else if server config has changed,
+	//
+	// 1) update the configmap
+	// update status to indicate restart required
+	// 2) restart reaper pods
+  	hash, err := r.computeHash(reaper)
+  	if err != nil {
+  		reqLogger.Error(err,"failed to compute configuration hash")
+  		return &reconcile.Result{}, err
+	} else if reaper.Status.Configuration != hash {
+		reqLogger.Info("configuration change detected", "CurrentConfiguration", reaper.Status.Configuration,
+			"NewConfiguration", hash)
+
+		if config, err := r.generateConfig(reaper); err != nil {
+			reqLogger.Error(err, "failed to generate updated configuration")
+			return &reconcile.Result{}, err
+		} else {
+			serverConfig.Data = map[string]string{
+				"reaper.yaml": config,
+			}
+			if err  = r.client.Update(ctx, serverConfig); err != nil {
+				reqLogger.Error(err, "failed to update ConfigMap")
+				return &reconcile.Result{}, err
+			} else {
+				reaper.Status.Configuration = hash
+				cond := v1alpha1.ReaperCondition{
+					Type: v1alpha1.ConfigurationUpdated,
+					Status: corev1.ConditionTrue,
+					LastTransitionTime: metav1.Now(),
+					Reason: configurationUpdatedReason,
+					Message: configurationUpdatedMessage,
+				}
+				SetCondition(&reaper.Status, cond)
+				if err = r.client.Status().Update(ctx, reaper); err != nil {
+					reqLogger.Error(err, "failed to update status")
+					return &reconcile.Result{}, err
+				} else {
+					return &reconcile.Result{Requeue: true}, nil
+				}
+			}
+		}
+	}
 
 	return nil, nil
 }
 
 func (r *configMapReconciler) newServerConfigMap(reaper *v1alpha1.Reaper) (*corev1.ConfigMap, error) {
-	output, err := yaml.Marshal(&reaper.Spec.ServerConfig)
-	if err != nil {
+	if config, err := r.generateConfig(reaper); err != nil {
 		return nil, err
-	}
+	} else {
+		cm := &corev1.ConfigMap{
+			TypeMeta: metav1.TypeMeta{
+				Kind: "ConfigMap",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      reaper.Name,
+				Namespace: reaper.Namespace,
+				Labels:    createLabels(reaper),
+			},
+			Data: map[string]string{
+				"reaper.yaml": config,
+			},
+		}
 
-	cm := &corev1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{
-			Kind: "ConfigMap",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      reaper.Name,
-			Namespace: reaper.Namespace,
-			Labels:    createLabels(reaper),
-		},
-		Data: map[string]string{
-			"reaper.yaml": string(output),
-		},
+		return cm, nil
 	}
+}
 
-	return cm, nil
+//func (r *configMapReconciler) updateServerConfigMap(reaper *v1alpha1.Reaper)
+
+func (r *configMapReconciler) generateConfig(reaper *v1alpha1.Reaper) (string, error) {
+	if out, err := yaml.Marshal(&reaper.Spec.ServerConfig); err == nil {
+		return string(out), nil
+	} else {
+		return "", err
+	}
+}
+
+func (r *configMapReconciler) computeHash(reaper *v1alpha1.Reaper) (string, error) {
+	if hash, err := hashstructure.Hash(reaper.Spec.ServerConfig, nil); err == nil {
+		return strconv.FormatUint(hash, 10), nil
+	} else {
+		return "", err
+	}
 }
 
 func (r *serviceReconciler) ReconcileService(ctx context.Context, reaper *v1alpha1.Reaper) (*reconcile.Result, error) {
