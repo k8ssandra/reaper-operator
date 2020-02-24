@@ -179,6 +179,17 @@ func testReconcileConfigUpdated(t *testing.T) {
 			}
 		}
 	}
+
+	cm = &corev1.ConfigMap{}
+	if err := r.client.Get(context.TODO(), namespaceName, cm); err != nil {
+		t.Errorf("failed to get ConfigMap: (%s)", err)
+	} else {
+		if config, err := r.generateConfig(reaper); err != nil {
+			t.Errorf("failed to generate updated config: (%s)", err)
+		} else if cm.Data["reaper.yaml"] != config {
+			t.Errorf("expected configuration (%s), got (%s)", config, cm.Data["reaper.yaml"])
+		}
+	}
 }
 
 func testReconcileServiceNotFound(t *testing.T) {

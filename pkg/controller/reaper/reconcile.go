@@ -192,8 +192,6 @@ func (r *configMapReconciler) newServerConfigMap(reaper *v1alpha1.Reaper) (*core
 	}
 }
 
-//func (r *configMapReconciler) updateServerConfigMap(reaper *v1alpha1.Reaper)
-
 func (r *configMapReconciler) generateConfig(reaper *v1alpha1.Reaper) (string, error) {
 	if out, err := yaml.Marshal(&reaper.Spec.ServerConfig); err == nil {
 		return string(out), nil
