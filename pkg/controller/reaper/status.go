@@ -11,7 +11,9 @@ type ConditionReason string
 type ConditionMessage string
 
 const (
-	ConfigurationUpdatedReason = "configuration updated"
+	ConfigurationUpdatedReason = "ConfigurationUpdated"
+
+
 	ConfigurationUpdatedMessage = "starting configuration update"
 )
 

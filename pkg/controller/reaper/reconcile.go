@@ -421,15 +421,54 @@ func (r *deploymentReconciler) ReconcileDeployment(ctx context.Context, reaper *
 		return &reconcile.Result{}, err
 	}
 
-	if r.checkDeploymentStatus(reaper, deployment) {
-		if err = r.client.Status().Update(context.TODO(), reaper); err != nil {
-			reqLogger.Error(err, "Failed to update status")
+	statusUpdated := r.checkDeploymentStatus(reaper, deployment)
+	if statusUpdated {
+		reqLogger.Info("updating status...")
+		if err = r.client.Status().Update(ctx, reaper); err != nil {
+			reqLogger.Error(err, "failed to update status")
 			return &reconcile.Result{}, err
 		}
+		return &reconcile.Result{Requeue: true}, nil
 	}
 
-	if reaper.Status.ReadyReplicas != reaper.Status.Replicas {
+	if r.isReady(reaper) {
+		_, restarted := r.getReaperDeploymentAnnotation(deployment, "kubectl.kubernetes.io/restartedAt")
+		// First check to see if there was a restart
+		if restarted {
+			// Now check to see if there is a condition that triggered the restart
+			if cond := GetCondition(&reaper.Status, v1alpha1.ConfigurationUpdated); cond != nil && cond.Status == corev1.ConditionTrue {
+				// Update the condition to reflect that changes should be in effect
+				newCond := NewCondition(v1alpha1.ConfigurationUpdated, corev1.ConditionFalse, ConfigurationUpdatedReason, ConfigurationUpdatedMessage)
+				SetCondition(&reaper.Status, newCond)
+
+				reqLogger.Info("updating condition")
+				if err = r.client.Status().Update(ctx, reaper); err != nil {
+					reqLogger.Error(err, "failed to update condition", "ConditionType", v1alpha1.ConfigurationUpdated)
+					return &reconcile.Result{}, err
+				} else {
+					return &reconcile.Result{Requeue: true}, nil
+				}
+			}
+			// Now remove the restartedAt annotation as a final step to complete the restart workflow
+			reqLogger.Info("removing restartedAt annotation")
+			delete(deployment.Spec.Template.Annotations, "kubectl.kubernetes.io/restartedAt")
+			if err = r.client.Update(ctx, deployment); err != nil {
+				reqLogger.Error(err, "failed to remove annotation", "Annotation", "restartedAt")
+				return &reconcile.Result{}, err
+			} else {
+				return &reconcile.Result{Requeue: true}, nil
+			}
+		}
+	} else {
 		return &reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
+	}
+
+	if r.isRestartNeeded(reaper, deployment) {
+		reqLogger.Info("restarting deployment")
+		if err = r.restart(ctx, deployment); err != nil {
+			reqLogger.Error(err, "There was an error while initiating a restart")
+		}
+		return &reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
 	}
 
 	return nil, nil
@@ -563,6 +602,58 @@ func (r *deploymentReconciler) checkDeploymentStatus(reaper *v1alpha1.Reaper, de
 
 	return updated
 }
+
+func (r *deploymentReconciler) isRestartNeeded(reaper *v1alpha1.Reaper, deployment *appsv1.Deployment) bool {
+	cond := GetCondition(&reaper.Status, v1alpha1.ConfigurationUpdated)
+	_, restarted := r.getReaperDeploymentAnnotation(deployment, "kubectl.kubernetes.io/restartedAt")
+
+	return cond != nil && cond.Status == corev1.ConditionTrue && !restarted
+}
+
+func (r *deploymentReconciler) isReady(reaper *v1alpha1.Reaper) bool {
+	return reaper.Status.ReadyReplicas == reaper.Status.Replicas
+}
+
+func (r *deploymentReconciler) restart(ctx context.Context, deployment *appsv1.Deployment) error {
+	if deployment.Spec.Template.Annotations == nil {
+		deployment.Spec.Template.Annotations = make(map[string]string)
+	}
+	deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
+	return r.client.Update(ctx, deployment)
+}
+
+func (r *deploymentReconciler) getReaperDeploymentAnnotation(deployment *appsv1.Deployment, key string) (string, bool) {
+	if deployment.Spec.Template.Annotations == nil {
+		return "", false
+	}
+	val, found := deployment.Spec.Template.Annotations[key]
+
+	return val, found
+}
+
+//func (r *deploymentReconciler) restartPods(ctx context.Context, reaper *v1alpha1.Reaper, deployment *appsv1.Deployment) error {
+//	annotation, found := reaper.Annotations["cassandra-reaper.io/restart"]
+//
+//	if !found {
+//		selector, err := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
+//		if err != nil {
+//			return err
+//		}
+//
+//		podList := &corev1.PodList{}
+//		opts := []client.ListOption{
+//			client.InNamespace(reaper.Namespace),
+//			client.MatchingLabelsSelector{Selector: selector},
+//			client.MatchingFields{"status.phase": "Running"},
+//		}
+//
+//		if err = r.client.List(ctx, podList, opts...); err != nil {
+//			return fmt.Errorf("failed to list pods: %s", err)
+//		}
+//
+//
+//	}
+//}
 
 func getRequestLogger(reaper *v1alpha1.Reaper) logr.Logger {
 	return log.WithValues("Reaper.Namespace", reaper.Namespace, "Reaper.Name", reaper.Name)
