@@ -14,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"strconv"
@@ -423,55 +422,34 @@ func (r *deploymentReconciler) ReconcileDeployment(ctx context.Context, reaper *
 	}
 
 	status := reaper.Status.DeepCopy()
-	UpdateStatus(status, deployment)
+	CalculateStatus(status, deployment)
 
-	if !IsReady(status) {
-		if !reflect.DeepEqual(status, reaper.Status) {
-			newReaper := reaper
-			newReaper.Status = *status
-			if err = r.client.Status().Update(ctx, newReaper); err != nil {
-				reqLogger.Error(err, "not ready: failed to update status")
-			}
-			return &reconcile.Result{Requeue: true}, err
-		}
-		return &reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
-	}
+	result := &reconcile.Result{}
 
-	if IsRestarted(status) {
-		if !reflect.DeepEqual(status, reaper.Status) {
-			newReaper := reaper
-			newReaper.Status = *status
-			if err = r.client.Status().Update(ctx, newReaper); err != nil {
-				reqLogger.Error(err, "restarted: failed to update status")
+	if IsReady(status) {
+		if IsRestartNeeded(status) {
+			reqLogger.Info("restarting deployment", "Deployment.Name", deployment.Name)
+			if err = r.restart(ctx, deployment); err != nil {
+				reqLogger.Error(err, "There was an error while initiating a restart")
 			}
-			return &reconcile.Result{Requeue: true}, err
+			result = &reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}
+		} else {
+			result = nil
+			err = nil
 		}
-	}
-
-	if IsRestartNeeded(status) {
-		reqLogger.Info("restarting deployment", "Deployment.Name", deployment.Name)
-		if err = r.restart(ctx, deployment); err != nil {
-			reqLogger.Error(err, "There was an error while initiating a restart")
-		}
-		if !reflect.DeepEqual(status, reaper.Status) {
-			newReaper := reaper
-			newReaper.Status = *status
-			if err = r.client.Status().Update(ctx, newReaper); err != nil {
-				reqLogger.Error(err, "restart needed: failed to update status")
-				return &reconcile.Result{Requeue: true}, err
-			}
-		}
-		return &reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+	} else {
+		result = &reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}
+		err = nil
 	}
 
 	newReaper := reaper
 	newReaper.Status = *status
 	if err = r.client.Status().Update(ctx, newReaper); err != nil {
-		reqLogger.Error(err, "restart needed: failed to update status")
-		return &reconcile.Result{Requeue: true}, err
+		reqLogger.Error(err, "failed to update status")
+		result = &reconcile.Result{Requeue: true}
 	}
-	
-	return nil, nil
+
+	return result, err
 }
 
 func (r *deploymentReconciler) newDeployment(reaper *v1alpha1.Reaper) *appsv1.Deployment {
@@ -577,32 +555,6 @@ func (r *deploymentReconciler) newDeployment(reaper *v1alpha1.Reaper) *appsv1.De
 	}
 }
 
-func (r *deploymentReconciler) checkDeploymentStatus(reaper *v1alpha1.Reaper, deployment *appsv1.Deployment) bool {
-	updated := false
-
-	if reaper.Status.AvailableReplicas != deployment.Status.AvailableReplicas {
-		reaper.Status.AvailableReplicas = deployment.Status.AvailableReplicas
-		updated = true
-	}
-
-	if reaper.Status.ReadyReplicas != deployment.Status.ReadyReplicas {
-		reaper.Status.ReadyReplicas = deployment.Status.ReadyReplicas
-		updated = true
-	}
-
-	if reaper.Status.Replicas != deployment.Status.Replicas {
-		reaper.Status.Replicas = deployment.Status.Replicas
-		updated = true
-	}
-
-	if reaper.Status.UpdatedReplicas != deployment.Status.UpdatedReplicas {
-		reaper.Status.UpdatedReplicas = deployment.Status.UpdatedReplicas
-		updated = true
-	}
-
-	return updated
-}
-
 func (r *deploymentReconciler) restart(ctx context.Context, deployment *appsv1.Deployment) error {
 	if deployment.Spec.Template.Annotations == nil {
 		deployment.Spec.Template.Annotations = make(map[string]string)
@@ -610,39 +562,6 @@ func (r *deploymentReconciler) restart(ctx context.Context, deployment *appsv1.D
 	deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	return r.client.Update(ctx, deployment)
 }
-
-func (r *deploymentReconciler) getReaperDeploymentAnnotation(deployment *appsv1.Deployment, key string) (string, bool) {
-	if deployment.Spec.Template.Annotations == nil {
-		return "", false
-	}
-	val, found := deployment.Spec.Template.Annotations[key]
-
-	return val, found
-}
-
-//func (r *deploymentReconciler) restartPods(ctx context.Context, reaper *v1alpha1.Reaper, deployment *appsv1.Deployment) error {
-//	annotation, found := reaper.Annotations["cassandra-reaper.io/restart"]
-//
-//	if !found {
-//		selector, err := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
-//		if err != nil {
-//			return err
-//		}
-//
-//		podList := &corev1.PodList{}
-//		opts := []client.ListOption{
-//			client.InNamespace(reaper.Namespace),
-//			client.MatchingLabelsSelector{Selector: selector},
-//			client.MatchingFields{"status.phase": "Running"},
-//		}
-//
-//		if err = r.client.List(ctx, podList, opts...); err != nil {
-//			return fmt.Errorf("failed to list pods: %s", err)
-//		}
-//
-//
-//	}
-//}
 
 func getRequestLogger(reaper *v1alpha1.Reaper) logr.Logger {
 	return log.WithValues("Reaper.Namespace", reaper.Namespace, "Reaper.Name", reaper.Name)

@@ -66,7 +66,7 @@ func filterOutCondition(conditions []v1alpha1.ReaperCondition, condType v1alpha1
 	return newConditions
 }
 
-func UpdateStatus(status *v1alpha1.ReaperStatus, deployment *appsv1.Deployment) {
+func CalculateStatus(status *v1alpha1.ReaperStatus, deployment *appsv1.Deployment) {
 	status.AvailableReplicas = deployment.Status.AvailableReplicas
 	status.ReadyReplicas = deployment.Status.ReadyReplicas
 	status.Replicas = deployment.Status.Replicas
@@ -89,7 +89,6 @@ func UpdateStatus(status *v1alpha1.ReaperStatus, deployment *appsv1.Deployment) 
 			} else if cond.Status == corev1.ConditionTrue && cond.Reason == ConfigurationUpdateCompleteReason {
 				// The configuration update/restart is done so we can remove the condition
 				RemoveCondition(status, v1alpha1.ConfigurationUpdated)
-				log.Info("AFTER REMOVE", "Status", status)
 			}
 		}
 	}
@@ -97,11 +96,6 @@ func UpdateStatus(status *v1alpha1.ReaperStatus, deployment *appsv1.Deployment) 
 
 func IsReady(status *v1alpha1.ReaperStatus) bool {
 	return status.ReadyReplicas == status.Replicas
-}
-
-func IsRestarted(status *v1alpha1.ReaperStatus) bool {
-	cond := GetCondition(status, v1alpha1.ConfigurationUpdated)
-	return cond != nil && cond.Status == corev1.ConditionTrue && cond.Reason == ConfigurationUpdateCompleteReason
 }
 
 func IsRestartNeeded(status *v1alpha1.ReaperStatus) bool {
