@@ -2,7 +2,7 @@ package config
 
 import (
 	"errors"
-	"github.com/jsanda/reaper-operator/pkg/apis/reaper/v1alpha1"
+	"github.com/thelastpickle/reaper-operator/pkg/apis/reaper/v1alpha1"
 )
 
 type ValidationError error

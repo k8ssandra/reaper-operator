@@ -2,10 +2,10 @@ package reaper
 
 import (
 	"context"
-	"github.com/jsanda/reaper-operator/pkg/config"
+	"github.com/thelastpickle/reaper-operator/pkg/config"
 	"time"
 
-	"github.com/jsanda/reaper-operator/pkg/apis/reaper/v1alpha1"
+	"github.com/thelastpickle/reaper-operator/pkg/apis/reaper/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"

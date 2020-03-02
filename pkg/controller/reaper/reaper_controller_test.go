@@ -3,9 +3,9 @@ package reaper
 import (
 	"context"
 	"errors"
-	"github.com/jsanda/reaper-operator/pkg/apis"
-	"github.com/jsanda/reaper-operator/pkg/apis/reaper/v1alpha1"
-	"github.com/jsanda/reaper-operator/pkg/config"
+	"github.com/thelastpickle/reaper-operator/pkg/apis"
+	"github.com/thelastpickle/reaper-operator/pkg/apis/reaper/v1alpha1"
+	"github.com/thelastpickle/reaper-operator/pkg/config"
 	appsv1 "k8s.io/api/apps/v1"
 	v1batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"

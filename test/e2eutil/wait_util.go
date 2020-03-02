@@ -2,7 +2,7 @@ package e2eutil
 
 import (
 	goctx "context"
-	"github.com/jsanda/reaper-operator/pkg/apis/reaper/v1alpha1"
+	"github.com/thelastpickle/reaper-operator/pkg/apis/reaper/v1alpha1"
 	casskop "github.com/Orange-OpenSource/cassandra-k8s-operator/pkg/apis/db/v1alpha1"
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	"github.com/operator-framework/operator-sdk/pkg/test/e2eutil"

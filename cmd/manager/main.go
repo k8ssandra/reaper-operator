@@ -12,9 +12,9 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 
-	"github.com/jsanda/reaper-operator/pkg/apis"
-	"github.com/jsanda/reaper-operator/pkg/controller"
-	"github.com/jsanda/reaper-operator/version"
+	"github.com/thelastpickle/reaper-operator/pkg/apis"
+	"github.com/thelastpickle/reaper-operator/pkg/controller"
+	"github.com/thelastpickle/reaper-operator/version"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"

@@ -1,9 +1,9 @@
-ORG=jsanda
+ORG=thelastpickle
 PROJECT=reaper-operator
 REG=docker.io
 SHELL=/bin/bash
 TAG?=latest
-PKG=github.com/jsanda/reaper-operator
+PKG=github.com/thelastpickle/reaper-operator
 COMPILE_TARGET=./build/_output/bin/$(PROJECT)
 
 BRANCH=$(shell git rev-parse --abbrev-ref HEAD)

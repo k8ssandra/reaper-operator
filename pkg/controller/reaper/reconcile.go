@@ -20,7 +20,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jsanda/reaper-operator/pkg/apis/reaper/v1alpha1"
+	"github.com/thelastpickle/reaper-operator/pkg/apis/reaper/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )

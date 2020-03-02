@@ -1,7 +1,7 @@
 package apis
 
 import (
-	"github.com/jsanda/reaper-operator/pkg/apis/reaper/v1alpha1"
+	"github.com/thelastpickle/reaper-operator/pkg/apis/reaper/v1alpha1"
 )
 
 func init() {

@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"github.com/jsanda/reaper-operator/pkg/controller/reaper"
+	"github.com/thelastpickle/reaper-operator/pkg/controller/reaper"
 )
 
 func init() {

@@ -2,8 +2,8 @@ package e2e
 
 import (
 	goctx "context"
-	"github.com/jsanda/reaper-operator/pkg/apis"
-	"github.com/jsanda/reaper-operator/test/e2eutil"
+	"github.com/thelastpickle/reaper-operator/pkg/apis"
+	"github.com/thelastpickle/reaper-operator/test/e2eutil"
 	casskop "github.com/Orange-OpenSource/cassandra-k8s-operator/pkg/apis/db/v1alpha1"
 	casskopapi "github.com/Orange-OpenSource/cassandra-k8s-operator/pkg/apis"
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jsanda/reaper-operator/pkg/apis/reaper/v1alpha1"
+	"github.com/thelastpickle/reaper-operator/pkg/apis/reaper/v1alpha1"
 )
 
 const (
