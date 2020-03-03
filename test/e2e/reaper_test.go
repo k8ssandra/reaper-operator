@@ -2,15 +2,18 @@ package e2e
 
 import (
 	goctx "context"
+	casskopapi "github.com/Orange-OpenSource/cassandra-k8s-operator/pkg/apis"
+	casskop "github.com/Orange-OpenSource/cassandra-k8s-operator/pkg/apis/db/v1alpha1"
+	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	"github.com/thelastpickle/reaper-operator/pkg/apis"
 	"github.com/thelastpickle/reaper-operator/test/e2eutil"
-	casskop "github.com/Orange-OpenSource/cassandra-k8s-operator/pkg/apis/db/v1alpha1"
-	casskopapi "github.com/Orange-OpenSource/cassandra-k8s-operator/pkg/apis"
-	framework "github.com/operator-framework/operator-sdk/pkg/test"
+	"gopkg.in/yaml.v2"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"testing"
 	"time"
+	deploymentutil "k8s.io/kubernetes/pkg/controller/deployment/util"
 
 	"github.com/thelastpickle/reaper-operator/pkg/apis/reaper/v1alpha1"
 )
@@ -150,6 +153,113 @@ func TestDeployReaperWithCassandraBackend(t *testing.T) {
 
 	if err = e2eutil.WaitForReaperToBeReady(t, f, reaper.Namespace, reaper.Name, 3 * time.Second, 3 * time.Minute); err != nil {
 		t.Fatalf("Timed out waiting for Reaper (%s) to be ready: %s\n", reaper.Name, err)
+	}
+}
+
+func TestUpdateReaperConfiguration(t *testing.T) {
+	reaperList := &v1alpha1.ReaperList{}
+	if err := framework.AddToFrameworkScheme(apis.AddToScheme, reaperList); err != nil {
+		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
+	}
+	ctx, f := e2eutil.InitOperator(t)
+	defer ctx.Cleanup()
+
+	namespace, err := ctx.GetNamespace()
+	if err != nil {
+		t.Fatalf("Failed to get namespace: %s", err)
+	}
+
+	reaper := v1alpha1.Reaper{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Reaper",
+			APIVersion: "reaper.cassandra-reaper.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "reaper-e2e",
+			Namespace: namespace,
+		},
+		Spec: v1alpha1.ReaperSpec{
+			ServerConfig: v1alpha1.ServerConfig{
+				StorageType: "memory",
+			},
+		},
+	}
+
+	cleanup := &framework.CleanupOptions{TestContext: ctx, Timeout: time.Second * 5, RetryInterval: time.Second * 1}
+	if err = f.Client.Create(goctx.TODO(), &reaper, cleanup); err != nil {
+		t.Fatalf("Failed to create Reaper: %s\n", err)
+	}
+
+	if err = e2eutil.WaitForReaperToBeReady(t, f, reaper.Namespace, reaper.Name, 3 * time.Second, 3 * time.Minute); err != nil {
+		t.Fatalf("Timed out waiting for Reaper (%s) to be ready: %s\n", reaper.Name, err)
+	}
+
+	instance := &v1alpha1.Reaper{}
+	if err = f.Client.Get(goctx.TODO(), types.NamespacedName{Namespace: reaper.Namespace, Name: reaper.Name}, instance); err != nil {
+		t.Fatalf("Failed to get Reaper (%s): %s", reaper.Name, err)
+	}
+
+	deployment := &appsv1.Deployment{}
+	if err = f.Client.Get(goctx.TODO(), types.NamespacedName{Namespace: reaper.Namespace, Name: reaper.Name}, deployment); err != nil {
+		t.Fatalf("failed to get Deployment: %s", err)
+	}
+
+	cond := deploymentutil.GetDeploymentCondition(deployment.Status, appsv1.DeploymentProgressing)
+	if cond == nil {
+		t.Fatalf("failed to get Deployment condition (%s)", appsv1.DeploymentProgressing)
+	}
+
+	// Make a copy of the LastUpdateTime so that we can compare after the config update has completed. The condition
+	// should get updated when a new ReplicaSet is rolled out. The LastUpdateTime timestamp should be updated as part
+	// of that change.
+	lastUpdated := cond.LastUpdateTime
+
+	// First we need to update the Reaper object
+	segmentCount := int32(32)
+	instance.Spec.ServerConfig.SegmentCountPerNode = &segmentCount
+
+	if err = f.Client.Update(goctx.TODO(), instance); err != nil {
+		t.Fatalf("failed to update Reaper: %s", err)
+	}
+
+	// Wait for the Reaper object to be ready while the config update should be happening
+	if err = e2eutil.WaitForReaperToBeReady(t, f, reaper.Namespace, reaper.Name, 3 * time.Second, 3 * time.Minute); err != nil {
+		t.Fatalf("Timed out waiting for Reaper (%s) to be ready after updating Reaper.Spec.ServerConfig: %s\n", reaper.Name, err)
+	}
+
+	// Verify that the ConfigMap has been updated. This requires multiple steps:
+	//
+	// 1) Verify that the ConfigMap has reaper.yaml in it
+	// 2) Unmarshal reaper.yaml into a ServerConfig
+	// 3) Verify that the ServerConfig.SegmentCountPerNode has the expected value
+	if cm, err := f.KubeClient.CoreV1().ConfigMaps(reaper.Namespace).Get(reaper.Name, metav1.GetOptions{}); err == nil {
+		if config, found := cm.Data["reaper.yaml"]; found {
+			serverConfig := v1alpha1.ServerConfig{}
+			if err = yaml.Unmarshal([]byte(config), &serverConfig); err != nil {
+				t.Errorf("failed to unmarshal reaper.yaml: %s", err)
+			} else {
+				if serverConfig.SegmentCountPerNode == nil || *serverConfig.SegmentCountPerNode != 32 {
+					t.Errorf("failed to update SegmentCountPerNode. expected (%d), got (%d)", segmentCount, serverConfig.SegmentCountPerNode)
+				}
+			}
+		} else {
+			t.Errorf("failed to find reaper.yaml in ConfigMap")
+		}
+	} else {
+		t.Errorf("failed to get ConfigMap after updating Reaper.Spec.ServerConfig: %s", err)
+	}
+
+	// Now verify that Reaper has been restarted which is done by the Deployment rolling out a new ReplicaSet
+	deployment = &appsv1.Deployment{}
+	if err = f.Client.Get(goctx.TODO(), types.NamespacedName{Namespace: reaper.Namespace, Name: reaper.Name}, deployment); err == nil {
+		cond := deploymentutil.GetDeploymentCondition(deployment.Status, appsv1.DeploymentProgressing)
+		if cond == nil {
+			t.Errorf("failed to get Deployment condition (%s) after updating Reaper.Spec.ServerConfig", appsv1.DeploymentProgressing)
+		} else if !cond.LastUpdateTime.After(lastUpdated.Time) {
+			t.Errorf("cannot verify that a new ReplicaSet was rolled out with LastUpdateTime. expected (%v) to be after (%v)", cond.LastUpdateTime, lastUpdated)
+		}
+	} else {
+		t.Errorf("failed to get Deployment after updating Reaper.Spec.ServerConfig: %s", err)
 	}
 }
 
