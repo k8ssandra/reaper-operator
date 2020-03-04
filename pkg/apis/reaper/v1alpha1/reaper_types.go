@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/api/core/v1"
+	appsv1 "k8s.io/api/apps/v1"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -169,11 +170,27 @@ type AutoScheduling struct {
 	ExcludedKeyspaces []string `json:"excludedKeyspaces,omitempty" yaml:"excludedKeyspaces,omitempty"`
 }
 
+type DeploymentConfiguration struct {
+	Strategy appsv1.DeploymentStrategy `json:"strategy,omitempty"`
+
+	PodConfiguration PodConfiguration `json:"podConfiguration,omitempty"`
+}
+
+type PodConfiguration struct {
+	//Affinity *corev1.Affinity `json:"affinity,omitempty"`
+
+	//Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+}
+
 // ReaperSpec defines the desired state of Reaper
 type ReaperSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+
+	DeploymentConfiguration DeploymentConfiguration `json:"deploymentConfiguration,omitempty"`
 
 	ServerConfig ServerConfig `json:"serverConfig,omitempty" yaml:"serverConfig,omitempty"`
 }

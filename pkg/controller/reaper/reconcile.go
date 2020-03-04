@@ -508,6 +508,7 @@ func (r *deploymentReconciler) newDeployment(reaper *v1alpha1.Reaper) *appsv1.De
 							Name: "reaper",
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Image: ReaperImage,
+							Resources: reaper.Spec.DeploymentConfiguration.PodConfiguration.Resources,
 							Ports: []corev1.ContainerPort{
 								{
 									Name: "ui",

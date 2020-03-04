@@ -9,8 +9,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"testing"
 )
@@ -66,6 +68,7 @@ func TestReconcilers(t *testing.T) {
 	t.Run("ReconcileDeploymentNotFound", testReconcileDeploymentNotFound)
 	t.Run("ReconcileDeploymentNotReady", testReconcileDeploymentNotReady)
 	t.Run("ReconcileDeploymentReady", testReconcileDeploymentReady)
+	t.Run("ReconcileDeploymentWithResourceRequestsAndLimits", testReconcileDeploymentWithResourceRequestsAndLimits)
 }
 
 func testReconcileConfigMapNotFound(t *testing.T) {
@@ -415,6 +418,52 @@ func testReconcileDeploymentReady(t *testing.T) {
 
 	if err != nil {
 		t.Errorf("expected err (nil), got (%s)", err)
+	}
+}
+
+func testReconcileDeploymentWithResourceRequestsAndLimits(t *testing.T) {
+	resourceRequirements := corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU: resource.MustParse("500m"),
+			corev1.ResourceMemory: resource.MustParse("256Mi"),
+		},
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU: resource.MustParse("500m"),
+			corev1.ResourceMemory: resource.MustParse("256Mi"),
+		},
+	}
+
+	reaper := createReaper()
+	reaper.Spec.DeploymentConfiguration.PodConfiguration.Resources = resourceRequirements
+
+	objs := []runtime.Object{reaper}
+
+	r := createDeploymentReconciler(objs...)
+
+	result, err := r.ReconcileDeployment(context.TODO(), reaper)
+
+	if result == nil {
+		t.Errorf("expected non-nil result")
+	} else if !result.Requeue {
+		t.Errorf("expected requeue")
+	}
+
+	if err != nil {
+		t.Errorf("did not expect an error but got: (%s)", err)
+	}
+
+	deployment := &appsv1.Deployment{}
+	if err := r.client.Get(context.TODO(), namespaceName, deployment); err != nil {
+		t.Fatalf("failed to get deployment: (%s)", err)
+	}
+
+	containers := deployment.Spec.Template.Spec.Containers
+	if len(containers) != 1 {
+		t.Fatalf("expected 1 container, found %d", len(containers))
+	}
+
+	if !reflect.DeepEqual(containers[0].Resources, resourceRequirements) {
+		t.Fatalf("ResourceRequirements do not match: expected (%+v), got (%+v)", resourceRequirements, containers[0].Resources)
 	}
 }
 
