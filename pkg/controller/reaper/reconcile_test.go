@@ -434,7 +434,7 @@ func testReconcileDeploymentWithResourceRequestsAndLimits(t *testing.T) {
 	}
 
 	reaper := createReaper()
-	reaper.Spec.DeploymentConfiguration.PodConfiguration.Resources = resourceRequirements
+	reaper.Spec.DeploymentConfiguration.Resources = resourceRequirements
 
 	objs := []runtime.Object{reaper}
 

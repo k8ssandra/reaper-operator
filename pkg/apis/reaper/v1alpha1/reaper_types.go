@@ -171,9 +171,10 @@ type AutoScheduling struct {
 }
 
 type DeploymentConfiguration struct {
-	Strategy appsv1.DeploymentStrategy `json:"strategy,omitempty"`
+	DeploymentStrategy appsv1.DeploymentStrategy `json:"strategy,omitempty"`
 
-	PodConfiguration PodConfiguration `json:"podConfiguration,omitempty"`
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+	
 }
 
 type PodConfiguration struct {

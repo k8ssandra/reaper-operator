@@ -6,11 +6,10 @@ spec:
   serverConfig:
     storageType: memory
   deploymentConfiguration:
-    podConfiguration:
-      resources:
-        requests:
-          memory: 512Mi
-          cpu: 750m
-        limits:
-          memory: 512Mi
-          cpu: 750m
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: 750m
+      limits:
+        memory: 512Mi
+        cpu: 750m
