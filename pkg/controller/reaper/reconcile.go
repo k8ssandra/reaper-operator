@@ -550,6 +550,7 @@ func (r *deploymentReconciler) newDeployment(reaper *v1alpha1.Reaper) *appsv1.De
 							},
 						},
 					},
+					Affinity: reaper.Spec.DeploymentConfiguration.Affinity,
 				},
 			},
 		},

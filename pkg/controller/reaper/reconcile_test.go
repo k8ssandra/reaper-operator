@@ -68,7 +68,8 @@ func TestReconcilers(t *testing.T) {
 	t.Run("ReconcileDeploymentNotFound", testReconcileDeploymentNotFound)
 	t.Run("ReconcileDeploymentNotReady", testReconcileDeploymentNotReady)
 	t.Run("ReconcileDeploymentReady", testReconcileDeploymentReady)
-	t.Run("ReconcileDeploymentWithResourceRequestsAndLimits", testReconcileDeploymentWithResourceRequestsAndLimits)
+	t.Run("DeploymentResourceRequirements", testDeploymentResourceRequirements)
+	t.Run("DeploymentAffinity", testDeploymentAffinity)
 }
 
 func testReconcileConfigMapNotFound(t *testing.T) {
@@ -421,49 +422,79 @@ func testReconcileDeploymentReady(t *testing.T) {
 	}
 }
 
-func testReconcileDeploymentWithResourceRequestsAndLimits(t *testing.T) {
-	resourceRequirements := corev1.ResourceRequirements{
-		Limits: corev1.ResourceList{
-			corev1.ResourceCPU: resource.MustParse("500m"),
-			corev1.ResourceMemory: resource.MustParse("256Mi"),
+func testDeploymentResourceRequirements(t *testing.T) {
+	r := createDeploymentReconciler()
+
+	reaper := &v1alpha1.Reaper{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
 		},
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU: resource.MustParse("500m"),
-			corev1.ResourceMemory: resource.MustParse("256Mi"),
+		Spec: v1alpha1.ReaperSpec{
+			DeploymentConfiguration: v1alpha1.DeploymentConfiguration{
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("500m"),
+						corev1.ResourceMemory: resource.MustParse("256Mi"),
+					},
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("500m"),
+						corev1.ResourceMemory: resource.MustParse("256Mi"),
+					},
+				},
+			},
 		},
 	}
 
-	reaper := createReaper()
-	reaper.Spec.DeploymentConfiguration.Resources = resourceRequirements
-
-	objs := []runtime.Object{reaper}
-
-	r := createDeploymentReconciler(objs...)
-
-	result, err := r.ReconcileDeployment(context.TODO(), reaper)
-
-	if result == nil {
-		t.Errorf("expected non-nil result")
-	} else if !result.Requeue {
-		t.Errorf("expected requeue")
-	}
-
-	if err != nil {
-		t.Errorf("did not expect an error but got: (%s)", err)
-	}
-
-	deployment := &appsv1.Deployment{}
-	if err := r.client.Get(context.TODO(), namespaceName, deployment); err != nil {
-		t.Fatalf("failed to get deployment: (%s)", err)
-	}
+	deployment := r.newDeployment(reaper)
 
 	containers := deployment.Spec.Template.Spec.Containers
 	if len(containers) != 1 {
 		t.Fatalf("expected 1 container, found %d", len(containers))
 	}
+	if !reflect.DeepEqual(reaper.Spec.DeploymentConfiguration.Resources, containers[0].Resources) {
+		t.Errorf("ResourceRequirements do not match: expected (%+v), got (%+v)", reaper.Spec.DeploymentConfiguration.Resources, containers[0].Resources)
+	}
+}
 
-	if !reflect.DeepEqual(containers[0].Resources, resourceRequirements) {
-		t.Fatalf("ResourceRequirements do not match: expected (%+v), got (%+v)", resourceRequirements, containers[0].Resources)
+func testDeploymentAffinity(t *testing.T) {
+	r := createDeploymentReconciler()
+
+	reaper := &v1alpha1.Reaper{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+		Spec: v1alpha1.ReaperSpec{
+			DeploymentConfiguration: v1alpha1.DeploymentConfiguration{
+				Affinity: &corev1.Affinity{
+					PodAffinity: &corev1.PodAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+							{
+								LabelSelector: &metav1.LabelSelector{
+									MatchExpressions: []metav1.LabelSelectorRequirement{
+										{
+											Key: "datacenter",
+											Operator: metav1.LabelSelectorOpIn,
+											Values: []string{"dc1"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	deployment := r.newDeployment(reaper)
+
+	expected := reaper.Spec.DeploymentConfiguration.Affinity
+	actual := deployment.Spec.Template.Spec.Affinity
+
+	if !reflect.DeepEqual(expected, actual) {
+		t.Errorf("Affinity does not match: expected (%+v), got (%+v)", expected, actual)
 	}
 }
 

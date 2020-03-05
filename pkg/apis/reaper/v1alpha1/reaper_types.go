@@ -1,9 +1,9 @@
 package v1alpha1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	corev1 "k8s.io/api/core/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -174,15 +174,8 @@ type DeploymentConfiguration struct {
 	DeploymentStrategy appsv1.DeploymentStrategy `json:"strategy,omitempty"`
 
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
-	
-}
 
-type PodConfiguration struct {
-	//Affinity *corev1.Affinity `json:"affinity,omitempty"`
-
-	//Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
-
-	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 }
 
 // ReaperSpec defines the desired state of Reaper
