@@ -55,6 +55,11 @@ func RemoveCondition(status *v1alpha1.ReaperStatus, condType v1alpha1.ReaperCond
 	status.Conditions = filterOutCondition(status.Conditions, condType)
 }
 
+func SetConfigurationUpdatedCondition(status *v1alpha1.ReaperStatus) {
+	cond := NewCondition(v1alpha1.ConfigurationUpdated, corev1.ConditionTrue, ConfigurationUpdatedReason, ConfigurationUpdatedMessage)
+	SetCondition(status, cond)
+}
+
 func filterOutCondition(conditions []v1alpha1.ReaperCondition, condType v1alpha1.ReaperConditionType) []v1alpha1.ReaperCondition {
 	var newConditions []v1alpha1.ReaperCondition
 	for _, c := range conditions {

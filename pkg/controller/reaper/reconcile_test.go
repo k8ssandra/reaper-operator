@@ -68,6 +68,7 @@ func TestReconcilers(t *testing.T) {
 	t.Run("ReconcileDeploymentNotFound", testReconcileDeploymentNotFound)
 	t.Run("ReconcileDeploymentNotReady", testReconcileDeploymentNotReady)
 	t.Run("ReconcileDeploymentReady", testReconcileDeploymentReady)
+	t.Run("ReconcileDeploymentReadyRestartRequired", testReconcileDeploymentReadyRestartRequired)
 	t.Run("DeploymentResourceRequirements", testDeploymentResourceRequirements)
 	t.Run("DeploymentAffinity", testDeploymentAffinity)
 }
@@ -400,6 +401,8 @@ func testReconcileDeploymentNotReady(t *testing.T) {
 	}
 }
 
+// This test covers the base scenario in which a Reaper object has been created and
+// now the Deployment is ready.
 func testReconcileDeploymentReady(t *testing.T) {
 	reaper := createReaper()
 	deployment := createReadyDeployment(reaper)
@@ -410,7 +413,6 @@ func testReconcileDeploymentReady(t *testing.T) {
 	objs := []runtime.Object{reaper, deployment}
 
 	r := createDeploymentReconciler(objs...)
-
 	result, err := r.ReconcileDeployment(context.TODO(), reaper)
 
 	if result != nil {
@@ -419,6 +421,44 @@ func testReconcileDeploymentReady(t *testing.T) {
 
 	if err != nil {
 		t.Errorf("expected err (nil), got (%s)", err)
+	}
+}
+
+// This tests the scenario in which the Reaper configuration has been updated
+// and an application restart is required in order to reload the changes.
+func testReconcileDeploymentReadyRestartRequired(t *testing.T) {
+	reaper := createReaper()
+	deployment := createReadyDeployment(reaper)
+
+	objs := []runtime.Object{reaper, deployment}
+
+	SetConfigurationUpdatedCondition(&reaper.Status)
+
+	r := createDeploymentReconciler(objs...)
+	result, err := r.ReconcileDeployment(context.TODO(), reaper)
+
+	if result == nil {
+		t.Errorf("expected non-nil result")
+	} else if !result.Requeue {
+		t.Errorf("expected requeue")
+	}
+
+	if err != nil {
+		t.Errorf("expected err (nil), got (%s)", err)
+	}
+
+	cond := GetCondition(&reaper.Status, v1alpha1.ConfigurationUpdated)
+	if cond == nil {
+		t.Errorf("expected to find condition (%s)", v1alpha1.ConfigurationUpdated)
+	} else if cond.Reason != RestartRequiredReason {
+		t.Errorf("condition %s reason is wrong: expected (%s), got (%s)", v1alpha1.ConfigurationUpdated, RestartRequiredReason, cond.Reason)
+	}
+
+	deployment = &appsv1.Deployment{}
+	if err := r.client.Get(context.TODO(), namespaceName, deployment); err != nil {
+		t.Errorf("failed to get deployment: (%s)", err)
+	} else if _, found := deployment.Spec.Template.Annotations[reaperRestartedAt]; !found {
+		t.Errorf("expected to find deployment annotation: (%s)", reaperRestartedAt)
 	}
 }
 

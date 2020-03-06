@@ -27,6 +27,10 @@ import (
 
 var logger = logf.Log.WithName("reconcile")
 
+const (
+	reaperRestartedAt = "cassandra-reaper.io/restartedAt"
+)
+
 type ReaperConfigMapReconciler interface {
 	// Called to reconcile the Reaper ConfigMap. Note that reconciliation will continue after calling this function
 	// only when both return values are nil.
@@ -154,8 +158,7 @@ func (r *configMapReconciler) ReconcileConfigMap(ctx context.Context, reaper *v1
 				return &reconcile.Result{}, err
 			} else {
 				reaper.Status.Configuration = hash
-				cond := NewCondition(v1alpha1.ConfigurationUpdated, corev1.ConditionTrue, ConfigurationUpdatedReason, ConfigurationUpdatedMessage)
-				SetCondition(&reaper.Status, cond)
+				SetConfigurationUpdatedCondition(&reaper.Status)
 				if err = r.client.Status().Update(ctx, reaper); err != nil {
 					reqLogger.Error(err, "failed to update status")
 					return &reconcile.Result{}, err
@@ -561,7 +564,7 @@ func (r *deploymentReconciler) restart(ctx context.Context, deployment *appsv1.D
 	if deployment.Spec.Template.Annotations == nil {
 		deployment.Spec.Template.Annotations = make(map[string]string)
 	}
-	deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
+	deployment.Spec.Template.Annotations[reaperRestartedAt] = time.Now().Format(time.RFC3339)
 	return r.client.Update(ctx, deployment)
 }
 
