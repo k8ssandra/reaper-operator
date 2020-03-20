@@ -44,6 +44,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 		serviceReconciler: NewServiceReconciler(mgr.GetClient(), mgr.GetScheme()),
 		schemaReconciler: NewSchemaReconciler(mgr.GetClient(), mgr.GetScheme()),
 		deploymentReconciler: NewDeploymentReconciler(mgr.GetClient(), mgr.GetScheme()),
+		clustersReconciler: NewClustersReconciler(mgr.GetClient(), mgr.GetScheme()),
 	}
 }
 
@@ -83,6 +84,8 @@ type ReconcileReaper struct {
 	schemaReconciler ReaperSchemaReconciler
 
 	deploymentReconciler ReaperDeploymentReconciler
+
+	clustersReconciler ReaperClustersReconciler
 }
 
 // Reconcile reads that state of the cluster for a Reaper object and makes changes based on the state read
@@ -138,6 +141,10 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 	}
 
 	if result, err := r.deploymentReconciler.ReconcileDeployment(ctx, instance); result != nil || err != nil {
+		return *result, err
+	}
+
+	if result, err := r.clustersReconciler.ReconcileClusters(ctx, instance); result != nil || err != nil {
 		return *result, err
 	}
 

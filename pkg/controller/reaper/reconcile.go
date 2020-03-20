@@ -23,6 +23,8 @@ import (
 	"github.com/thelastpickle/reaper-operator/pkg/apis/reaper/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	reapergo "github.com/jsanda/reaper-client-go/reaper"
 )
 
 var logger = logf.Log.WithName("reconcile")
@@ -55,6 +57,10 @@ type ReaperDeploymentReconciler interface {
 	ReconcileDeployment(ctx context.Context, r *v1alpha1.Reaper) (*reconcile.Result, error)
 }
 
+type ReaperClustersReconciler interface {
+	ReconcileClusters(ctx context.Context, r *v1alpha1.Reaper) (*reconcile.Result, error)
+}
+
 type configMapReconciler struct {
 	client client.Client
 
@@ -79,6 +85,12 @@ type deploymentReconciler struct {
 	scheme *runtime.Scheme
 }
 
+type clustersReconciler struct {
+	client client.Client
+
+	scheme *runtime.Scheme
+}
+
 func NewConfigMapReconciler(c client.Client, s *runtime.Scheme) ReaperConfigMapReconciler {
 	return &configMapReconciler{client: c, scheme: s}
 }
@@ -93,6 +105,10 @@ func NewSchemaReconciler(c client.Client, s *runtime.Scheme) ReaperSchemaReconci
 
 func NewDeploymentReconciler(c client.Client, s *runtime.Scheme) ReaperDeploymentReconciler {
 	return &deploymentReconciler{client: c, scheme: s}
+}
+
+func NewClustersReconciler(c client.Client, s *runtime.Scheme) ReaperClustersReconciler {
+	return &clustersReconciler{client: c, scheme: s}
 }
 
 func (r *configMapReconciler) ReconcileConfigMap(ctx context.Context, reaper *v1alpha1.Reaper) (*reconcile.Result, error) {
@@ -566,6 +582,68 @@ func (r *deploymentReconciler) restart(ctx context.Context, deployment *appsv1.D
 	}
 	deployment.Spec.Template.Annotations[reaperRestartedAt] = time.Now().Format(time.RFC3339)
 	return r.client.Update(ctx, deployment)
+}
+
+func (r *clustersReconciler) ReconcileClusters(ctx context.Context, reaper *v1alpha1.Reaper) (*reconcile.Result, error) {
+	reqLogger := getRequestLogger(reaper)
+	reqLogger.Info("Reconciling clusters")
+
+	status := reaper.Status.DeepCopy()
+	var err error
+	var result reconcile.Result
+
+	if cluster := getNextClusterToAdd(reaper); cluster == nil {
+		// TODO check for deletions
+	} else {
+		reqLogger.Info("adding cluster to Reaper!!!!", "CassandraCluster", cluster)
+
+		restClient, err := reapergo.NewClient(fmt.Sprintf("http://%s.%s:8080", reaper.Name, reaper.Namespace))
+		if err != nil {
+			// There was a problem creating the REST client, so we are done
+			reqLogger.Error(err,"failed to create REST client")
+			result = reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}
+		} else {
+			// add the cluster using the REST client
+			seed := fmt.Sprintf("%s.%s", cluster.Service.Name, cluster.Service.Namespace)
+			if err := restClient.AddCluster(ctx, cluster.Name, seed); err == nil {
+				// The cluster was successfully added. Add it to the status. We will requeue until there are no more
+				// clusters to add/delete.
+				status.Clusters = append(status.Clusters, *cluster)
+				result = reconcile.Result{Requeue: true}
+			} else {
+				// Adding the cluster failed, so we need to requeue and try again.
+				reqLogger.Error(err, "failed to add cluster to Reaper", "CassandraCluster", cluster)
+				result = reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}
+			}
+		}
+	}
+
+	newReaper := reaper
+	newReaper.Status = *status
+	if err = r.client.Status().Update(ctx, newReaper); err != nil {
+		reqLogger.Error(err, "failed to update status")
+		result = reconcile.Result{Requeue: true}
+	}
+
+	return &result, err
+}
+
+func getNextClusterToAdd(reaper *v1alpha1.Reaper) *v1alpha1.CassandraCluster {
+	for _, cc := range reaper.Spec.Clusters {
+		if !statusContainsCluster(&reaper.Status, &cc) {
+			return &cc
+		}
+	}
+	return nil
+}
+
+func statusContainsCluster(status *v1alpha1.ReaperStatus, cluster *v1alpha1.CassandraCluster) bool {
+	for _, cc := range status.Clusters {
+		if cc == *cluster {
+			return true
+		}
+	}
+	return false
 }
 
 func getRequestLogger(reaper *v1alpha1.Reaper) logr.Logger {

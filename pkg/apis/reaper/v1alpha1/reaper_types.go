@@ -178,6 +178,16 @@ type DeploymentConfiguration struct {
 	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 }
 
+type CassandraCluster struct {
+	Name    string `json:"name"`
+	Service CassandraService `json:"service"`
+}
+
+type CassandraService struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace,omitempty"`
+}
+
 // ReaperSpec defines the desired state of Reaper
 type ReaperSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -187,6 +197,8 @@ type ReaperSpec struct {
 	DeploymentConfiguration DeploymentConfiguration `json:"deploymentConfiguration,omitempty"`
 
 	ServerConfig ServerConfig `json:"serverConfig,omitempty" yaml:"serverConfig,omitempty"`
+
+	Clusters []CassandraCluster `json:"clusters,omitempty"`
 }
 
 type ReaperConditionType string
@@ -244,6 +256,8 @@ type ReaperStatus struct {
 	// this value, it will trigger an update of Reaper's configuration file followed by a restart of Reaper
 	// itself.
 	Configuration string `json:"configuration,omitempty"`
+
+	Clusters []CassandraCluster `json:"clusters,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
