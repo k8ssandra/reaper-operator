@@ -1,7 +1,6 @@
 package v1alpha1
 
 import (
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -33,7 +32,7 @@ type ServerConfig struct {
 
 	StorageType StorageType `json:"storageType,omitempty" yaml:"storageType,omitempty"`
 
-	CassandraBackend *CassandraBackend `json:"cassandraBackend" yaml:"cassandra,omitempty"`
+	CassandraBackend *CassandraBackend `json:"cassandraBackend,omitempty" yaml:"cassandra,omitempty"`
 
 	// The amount of time in minutes to wait for a single repair to finish. Defaults to 30. If this timeout is reached,
 	// the repair segment in question will be cancelled, if possible, and then scheduled for later repair again within
@@ -171,7 +170,7 @@ type AutoScheduling struct {
 }
 
 type DeploymentConfiguration struct {
-	DeploymentStrategy appsv1.DeploymentStrategy `json:"strategy,omitempty"`
+	//DeploymentStrategy appsv1.DeploymentStrategy `json:"strategy,omitempty"`
 
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 
