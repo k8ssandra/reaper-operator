@@ -875,10 +875,6 @@ spec:
                 state.
               items:
                 properties:
-                  lastProbeTime:
-                    description: Last time the condition was checked.
-                    format: date-time
-                    type: string
                   lastTransitionTime:
                     description: Last time the condition transit from one status to
                       another.
