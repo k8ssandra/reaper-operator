@@ -82,6 +82,29 @@ func WaitForReaperToBeReady(t *testing.T,
 	})
 }
 
+func WaitForReaperCondition(t *testing.T,
+	f *framework.Framework,
+	namespace string,
+	name string,
+	retryInterval time.Duration,
+	timeout time.Duration,
+	condition ReaperConditionFunc) error {
+
+	return wait.Poll(retryInterval, timeout, func() (done bool, err error) {
+		reaper := &v1alpha1.Reaper{}
+
+		if err := f.Client.Get(goctx.TODO(), types.NamespacedName{Namespace: namespace, Name: name}, reaper); err!= nil {
+			if apierrors.IsNotFound(err) {
+				t.Logf("Reaper %s not found\n", name)
+				return false, nil
+			}
+			return false, nil
+		}
+
+		return condition(reaper)
+	})
+}
+
 func WaitForDeploymentToBeDeleted(t *testing.T,
 	f *framework.Framework,
 	namespace string,

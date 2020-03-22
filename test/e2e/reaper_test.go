@@ -2,11 +2,13 @@ package e2e
 
 import (
 	goctx "context"
+	"fmt"
 	casskopapi "github.com/Orange-OpenSource/cassandra-k8s-operator/pkg/apis"
 	casskop "github.com/Orange-OpenSource/cassandra-k8s-operator/pkg/apis/db/v1alpha1"
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	"github.com/thelastpickle/reaper-operator/pkg/apis"
 	"github.com/thelastpickle/reaper-operator/test/e2eutil"
+	"golang.org/x/net/context"
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,6 +18,8 @@ import (
 	deploymentutil "k8s.io/kubernetes/pkg/controller/deployment/util"
 
 	"github.com/thelastpickle/reaper-operator/pkg/apis/reaper/v1alpha1"
+
+	reapergo "github.com/jsanda/reaper-client-go/reaper"
 )
 
 const (
@@ -153,6 +157,117 @@ func TestDeployReaperWithCassandraBackend(t *testing.T) {
 
 	if err = e2eutil.WaitForReaperToBeReady(t, f, reaper.Namespace, reaper.Name, 3 * time.Second, 3 * time.Minute); err != nil {
 		t.Fatalf("Timed out waiting for Reaper (%s) to be ready: %s\n", reaper.Name, err)
+	}
+}
+
+func TestAddDeleteManagedCluster(t *testing.T) {
+	reaperList := &v1alpha1.ReaperList{}
+	if err := framework.AddToFrameworkScheme(apis.AddToScheme, reaperList); err != nil {
+		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
+	}
+
+	ccList := &casskop.CassandraClusterList{}
+	if err := framework.AddToFrameworkScheme(casskopapi.AddToScheme, ccList); err != nil {
+		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
+	}
+
+	ctx, f := e2eutil.InitOperator(t)
+	defer ctx.Cleanup()
+
+	namespace, err := ctx.GetNamespace()
+	if err != nil {
+		t.Fatalf("Failed to get namespace: %s", err)
+	}
+
+	if err := createCassandraCluster(cassandraClusterName, namespace, f, ctx); err != nil {
+		t.Fatalf("Failed to create CassandraCluster: %s", err)
+	}
+
+	if err := e2eutil.WaitForCassKopCluster(t, f, namespace, cassandraClusterName, 10 * time.Second, 3 * time.Minute); err != nil {
+		t.Fatalf("Failed waiting for CassandraCluster to become ready: %s\n", err)
+	}
+
+	reaper := v1alpha1.Reaper{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Reaper",
+			APIVersion: "reaper.cassandra-reaper.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "reaper-e2e",
+			Namespace: namespace,
+		},
+		Spec: v1alpha1.ReaperSpec{
+			ServerConfig: v1alpha1.ServerConfig{
+				StorageType: "memory",
+			},
+			Clusters: []v1alpha1.CassandraCluster{
+				{
+					Name: cassandraClusterName,
+					Service: v1alpha1.CassandraService{
+						Name: cassandraClusterName,
+						Namespace: namespace,
+					},
+				},
+			},
+		},
+	}
+
+	cleanup := &framework.CleanupOptions{TestContext: ctx, Timeout: time.Second * 5, RetryInterval: time.Second * 1}
+	if err = f.Client.Create(goctx.TODO(), &reaper, cleanup); err != nil {
+		t.Fatalf("Failed to create Reaper: %s\n", err)
+	}
+
+	if err = f.Client.Create(goctx.TODO(), &reaper, cleanupWithPolling(ctx)); err != nil {
+		t.Fatalf("Failed to create Reaper: %s\n", err)
+	}
+
+	if err = e2eutil.WaitForReaperToBeReady(t, f, reaper.Namespace, reaper.Name, 3 * time.Second, 3 * time.Minute); err != nil {
+		t.Fatalf("Timed out waiting for Reaper (%s) to be ready: %s\n", reaper.Name, err)
+	}
+
+	clusterAdded := func(reaper *v1alpha1.Reaper) (bool, error) {
+		for _, cc := range reaper.Status.Clusters {
+			if cc.Name == cassandraClusterName {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+
+	if err = e2eutil.WaitForReaperCondition(t, f, reaper.Namespace, reaper.Name, 1 * time.Second, 30 * time.Second, clusterAdded); err != nil {
+		t.Errorf("Timed out waiting for status to be updated after adding cluster: %s", err)
+	}
+
+	restClient, err := reapergo.NewClient(fmt.Sprintf("http://%s.%s:8080", reaper.Name, reaper.Namespace))
+	if err != nil {
+		t.Fatalf("Failed to create REST client: %s", err)
+	}
+
+	if clusters, err := restClient.GetClustersSync(context.TODO()); err == nil {
+		if len(clusters) != 1 {
+			t.Errorf("expected to find one cluster, but found %d: %+v", len(clusters), clusters)
+		} else if clusters[0].Name != cassandraClusterName {
+			t.Errorf("cluster name does not match. expected (%s) but found (%s)", cassandraClusterName, clusters[0].Name)
+		}
+	}
+
+	clusterDeleted := func(reaper *v1alpha1.Reaper) (bool, error) {
+		for _, cc := range reaper.Status.Clusters {
+			if cc.Name == cassandraClusterName {
+				return false, nil
+			}
+		}
+		return true, nil
+	}
+
+	if err = e2eutil.WaitForReaperCondition(t, f, reaper.Namespace, reaper.Name, 1 * time.Second, 30 * time.Second, clusterDeleted); err != nil {
+		t.Errorf("Timed out waiting for status to be updated after deleting cluster: %s", err)
+	}
+
+	if clusters, err := restClient.GetClustersSync(context.TODO()); err == nil {
+		if len(clusters) != 0 {
+			t.Errorf("expected to find zero clusters, but found %d: %+v", len(clusters), clusters)
+		}
 	}
 }
 
