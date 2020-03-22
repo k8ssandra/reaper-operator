@@ -593,9 +593,28 @@ func (r *clustersReconciler) ReconcileClusters(ctx context.Context, reaper *v1al
 	var result reconcile.Result
 
 	if cluster := getNextClusterToAdd(reaper); cluster == nil {
-		// TODO check for deletions
+		if cluster = getNextClusterToDelete(reaper); cluster == nil {
+			// There is no more work to do
+			result = reconcile.Result{Requeue: false}
+		} else {
+			reqLogger.Info("deleting cluster", "CassandraCluster", cluster)
+
+			restClient, err := reapergo.NewClient(fmt.Sprintf("http://%s.%s:8080", reaper.Name, reaper.Namespace))
+			if err != nil {
+				// There was a problem creating the REST client, so we are done
+				reqLogger.Error(err,"failed to create REST client")
+				result = reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}
+			} else {
+				if err = restClient.DeleteCluster(ctx, cluster.Name); err == nil {
+					status.Clusters = removeCluster(status.Clusters, *cluster)
+					result = reconcile.Result{Requeue: true}
+				} else {
+					reqLogger.Error(err,"failed to delete cluster", "CassandraCluster", cluster)
+				}
+			}
+		}
 	} else {
-		reqLogger.Info("adding cluster to Reaper!!!!", "CassandraCluster", cluster)
+		reqLogger.Info("adding cluster", "CassandraCluster", cluster)
 
 		restClient, err := reapergo.NewClient(fmt.Sprintf("http://%s.%s:8080", reaper.Name, reaper.Namespace))
 		if err != nil {
@@ -612,7 +631,7 @@ func (r *clustersReconciler) ReconcileClusters(ctx context.Context, reaper *v1al
 				result = reconcile.Result{Requeue: true}
 			} else {
 				// Adding the cluster failed, so we need to requeue and try again.
-				reqLogger.Error(err, "failed to add cluster to Reaper", "CassandraCluster", cluster)
+				reqLogger.Error(err, "failed to add cluster", "CassandraCluster", cluster)
 				result = reconcile.Result{Requeue: true, RequeueAfter: 5 * time.Second}
 			}
 		}
@@ -630,20 +649,40 @@ func (r *clustersReconciler) ReconcileClusters(ctx context.Context, reaper *v1al
 
 func getNextClusterToAdd(reaper *v1alpha1.Reaper) *v1alpha1.CassandraCluster {
 	for _, cc := range reaper.Spec.Clusters {
-		if !statusContainsCluster(&reaper.Status, &cc) {
+		if !containsCluster(reaper.Status.Clusters, cc) {
 			return &cc
 		}
 	}
 	return nil
 }
 
-func statusContainsCluster(status *v1alpha1.ReaperStatus, cluster *v1alpha1.CassandraCluster) bool {
-	for _, cc := range status.Clusters {
-		if cc == *cluster {
+func getNextClusterToDelete(reaper *v1alpha1.Reaper) *v1alpha1.CassandraCluster {
+	for _, cc := range reaper.Status.Clusters {
+		if !containsCluster(reaper.Spec.Clusters, cc) {
+			return &cc
+		}
+	}
+	return nil
+}
+
+func containsCluster(clusters []v1alpha1.CassandraCluster, cluster v1alpha1.CassandraCluster) bool {
+	for _, cc := range clusters {
+		if cc == cluster {
 			return true
 		}
 	}
 	return false
+}
+
+func removeCluster(clusters []v1alpha1.CassandraCluster, cluster v1alpha1.CassandraCluster) []v1alpha1.CassandraCluster {
+	var newClusters []v1alpha1.CassandraCluster
+	for _, cc := range clusters {
+		if cc == cluster {
+			continue
+		}
+		newClusters = append(newClusters, cc)
+	}
+	return newClusters
 }
 
 func getRequestLogger(reaper *v1alpha1.Reaper) logr.Logger {
