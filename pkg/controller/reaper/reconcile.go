@@ -599,7 +599,7 @@ func (r *clustersReconciler) ReconcileClusters(ctx context.Context, reaper *v1al
 		} else {
 			reqLogger.Info("deleting cluster", "CassandraCluster", cluster)
 
-			restClient, err := reapergo.NewClient(fmt.Sprintf("http://%s.%s:8080", reaper.Name, reaper.Namespace))
+			restClient, err := createRESTClient(reaper)
 			if err != nil {
 				// There was a problem creating the REST client, so we are done
 				reqLogger.Error(err,"failed to create REST client")
@@ -616,7 +616,7 @@ func (r *clustersReconciler) ReconcileClusters(ctx context.Context, reaper *v1al
 	} else {
 		reqLogger.Info("adding cluster", "CassandraCluster", cluster)
 
-		restClient, err := reapergo.NewClient(fmt.Sprintf("http://%s.%s:8080", reaper.Name, reaper.Namespace))
+		restClient, err := createRESTClient(reaper)
 		if err != nil {
 			// There was a problem creating the REST client, so we are done
 			reqLogger.Error(err,"failed to create REST client")
@@ -645,6 +645,14 @@ func (r *clustersReconciler) ReconcileClusters(ctx context.Context, reaper *v1al
 	}
 
 	return &result, err
+}
+
+func createRESTClient(reaper *v1alpha1.Reaper) (*reapergo.Client, error) {
+	if client, err := reapergo.NewClient(fmt.Sprintf("http://%s.%s:8080", reaper.Name, reaper.Namespace)); err == nil {
+		return client, nil
+	} else {
+		return nil, fmt.Errorf("failed to create REST client: %w", err)
+	}
 }
 
 func getNextClusterToAdd(reaper *v1alpha1.Reaper) *v1alpha1.CassandraCluster {
