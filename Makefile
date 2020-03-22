@@ -1,4 +1,4 @@
-ORG=thelastpickle
+ORG?=thelastpickle
 PROJECT=reaper-operator
 REG=docker.io
 SHELL=/bin/bash
