@@ -23,7 +23,8 @@ import (
 )
 
 const (
-	cassandraClusterName = "reaper-cluster"
+	cassandraClusterName =          "reaper-cluster"
+	cassandraClusterCreateTimeout = 5 * time.Minute
 )
 
 var (
@@ -126,7 +127,7 @@ func TestDeployReaperWithCassandraBackend(t *testing.T) {
 		t.Fatalf("Failed to create CassandraCluster: %s", err)
 	}
 
-	if err := e2eutil.WaitForCassKopCluster(t, f, namespace, cassandraClusterName, 10 * time.Second, 3 * time.Minute); err != nil {
+	if err := e2eutil.WaitForCassKopCluster(t, f, namespace, cassandraClusterName, 10 * time.Second, cassandraClusterCreateTimeout); err != nil {
 		t.Fatalf("Failed waiting for CassandraCluster to become ready: %s\n", err)
 	}
 
@@ -183,7 +184,7 @@ func TestAddDeleteManagedCluster(t *testing.T) {
 		t.Fatalf("Failed to create CassandraCluster: %s", err)
 	}
 
-	if err := e2eutil.WaitForCassKopCluster(t, f, namespace, cassandraClusterName, 10 * time.Second, 3 * time.Minute); err != nil {
+	if err := e2eutil.WaitForCassKopCluster(t, f, namespace, cassandraClusterName, 10 * time.Second, cassandraClusterCreateTimeout); err != nil {
 		t.Fatalf("Failed waiting for CassandraCluster to become ready: %s\n", err)
 	}
 
@@ -214,10 +215,6 @@ func TestAddDeleteManagedCluster(t *testing.T) {
 
 	cleanup := &framework.CleanupOptions{TestContext: ctx, Timeout: time.Second * 5, RetryInterval: time.Second * 1}
 	if err = f.Client.Create(goctx.TODO(), &reaper, cleanup); err != nil {
-		t.Fatalf("Failed to create Reaper: %s\n", err)
-	}
-
-	if err = f.Client.Create(goctx.TODO(), &reaper, cleanupWithPolling(ctx)); err != nil {
 		t.Fatalf("Failed to create Reaper: %s\n", err)
 	}
 
