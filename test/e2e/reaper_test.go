@@ -2,29 +2,26 @@ package e2e
 
 import (
 	goctx "context"
-	"fmt"
 	casskopapi "github.com/Orange-OpenSource/cassandra-k8s-operator/pkg/apis"
 	casskop "github.com/Orange-OpenSource/cassandra-k8s-operator/pkg/apis/db/v1alpha1"
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	"github.com/thelastpickle/reaper-operator/pkg/apis"
 	"github.com/thelastpickle/reaper-operator/test/e2eutil"
-	"golang.org/x/net/context"
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	deploymentutil "k8s.io/kubernetes/pkg/controller/deployment/util"
 	"testing"
 	"time"
-	deploymentutil "k8s.io/kubernetes/pkg/controller/deployment/util"
 
 	"github.com/thelastpickle/reaper-operator/pkg/apis/reaper/v1alpha1"
-
-	reapergo "github.com/jsanda/reaper-client-go/reaper"
 )
 
 const (
-	cassandraClusterName =          "reaper-cluster"
-	cassandraClusterCreateTimeout = 5 * time.Minute
+	cassandraClusterName  = "reaper-cluster"
+	cassandraReadyTimeout = 5 * time.Minute
+	reaperReadyTimeout    = 5 * time.Minute
 )
 
 var (
@@ -76,7 +73,7 @@ func TestDeployReaperWithMemoryBackend(t *testing.T) {
 		t.Fatalf("Failed to create Reaper: %s\n", err)
 	}
 
-	if err = e2eutil.WaitForReaperToBeReady(t, f, reaper.Namespace, reaper.Name, 3 * time.Second, 3 * time.Minute); err != nil {
+	if err = e2eutil.WaitForReaperToBeReady(t, f, reaper.Namespace, reaper.Name, 3 * time.Second, reaperReadyTimeout); err != nil {
 		t.Fatalf("Timed out waiting for Reaper (%s) to be ready: %s\n", reaper.Name, err)
 	}
 
@@ -127,7 +124,7 @@ func TestDeployReaperWithCassandraBackend(t *testing.T) {
 		t.Fatalf("Failed to create CassandraCluster: %s", err)
 	}
 
-	if err := e2eutil.WaitForCassKopCluster(t, f, namespace, cassandraClusterName, 10 * time.Second, cassandraClusterCreateTimeout); err != nil {
+	if err := e2eutil.WaitForCassKopCluster(t, f, namespace, cassandraClusterName, 10 * time.Second, cassandraReadyTimeout); err != nil {
 		t.Fatalf("Failed waiting for CassandraCluster to become ready: %s\n", err)
 	}
 
@@ -156,7 +153,7 @@ func TestDeployReaperWithCassandraBackend(t *testing.T) {
 		t.Fatalf("Failed to create Reaper: %s\n", err)
 	}
 
-	if err = e2eutil.WaitForReaperToBeReady(t, f, reaper.Namespace, reaper.Name, 3 * time.Second, 3 * time.Minute); err != nil {
+	if err = e2eutil.WaitForReaperToBeReady(t, f, reaper.Namespace, reaper.Name, 3 * time.Second, reaperReadyTimeout); err != nil {
 		t.Fatalf("Timed out waiting for Reaper (%s) to be ready: %s\n", reaper.Name, err)
 	}
 }
@@ -184,7 +181,7 @@ func TestAddDeleteManagedCluster(t *testing.T) {
 		t.Fatalf("Failed to create CassandraCluster: %s", err)
 	}
 
-	if err := e2eutil.WaitForCassKopCluster(t, f, namespace, cassandraClusterName, 10 * time.Second, cassandraClusterCreateTimeout); err != nil {
+	if err := e2eutil.WaitForCassKopCluster(t, f, namespace, cassandraClusterName, 10 * time.Second, cassandraReadyTimeout); err != nil {
 		t.Fatalf("Failed waiting for CassandraCluster to become ready: %s\n", err)
 	}
 
@@ -218,7 +215,7 @@ func TestAddDeleteManagedCluster(t *testing.T) {
 		t.Fatalf("Failed to create Reaper: %s\n", err)
 	}
 
-	if err = e2eutil.WaitForReaperToBeReady(t, f, reaper.Namespace, reaper.Name, 3 * time.Second, 3 * time.Minute); err != nil {
+	if err = e2eutil.WaitForReaperToBeReady(t, f, reaper.Namespace, reaper.Name, 3 * time.Second, reaperReadyTimeout); err != nil {
 		t.Fatalf("Timed out waiting for Reaper (%s) to be ready: %s\n", reaper.Name, err)
 	}
 
@@ -231,21 +228,25 @@ func TestAddDeleteManagedCluster(t *testing.T) {
 		return false, nil
 	}
 
-	if err = e2eutil.WaitForReaperCondition(t, f, reaper.Namespace, reaper.Name, 1 * time.Second, 30 * time.Second, clusterAdded); err != nil {
+	clusterStatusTimeout := 1 * time.Minute
+
+	if err = e2eutil.WaitForReaperCondition(t, f, reaper.Namespace, reaper.Name, 1 * time.Second, clusterStatusTimeout, clusterAdded); err != nil {
 		t.Errorf("Timed out waiting for status to be updated after adding cluster: %s", err)
 	}
 
-	restClient, err := reapergo.NewClient(fmt.Sprintf("http://%s.%s:8080", reaper.Name, reaper.Namespace))
-	if err != nil {
-		t.Fatalf("Failed to create REST client: %s", err)
+	// Now we need to remove the cluster from the spec. First, we need to reload the Reaper
+	// object so that we have the latest version. Then we simply reassign .Spec.Clusters to an
+	// empty slice which effectively removes the cluster.
+	
+	name := reaper.Name
+	reaper = v1alpha1.Reaper{}
+	if err := f.Client.Get(goctx.TODO(), types.NamespacedName{Namespace: namespace, Name: name}, &reaper); err!= nil {
+		t.Fatalf("failed to reload Reaper before deleting cluster: %s", err)
 	}
 
-	if clusters, err := restClient.GetClustersSync(context.TODO()); err == nil {
-		if len(clusters) != 1 {
-			t.Errorf("expected to find one cluster, but found %d: %+v", len(clusters), clusters)
-		} else if clusters[0].Name != cassandraClusterName {
-			t.Errorf("cluster name does not match. expected (%s) but found (%s)", cassandraClusterName, clusters[0].Name)
-		}
+	reaper.Spec.Clusters = []v1alpha1.CassandraCluster{}
+	if err = f.Client.Update(goctx.TODO(), &reaper); err != nil {
+		t.Fatalf("failed to update Reaper after removing cluster: %s", err)
 	}
 
 	clusterDeleted := func(reaper *v1alpha1.Reaper) (bool, error) {
@@ -257,14 +258,8 @@ func TestAddDeleteManagedCluster(t *testing.T) {
 		return true, nil
 	}
 
-	if err = e2eutil.WaitForReaperCondition(t, f, reaper.Namespace, reaper.Name, 1 * time.Second, 30 * time.Second, clusterDeleted); err != nil {
+	if err = e2eutil.WaitForReaperCondition(t, f, reaper.Namespace, reaper.Name, 1 * time.Second, clusterStatusTimeout, clusterDeleted); err != nil {
 		t.Errorf("Timed out waiting for status to be updated after deleting cluster: %s", err)
-	}
-
-	if clusters, err := restClient.GetClustersSync(context.TODO()); err == nil {
-		if len(clusters) != 0 {
-			t.Errorf("expected to find zero clusters, but found %d: %+v", len(clusters), clusters)
-		}
 	}
 }
 
@@ -302,7 +297,7 @@ func TestUpdateReaperConfiguration(t *testing.T) {
 		t.Fatalf("Failed to create Reaper: %s\n", err)
 	}
 
-	if err = e2eutil.WaitForReaperToBeReady(t, f, reaper.Namespace, reaper.Name, 3 * time.Second, 3 * time.Minute); err != nil {
+	if err = e2eutil.WaitForReaperToBeReady(t, f, reaper.Namespace, reaper.Name, 3 * time.Second, reaperReadyTimeout); err != nil {
 		t.Fatalf("Timed out waiting for Reaper (%s) to be ready: %s\n", reaper.Name, err)
 	}
 
@@ -335,7 +330,7 @@ func TestUpdateReaperConfiguration(t *testing.T) {
 	}
 
 	// Wait for the Reaper object to be ready while the config update should be happening
-	if err = e2eutil.WaitForReaperToBeReady(t, f, reaper.Namespace, reaper.Name, 3 * time.Second, 3 * time.Minute); err != nil {
+	if err = e2eutil.WaitForReaperToBeReady(t, f, reaper.Namespace, reaper.Name, 3 * time.Second, reaperReadyTimeout); err != nil {
 		t.Fatalf("Timed out waiting for Reaper (%s) to be ready after updating Reaper.Spec.ServerConfig: %s\n", reaper.Name, err)
 	}
 
