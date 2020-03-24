@@ -2,14 +2,16 @@ package reaper
 
 import (
 	"context"
+	"github.com/bmizerany/assert"
+	reapergo "github.com/jsanda/reaper-client-go/reaper"
 	"github.com/thelastpickle/reaper-operator/pkg/apis"
 	"github.com/thelastpickle/reaper-operator/pkg/apis/reaper/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"reflect"
@@ -548,7 +550,58 @@ func testDeploymentAffinity(t *testing.T) {
 }
 
 func testAddCluster(t *testing.T) {
+	reaper := &v1alpha1.Reaper{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name: name,
+		},
+		Spec: v1alpha1.ReaperSpec{
+			Clusters: []v1alpha1.CassandraCluster{
+				{
+					Name: "cluster-1",
+					Service: v1alpha1.CassandraService{
+						Name: "cluster-1",
+						Namespace: "default",
+					},
+				},
+			},
+		},
+	}
 
+	objs := []runtime.Object{reaper}
+
+	restClient := newFakeRESTClient()
+	r := createClustersReconciler(objs...)
+	r.newRESTClient = func(reaper *v1alpha1.Reaper) (reapergo.ReaperClient, error) {
+		return restClient, nil
+	}
+
+	result, err := r.ReconcileClusters(context.TODO(), reaper)
+	if result == nil {
+		t.Errorf("expected non-nil result")
+	} else if !result.Requeue {
+		t.Errorf("expected requeue")
+	}
+
+	if err != nil {
+		t.Errorf("expected err (nil), got (%s)", err)
+	}
+
+	reaper = &v1alpha1.Reaper{}
+	if err := r.client.Get(context.TODO(), namespaceName, reaper); err != nil {
+		t.Fatalf("failed to get Reaper after reconciling clusters: %s", err)
+	}
+
+	expected := []v1alpha1.CassandraCluster{
+		{
+			Name: "cluster-1",
+			Service: v1alpha1.CassandraService{
+				Name: "cluster-1",
+				Namespace: "default",
+			},
+		},
+	}
+	assert.Equal(t, expected, reaper.Status.Clusters)
 }
 
 func createReadyDeployment(reaper *v1alpha1.Reaper) *appsv1.Deployment {

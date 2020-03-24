@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	github.com/Orange-OpenSource/cassandra-k8s-operator v0.3.2
+	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869
 	github.com/go-logr/logr v0.1.0
 	github.com/jsanda/reaper-client-go v0.2.0
 	github.com/mitchellh/hashstructure v1.0.0

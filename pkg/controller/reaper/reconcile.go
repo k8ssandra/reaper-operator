@@ -92,7 +92,7 @@ type clustersReconciler struct {
 
 	// This is test hook for supplying a fake/mock impl of ReaperClient
 	// in unit tests
-	restClientFactory func (reaper *v1alpha1.Reaper) (reapergo.ReaperClient, error)
+	newRESTClient func (reaper *v1alpha1.Reaper) (reapergo.ReaperClient, error)
 }
 
 func NewConfigMapReconciler(c client.Client, s *runtime.Scheme) ReaperConfigMapReconciler {
@@ -112,7 +112,7 @@ func NewDeploymentReconciler(c client.Client, s *runtime.Scheme) ReaperDeploymen
 }
 
 func NewClustersReconciler(c client.Client, s *runtime.Scheme) ReaperClustersReconciler {
-	return &clustersReconciler{client: c, scheme: s, restClientFactory: createRESTClient}
+	return &clustersReconciler{client: c, scheme: s, newRESTClient: createRESTClient}
 }
 
 func (r *configMapReconciler) ReconcileConfigMap(ctx context.Context, reaper *v1alpha1.Reaper) (*reconcile.Result, error) {
@@ -603,7 +603,7 @@ func (r *clustersReconciler) ReconcileClusters(ctx context.Context, reaper *v1al
 		} else {
 			reqLogger.Info("deleting cluster", "CassandraCluster", cluster)
 
-			restClient, err := createRESTClient(reaper)
+			restClient, err := r.newRESTClient(reaper)
 			if err != nil {
 				// There was a problem creating the REST client, so we are done
 				reqLogger.Error(err,"failed to create REST client")
@@ -620,7 +620,7 @@ func (r *clustersReconciler) ReconcileClusters(ctx context.Context, reaper *v1al
 	} else {
 		reqLogger.Info("adding cluster", "CassandraCluster", cluster)
 
-		restClient, err := createRESTClient(reaper)
+		restClient, err := r.newRESTClient(reaper)
 		if err != nil {
 			// There was a problem creating the REST client, so we are done
 			reqLogger.Error(err,"failed to create REST client")
