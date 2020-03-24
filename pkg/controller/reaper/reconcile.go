@@ -89,6 +89,10 @@ type clustersReconciler struct {
 	client client.Client
 
 	scheme *runtime.Scheme
+
+	// This is test hook for supplying a fake/mock impl of ReaperClient
+	// in unit tests
+	restClientFactory func (reaper *v1alpha1.Reaper) (reapergo.ReaperClient, error)
 }
 
 func NewConfigMapReconciler(c client.Client, s *runtime.Scheme) ReaperConfigMapReconciler {
@@ -108,7 +112,7 @@ func NewDeploymentReconciler(c client.Client, s *runtime.Scheme) ReaperDeploymen
 }
 
 func NewClustersReconciler(c client.Client, s *runtime.Scheme) ReaperClustersReconciler {
-	return &clustersReconciler{client: c, scheme: s}
+	return &clustersReconciler{client: c, scheme: s, restClientFactory: createRESTClient}
 }
 
 func (r *configMapReconciler) ReconcileConfigMap(ctx context.Context, reaper *v1alpha1.Reaper) (*reconcile.Result, error) {
@@ -647,9 +651,9 @@ func (r *clustersReconciler) ReconcileClusters(ctx context.Context, reaper *v1al
 	return &result, err
 }
 
-func createRESTClient(reaper *v1alpha1.Reaper) (*reapergo.Client, error) {
-	if client, err := reapergo.NewClient(fmt.Sprintf("http://%s.%s:8080", reaper.Name, reaper.Namespace)); err == nil {
-		return client, nil
+func createRESTClient(reaper *v1alpha1.Reaper) (reapergo.ReaperClient, error) {
+	if restClient, err := reapergo.NewReaperClient(fmt.Sprintf("http://%s.%s:8080", reaper.Name, reaper.Namespace)); err == nil {
+		return restClient, nil
 	} else {
 		return nil, fmt.Errorf("failed to create REST client: %w", err)
 	}

@@ -20,8 +20,8 @@ import (
 
 const (
 	cassandraClusterName  = "reaper-cluster"
-	cassandraReadyTimeout = 5 * time.Minute
-	reaperReadyTimeout    = 5 * time.Minute
+	cassandraReadyTimeout = 7 * time.Minute
+	reaperReadyTimeout    = 7 * time.Minute
 )
 
 var (
@@ -237,7 +237,7 @@ func TestAddDeleteManagedCluster(t *testing.T) {
 	// Now we need to remove the cluster from the spec. First, we need to reload the Reaper
 	// object so that we have the latest version. Then we simply reassign .Spec.Clusters to an
 	// empty slice which effectively removes the cluster.
-	
+
 	name := reaper.Name
 	reaper = v1alpha1.Reaper{}
 	if err := f.Client.Get(goctx.TODO(), types.NamespacedName{Namespace: namespace, Name: name}, &reaper); err!= nil {
