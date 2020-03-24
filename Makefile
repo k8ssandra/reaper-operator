@@ -105,7 +105,7 @@ e2e-setup: create-e2e-ns do-deploy-casskop
 .PHONY: e2e-test
 e2e-test: e2e-setup
 	@echo Running e2e tests
-	operator-sdk test local ./test/e2e --image $(E2E_IMAGE) --namespace $(E2E_NS) --debug
+	operator-sdk test local ./test/e2e --image $(E2E_IMAGE) --namespace $(E2E_NS) --debug  --go-test-flags "-timeout 0"
 
 .PHONY: e2e-test-local
 e2e-test-local: e2e-setup
