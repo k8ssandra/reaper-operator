@@ -49,6 +49,14 @@ func createDeploymentReconciler(state ...runtime.Object) *deploymentReconciler {
 	}
 }
 
+func createClustersReconciler(state ...runtime.Object) *clustersReconciler {
+	cl := fake.NewFakeClientWithScheme(s, state...)
+	return &clustersReconciler{
+		client: cl,
+		scheme: scheme.Scheme,
+	}
+}
+
 func TestReconcilers(t *testing.T) {
 	if err := apis.AddToScheme(scheme.Scheme); err != nil {
 		t.FailNow()
@@ -71,6 +79,7 @@ func TestReconcilers(t *testing.T) {
 	t.Run("ReconcileDeploymentReadyRestartRequired", testReconcileDeploymentReadyRestartRequired)
 	t.Run("DeploymentResourceRequirements", testDeploymentResourceRequirements)
 	t.Run("DeploymentAffinity", testDeploymentAffinity)
+	t.Run("AddCluster", testAddCluster)
 }
 
 func testReconcileConfigMapNotFound(t *testing.T) {
@@ -536,6 +545,10 @@ func testDeploymentAffinity(t *testing.T) {
 	if !reflect.DeepEqual(expected, actual) {
 		t.Errorf("Affinity does not match: expected (%+v), got (%+v)", expected, actual)
 	}
+}
+
+func testAddCluster(t *testing.T) {
+
 }
 
 func createReadyDeployment(reaper *v1alpha1.Reaper) *appsv1.Deployment {
