@@ -110,4 +110,4 @@ e2e-test: e2e-setup
 .PHONY: e2e-test-local
 e2e-test-local: e2e-setup
 	@echo Running e2e tests
-	operator-sdk test local ./test/e2e --up-local --namespace $(E2E_NS)
+	operator-sdk test local ./test/e2e --up-local --namespace $(E2E_NS) --go-test-flags "-timeout 0"

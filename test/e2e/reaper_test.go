@@ -20,8 +20,8 @@ import (
 
 const (
 	cassandraClusterName  = "reaper-cluster"
-	cassandraReadyTimeout = 7 * time.Minute
-	reaperReadyTimeout    = 7 * time.Minute
+	cassandraReadyTimeout = 5 * time.Minute
+	reaperReadyTimeout    = 5 * time.Minute
 )
 
 var (
