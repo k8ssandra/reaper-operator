@@ -22,7 +22,7 @@ const (
 	DefaultRepairRunThreadCount = 15
 	DefaultScheduleDaysBetween = 7
 	DefaultEnableCrossOrigin = true
-	DefaultEnableDynamicSeedList = true
+	DefaultEnableDynamicSeedList = false
 	DefaultJmxConnectionTimeoutInSeconds = 20
 	DefaultSegmentCountPerNode = 16
 	DefaultKeyspace = "reaper"
