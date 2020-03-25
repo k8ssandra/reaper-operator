@@ -39,11 +39,11 @@ type NoOpValidator struct{
 	defaultsUpdated bool
 }
 
-func (v *NoOpValidator) Validate(cfg v1alpha1.ServerConfig) error {
+func (v *NoOpValidator) Validate(reaper *v1alpha1.Reaper) error {
 	return v.validationError
 }
 
-func (v *NoOpValidator) SetDefaults(cfg *v1alpha1.ServerConfig) bool {
+func (v *NoOpValidator) SetDefaults(reaper *v1alpha1.Reaper) bool {
 	return v.defaultsUpdated
 }
 

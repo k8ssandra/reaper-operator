@@ -11,6 +11,8 @@ import (
 type StorageType string
 
 const (
+	ReaperImage = "jsanda/reaper-k8s:2.0.2-b6bfb774ccbb"
+
 	Memory = StorageType("memory")
 	Cassandra = StorageType("cassandra")
 
@@ -192,6 +194,8 @@ type ReaperSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+
+	Image string `json:"image,omitempty"`
 
 	DeploymentConfiguration DeploymentConfiguration `json:"deploymentConfiguration,omitempty"`
 

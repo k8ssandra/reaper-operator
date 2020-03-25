@@ -9,44 +9,60 @@ func TestValidate(t *testing.T) {
 	validator := NewValidator()
 	tests := []struct{
 		name         string
-		serverConfig v1alpha1.ServerConfig
+		reaper       *v1alpha1.Reaper
 		expected     error
 	}{
 		{
 			name: "NoBackend",
-			serverConfig: v1alpha1.ServerConfig{},
+			reaper: &v1alpha1.Reaper{},
 			expected: nil,
 		},
 		{
 			name: "MemoryBackend",
-			serverConfig: v1alpha1.ServerConfig{
-				StorageType: v1alpha1.Memory,
+			reaper: &v1alpha1.Reaper{
+				Spec: v1alpha1.ReaperSpec{
+					ServerConfig: v1alpha1.ServerConfig{
+						StorageType: v1alpha1.Memory,
+					},
+				},
 			},
 			expected: nil,
 		},
 		{
 			name: "CassandraStorageTypeAndCassandraBackendUndefined",
-			serverConfig: v1alpha1.ServerConfig{
-				StorageType: v1alpha1.Cassandra,
+			reaper: &v1alpha1.Reaper{
+				Spec: v1alpha1.ReaperSpec{
+					ServerConfig: v1alpha1.ServerConfig{
+						StorageType: v1alpha1.Cassandra,
+					},
+				},
 			},
 			expected:ClusterNameRequired,
 		},
 		{
 			name: "CassandraBackendNoClusterName",
-			serverConfig: v1alpha1.ServerConfig{
-				StorageType: v1alpha1.Cassandra,
-				CassandraBackend: &v1alpha1.CassandraBackend{
-					ContactPoints: []string{"localhost"},
+			reaper: &v1alpha1.Reaper{
+				Spec: v1alpha1.ReaperSpec{
+					ServerConfig: v1alpha1.ServerConfig{
+						StorageType: v1alpha1.Cassandra,
+						CassandraBackend: &v1alpha1.CassandraBackend{
+							ContactPoints: []string{"localhost"},
+						},
+					},
 				},
 			},
 			expected: ClusterNameRequired,
 		},
 		{
 			name: "CassandraBackendNoContactPoints",
-			serverConfig: v1alpha1.ServerConfig{
-				StorageType: v1alpha1.Cassandra,
-				CassandraBackend: &v1alpha1.CassandraBackend{
-					ClusterName: "test",
+			reaper: &v1alpha1.Reaper{
+				Spec: v1alpha1.ReaperSpec{
+					ServerConfig: v1alpha1.ServerConfig{
+						StorageType: v1alpha1.Cassandra,
+						CassandraBackend: &v1alpha1.CassandraBackend{
+							ClusterName: "test",
+						},
+					},
 				},
 			},
 			expected: ContactPointsRequired,
@@ -54,7 +70,7 @@ func TestValidate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := validator.Validate(tt.serverConfig); got != tt.expected {
+			if got := validator.Validate(tt.reaper); got != tt.expected {
 				t.Errorf("expected (%s), got (%s)", tt.expected, got)
 			}
 		})
@@ -63,11 +79,13 @@ func TestValidate(t *testing.T) {
 
 func TestSetDefaults(t *testing.T) {
 	validator := NewValidator()
-	cfg := &v1alpha1.ServerConfig{}
+	reaper := &v1alpha1.Reaper{}
 
-	if updated := validator.SetDefaults(cfg); !updated {
+	if updated := validator.SetDefaults(reaper); !updated {
 		t.Errorf("Expected ServerConfig to get updated")
 	}
+
+	cfg := reaper.Spec.ServerConfig
 
 	if cfg.HangingRepairTimeoutMins == nil {
 		t.Errorf("HangingRepairTimeoutMins is nil. Expected (%d)", v1alpha1.DefaultHangingRepairTimeoutMins)
@@ -126,16 +144,22 @@ func TestSetDefaults(t *testing.T) {
 
 func TestSetDefaultsWithCassandraBackend(t *testing.T) {
 	validator := NewValidator()
-	cfg := &v1alpha1.ServerConfig{
-		StorageType: v1alpha1.Cassandra,
-		CassandraBackend: &v1alpha1.CassandraBackend{
-			ClusterName: "test",
+	reaper := &v1alpha1.Reaper{
+		Spec: v1alpha1.ReaperSpec{
+			ServerConfig: v1alpha1.ServerConfig{
+				StorageType: v1alpha1.Cassandra,
+				CassandraBackend: &v1alpha1.CassandraBackend{
+					ClusterName: "test",
+				},
+			},
 		},
 	}
 
-	if updated := validator.SetDefaults(cfg); !updated {
+	if updated := validator.SetDefaults(reaper); !updated {
 		t.Errorf("Expected ServerConfig to get updated")
 	}
+
+	cfg := reaper.Spec.ServerConfig
 
 	if (*cfg.CassandraBackend).Keyspace != v1alpha1.DefaultKeyspace {
 		t.Errorf("Keyspace (%s) is not the expectedAuthProvider value (%s)", (*cfg.CassandraBackend).Keyspace, v1alpha1.DefaultKeyspace)

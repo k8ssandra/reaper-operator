@@ -19,10 +19,6 @@ import (
 
 var log = logf.Log.WithName("controller_reaper")
 
-const (
-	ReaperImage = "jsanda/reaper-k8s:2.0.2-b6bfb774ccbb"
-)
-
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
 * business logic.  Delete these comments after modifying this file.*
@@ -117,11 +113,11 @@ func (r *ReconcileReaper) Reconcile(request reconcile.Request) (reconcile.Result
 
 	instance = instance.DeepCopy()
 
-	if err := r.validator.Validate(instance.Spec.ServerConfig); err != nil {
+	if err := r.validator.Validate(instance); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if r.validator.SetDefaults(&instance.Spec.ServerConfig) {
+	if r.validator.SetDefaults(instance) {
 		if err = r.client.Update(ctx, instance); err != nil {
 			return reconcile.Result{}, err
 		}

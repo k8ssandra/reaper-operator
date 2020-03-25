@@ -13,9 +13,9 @@ var (
 )
 
 type Validator interface {
-	Validate(cfg v1alpha1.ServerConfig) error
+	Validate(reaper *v1alpha1.Reaper) error
 
-	SetDefaults(cfg *v1alpha1.ServerConfig) bool
+	SetDefaults(reaper *v1alpha1.Reaper) bool
 }
 
 type validator struct{}
@@ -24,7 +24,9 @@ func NewValidator() Validator {
 	return &validator{}
 }
 
-func (v *validator) Validate(cfg v1alpha1.ServerConfig) error {
+func (v *validator) Validate(reaper *v1alpha1.Reaper) error {
+	cfg := reaper.Spec.ServerConfig
+
 	if cfg.StorageType == "" || cfg.StorageType == v1alpha1.Memory {
 		return nil
 	}
@@ -42,8 +44,14 @@ func (v *validator) Validate(cfg v1alpha1.ServerConfig) error {
 	return nil
 }
 
-func (v *validator) SetDefaults(cfg *v1alpha1.ServerConfig) bool {
+func (v *validator) SetDefaults(reaper *v1alpha1.Reaper) bool {
 	updated := false
+	cfg := &reaper.Spec.ServerConfig
+
+	if reaper.Spec.Image == "" {
+		reaper.Spec.Image = v1alpha1.ReaperImage
+		updated = true
+	}
 
 	if cfg.HangingRepairTimeoutMins == nil {
 		cfg.HangingRepairTimeoutMins = int32Ptr(v1alpha1.DefaultHangingRepairTimeoutMins)

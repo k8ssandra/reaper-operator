@@ -530,7 +530,7 @@ func (r *deploymentReconciler) newDeployment(reaper *v1alpha1.Reaper) *appsv1.De
 						{
 							Name: "reaper",
 							ImagePullPolicy: corev1.PullIfNotPresent,
-							Image: ReaperImage,
+							Image: v1alpha1.ReaperImage,
 							Resources: reaper.Spec.DeploymentConfiguration.Resources,
 							Ports: []corev1.ContainerPort{
 								{
