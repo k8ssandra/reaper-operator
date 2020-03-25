@@ -80,6 +80,7 @@ func TestReconcilers(t *testing.T) {
 	t.Run("ReconcileDeploymentReady", testReconcileDeploymentReady)
 	t.Run("ReconcileDeploymentReadyRestartRequired", testReconcileDeploymentReadyRestartRequired)
 	t.Run("DeploymentResourceRequirements", testDeploymentResourceRequirements)
+	t.Run("DeploymentReaperImage", testDeploymentReaperImage)
 	t.Run("DeploymentAffinity", testDeploymentAffinity)
 	t.Run("AddCluster", testAddCluster)
 	t.Run("DeleteCluster", testDeleteCluster)
@@ -507,6 +508,26 @@ func testDeploymentResourceRequirements(t *testing.T) {
 	if !reflect.DeepEqual(reaper.Spec.DeploymentConfiguration.Resources, containers[0].Resources) {
 		t.Errorf("ResourceRequirements do not match: expected (%+v), got (%+v)", reaper.Spec.DeploymentConfiguration.Resources, containers[0].Resources)
 	}
+}
+
+func testDeploymentReaperImage(t *testing.T) {
+	r := createDeploymentReconciler()
+	image := "reaper-test"
+	reaper := &v1alpha1.Reaper{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+		Spec: v1alpha1.ReaperSpec{
+			Image: image,
+		},
+	}
+
+	deployment := r.newDeployment(reaper)
+
+	containers := deployment.Spec.Template.Spec.Containers
+	assert.Equal(t, 1, len(containers))
+	assert.Equal(t, image, containers[0].Image)
 }
 
 func testDeploymentAffinity(t *testing.T) {
