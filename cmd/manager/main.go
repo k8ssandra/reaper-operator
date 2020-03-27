@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/thelastpickle/reaper-operator/pkg/clusters"
 	"os"
 	"runtime"
 
@@ -116,6 +117,10 @@ func main() {
 
 	// Add the Metrics Service
 	addMetrics(ctx, cfg, namespace)
+
+	stopCh := signals.SetupSignalHandler()
+
+	clusters.StartMonitor(namespace, mgr.GetClient(), stopCh)
 
 	log.Info("Starting the Cmd.")
 
