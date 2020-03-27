@@ -9,8 +9,16 @@ import (
 	"runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"time"
 )
+
+// Functions in this package deal with CassandraCluster objects that are part of the Reaper
+// CRD. Functions also deal Cluster objects that part of the API provided by
+// reaper-client-go. To avoid confusion objects from the Reaper CRD will be referred to as
+// managed clusters, as in managed by this operator. Objects from the reaper-client-go API
+// will be referred to registered clusters, as in clusters that have been added to the Reaper
+// application either through its UI or through its REST API.
 
 const (
 	syncClusters = "cassandra-reaper.io/cassandra-reaper.io/syncClusters"
@@ -24,6 +32,18 @@ func ClusterNameFilter(name string) ClusterFilter {
 	return func(cluster v1alpha1.CassandraCluster) bool {
 		return cluster.Name == name
 	}
+}
+
+type Monitor struct {
+	Namespce  string
+	Manager   manager.Manager
+}
+
+func (m *Monitor) Start(stopCh <-chan struct{}) error {
+	go func() {
+		StartMonitor(m.Namespce, m.Manager.GetClient(), stopCh)
+	}()
+	return nil
 }
 
 func StartMonitor(namespace string, c client.Client, stopCh <-chan struct{}) {
@@ -64,6 +84,7 @@ func scheduleChecks(ctx context.Context, c client.Client, namespace string, reap
 
 	if reaperList, err := getReaperList(getListCtx, namespace, c); err == nil {
 		for _, reaper := range reaperList.Items {
+			log.Info("scheduling check", "Reaper.Namespace", reaper.Namespace, "Reaper.Name", reaper.Name)
 			select {
 			case reaperCh <- reaper:
 			case <-ctx.Done():
@@ -86,9 +107,17 @@ func getReaperList(ctx context.Context, namespace string, c client.Client) (*v1a
 
 func checkReapers(ctx context.Context, c client.Client, reaperCh <-chan v1alpha1.Reaper) {
 	for reaper := range reaperCh {
+		log.Info("checking Reaper", "Reaper.Namespace", reaper.Namespace, "Reaper.Name", reaper.Name)
+
 		// TODO check that .Spec.Clusters matches .Status.Clusters.
 		//      If the desired state does not match actual state with respect to managed
 		//      cluster, then ignore this Reaper object until state converges.
+
+		if !reaper.ClustersInSync() {
+			log.Info("clusters are not in sync", "Reaper.Namespace", reaper.Namespace, "Reaper.Name",
+				reaper.Name)
+			continue
+		}
 
 		// Fetch the registered clusters and compare against what is in the spec. If they
 		// differ set an annotation on the Reaper. Then save the changes to the Reaper get
@@ -104,21 +133,30 @@ func checkReapers(ctx context.Context, c client.Client, reaperCh <-chan v1alpha1
 					log.Info("failed to get a cluster", "Reaper.Namespace", reaper.Namespace,
 						"Reaper.Name", reaper.Name)
 				}
+			}
+			log.Info("Reaper Clusters", "Reaper.Name", reaper.Name, "Clusters", reaper.Spec.Clusters)
+			log.Info("Actual Clusters", "Clusters", actualClusters)
 
-				// We are not concerned with all clusters, only managed clusters, i.e.,
-				// those listed in the spec.
-				if !clustersMatch(&reaper, actualClusters) {
-					// A managed cluster has been removed out of band, either through the Reaper UI
-					// or REST API. We add an annotation so that the Reaper object gets queued for
-					// reconciliation.
-					if reaper.Annotations == nil {
-						reaper.Annotations = make(map[string]string)
-					}
-					reaper.Annotations[syncClusters] = "true"
-				}
-				if err := c.Update(ctx, &reaper); err != nil {
-					log.Error(err, "failed to update Reaper with annotation", "Reaper.Namespace",
-						reaper.Namespace, "Reaper.Name", reaper.Name, "Annotation", syncClusters)
+			// We are not concerned with all clusters, only managed clusters, i.e.,
+			// those listed in the spec.
+			if !clustersMatch(&reaper, actualClusters) {
+				log.Info("Clusters do not match")
+				// A managed cluster has been removed out of band, either through the Reaper UI
+				// or REST API. We add an annotation so that the Reaper object gets queued for
+				// reconciliation.
+				//if reaper.Annotations == nil {
+				//	reaper.Annotations = make(map[string]string)
+				//}
+				//reaper.Annotations[syncClusters] = "true"
+				status := reaper.Status.DeepCopy()
+				status.Clusters = []v1alpha1.CassandraCluster{}
+				reaper.Status = *status
+
+				log.Info("updating status", "Reaper.Namespace", reaper.Namespace, "Reaper.Name", reaper.Name)
+
+				if err := c.Status().Update(ctx, &reaper); err != nil {
+					log.Error(err, "failed to update status", "Reaper.Namespace", reaper.Namespace,
+						"Reaper.Name", reaper.Name)
 				}
 			}
 		} else {
@@ -138,12 +176,21 @@ func createRESTClient(reaper *v1alpha1.Reaper) (reapergo.ReaperClient, error) {
 
 // Returns true if each of reaper.Spec.Clusters is found in actualClusters
 func clustersMatch(reaper *v1alpha1.Reaper, actualClusters []*reapergo.Cluster) bool {
-	for i := range reaper.Spec.Clusters {
-		if findCluster(reaper.Spec.Clusters, ClusterNameFilter(actualClusters[i].Name)) == nil {
+	for _, cluster := range reaper.Spec.Clusters {
+		if findRegisteredClusterByName(actualClusters, cluster.Name) == nil {
 			return false
 		}
 	}
 	return true
+}
+
+func findRegisteredClusterByName(clusters []*reapergo.Cluster, name string) *reapergo.Cluster {
+	for _, cluster := range clusters {
+		if cluster.Name == name {
+			return cluster
+		}
+	}
+	return nil
 }
 
 func findCluster(clusters []v1alpha1.CassandraCluster, filter ClusterFilter) *v1alpha1.CassandraCluster {

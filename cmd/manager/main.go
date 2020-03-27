@@ -118,9 +118,8 @@ func main() {
 	// Add the Metrics Service
 	addMetrics(ctx, cfg, namespace)
 
-	stopCh := signals.SetupSignalHandler()
-
-	clusters.StartMonitor(namespace, mgr.GetClient(), stopCh)
+	clustersMonitor := &clusters.Monitor{Namespce: namespace, Manager: mgr}
+	mgr.Add(clustersMonitor)
 
 	log.Info("Starting the Cmd.")
 
