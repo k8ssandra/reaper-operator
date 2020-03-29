@@ -39,14 +39,35 @@ func cleanupWithPolling(ctx *framework.TestCtx) *framework.CleanupOptions {
 	}
 }
 
-func TestDeployReaperWithMemoryBackend(t *testing.T) {
+type E2ETest func(t *testing.T, f *framework.Framework, ctx *framework.TestCtx)
+
+func e2eTest(test E2ETest) func(t *testing.T) {
+	return func(t *testing.T) {
+		ctx, f := e2eutil.InitOperator(t)
+		defer ctx.Cleanup()
+
+		test(t, f, ctx)
+	}
+}
+
+func TestReaper(t *testing.T) {
 	reaperList := &v1alpha1.ReaperList{}
 	if err := framework.AddToFrameworkScheme(apis.AddToScheme, reaperList); err != nil {
 		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
 	}
-	ctx, f := e2eutil.InitOperator(t)
-	defer ctx.Cleanup()
 
+	ccList := &casskop.CassandraClusterList{}
+	if err := framework.AddToFrameworkScheme(casskopapi.AddToScheme, ccList); err != nil {
+		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
+	}
+
+	t.Run("DeployReaperMemoryBackend", e2eTest(testDeployReaperMemoryBackend))
+	t.Run("DeployReaperCassandraBackend", e2eTest(testDeployReaperCassandraBackend))
+	t.Run("AddDeleteManagedCluster", e2eTest(testAddDeleteManagedCluster))
+	t.Run("UpdateReaperConfiguration", e2eTest(testUpdateReaperConfiguration))
+}
+
+func testDeployReaperMemoryBackend(t *testing.T, f *framework.Framework, ctx *framework.TestCtx) {
 	namespace, err := ctx.GetNamespace()
 	if err != nil {
 		t.Fatalf("Failed to get namespace: %s", err)
@@ -101,20 +122,7 @@ func TestDeployReaperWithMemoryBackend(t *testing.T) {
 	}
 }
 
-func TestDeployReaperWithCassandraBackend(t *testing.T) {
-	reaperList := &v1alpha1.ReaperList{}
-	if err := framework.AddToFrameworkScheme(apis.AddToScheme, reaperList); err != nil {
-		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
-	}
-
-	ccList := &casskop.CassandraClusterList{}
-	if err := framework.AddToFrameworkScheme(casskopapi.AddToScheme, ccList); err != nil {
-		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
-	}
-
-	ctx, f := e2eutil.InitOperator(t)
-	defer ctx.Cleanup()
-
+func testDeployReaperCassandraBackend(t *testing.T, f *framework.Framework, ctx *framework.TestCtx) {
 	namespace, err := ctx.GetNamespace()
 	if err != nil {
 		t.Fatalf("Failed to get namespace: %s", err)
@@ -158,20 +166,7 @@ func TestDeployReaperWithCassandraBackend(t *testing.T) {
 	}
 }
 
-func TestAddDeleteManagedCluster(t *testing.T) {
-	reaperList := &v1alpha1.ReaperList{}
-	if err := framework.AddToFrameworkScheme(apis.AddToScheme, reaperList); err != nil {
-		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
-	}
-
-	ccList := &casskop.CassandraClusterList{}
-	if err := framework.AddToFrameworkScheme(casskopapi.AddToScheme, ccList); err != nil {
-		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
-	}
-
-	ctx, f := e2eutil.InitOperator(t)
-	defer ctx.Cleanup()
-
+func testAddDeleteManagedCluster(t *testing.T, f *framework.Framework, ctx *framework.TestCtx) {
 	namespace, err := ctx.GetNamespace()
 	if err != nil {
 		t.Fatalf("Failed to get namespace: %s", err)
@@ -263,14 +258,7 @@ func TestAddDeleteManagedCluster(t *testing.T) {
 	}
 }
 
-func TestUpdateReaperConfiguration(t *testing.T) {
-	reaperList := &v1alpha1.ReaperList{}
-	if err := framework.AddToFrameworkScheme(apis.AddToScheme, reaperList); err != nil {
-		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
-	}
-	ctx, f := e2eutil.InitOperator(t)
-	defer ctx.Cleanup()
-
+func testUpdateReaperConfiguration(t *testing.T, f *framework.Framework, ctx *framework.TestCtx) {
 	namespace, err := ctx.GetNamespace()
 	if err != nil {
 		t.Fatalf("Failed to get namespace: %s", err)
