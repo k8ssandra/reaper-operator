@@ -2,6 +2,7 @@ package e2e
 
 import (
 	goctx "context"
+	"fmt"
 	casskopapi "github.com/Orange-OpenSource/cassandra-k8s-operator/pkg/apis"
 	casskop "github.com/Orange-OpenSource/cassandra-k8s-operator/pkg/apis/db/v1alpha1"
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
@@ -51,21 +52,6 @@ func e2eTest(test E2ETest) func(t *testing.T) {
 	}
 }
 
-func e2eTestNoCleanUp(test E2ETest) func(t *testing.T) {
-	return func(t *testing.T) {
-		ctx, f := e2eutil.InitOperator(t)
-		test(t, f, ctx)
-	}
-}
-
-func e2eTestCass(test E2ETest) func(t *testing.T) {
-	return func(t *testing.T) {
-		ctx := framework.NewTestCtx(t)
-		f := framework.Global
-		test(t, f, ctx)
-	}
-}
-
 func TestReaper(t *testing.T) {
 	reaperList := &v1alpha1.ReaperList{}
 	if err := framework.AddToFrameworkScheme(apis.AddToScheme, reaperList); err != nil {
@@ -79,7 +65,7 @@ func TestReaper(t *testing.T) {
 
 	t.Run("DeployReaperMemoryBackend", e2eTest(testDeployReaperMemoryBackend))
 
-	if t.Run("DeployCassandraCluster", e2eTestCass(initCassandra)) {
+	if err := initCassandra(t); err != nil {
 		t.Run("DeployReaperCassandraBackend", e2eTest(testDeployReaperCassandraBackend))
 		t.Run("AddDeleteManagedCluster", e2eTest(testAddDeleteManagedCluster))
 	} else {
@@ -87,6 +73,26 @@ func TestReaper(t *testing.T) {
 	}
 
 	t.Run("UpdateReaperConfiguration", e2eTest(testUpdateReaperConfiguration))
+}
+
+func initCassandra(t *testing.T) error {
+	ctx := framework.NewTestCtx(t)
+	f := framework.Global
+
+	namespace, err := ctx.GetNamespace()
+	if err != nil {
+		return fmt.Errorf("failed to get namespace: %w", err)
+	}
+
+	if err := createCassandraCluster(cassandraClusterName, namespace, f, ctx); err != nil {
+		return fmt.Errorf("failed to create CassandraCluster (%s): %w", cassandraClusterName, err)
+	}
+
+	if err := e2eutil.WaitForCassKopCluster(t, f, namespace, cassandraClusterName, 10 * time.Second, cassandraReadyTimeout); err != nil {
+		return fmt.Errorf("timed out waiting for CassandraCluster (%s) to become ready: %w", cassandraClusterName, err)
+	}
+
+	return nil
 }
 
 func testDeployReaperMemoryBackend(t *testing.T, f *framework.Framework, ctx *framework.TestCtx) {
@@ -144,21 +150,6 @@ func testDeployReaperMemoryBackend(t *testing.T, f *framework.Framework, ctx *fr
 
 	if err = e2eutil.WaitForServiceToBeDeleted(t, f, reaper.Namespace, reaper.Name, retryInterval, deleteTimeout); err != nil {
 		t.Errorf("Timed out waiting for Service (%s) to get deleted: %s", reaper.Name, err)
-	}
-}
-
-func initCassandra(t *testing.T, f *framework.Framework, ctx *framework.TestCtx) {
-	namespace, err := ctx.GetNamespace()
-	if err != nil {
-		t.Fatalf("Failed to get namespace: %s", err)
-	}
-
-	if err := createCassandraCluster(cassandraClusterName, namespace, f, ctx); err != nil {
-		t.Fatalf("Failed to create CassandraCluster: %s", err)
-	}
-
-	if err := e2eutil.WaitForCassKopCluster(t, f, namespace, cassandraClusterName, 10 * time.Second, cassandraReadyTimeout); err != nil {
-		t.Fatalf("Failed waiting for CassandraCluster to become ready: %s\n", err)
 	}
 }
 
