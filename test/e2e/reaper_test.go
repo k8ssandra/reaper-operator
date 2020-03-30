@@ -5,18 +5,20 @@ import (
 	"fmt"
 	casskopapi "github.com/Orange-OpenSource/cassandra-k8s-operator/pkg/apis"
 	casskop "github.com/Orange-OpenSource/cassandra-k8s-operator/pkg/apis/db/v1alpha1"
+	reapergo "github.com/jsanda/reaper-client-go/reaper"
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
+	"github.com/stretchr/testify/assert"
 	"github.com/thelastpickle/reaper-operator/pkg/apis"
+	"github.com/thelastpickle/reaper-operator/pkg/apis/reaper/v1alpha1"
 	"github.com/thelastpickle/reaper-operator/test/e2eutil"
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	deploymentutil "k8s.io/kubernetes/pkg/controller/deployment/util"
 	"testing"
 	"time"
-
-	"github.com/thelastpickle/reaper-operator/pkg/apis/reaper/v1alpha1"
 )
 
 const (
@@ -24,6 +26,9 @@ const (
 	cassandraReadyTimeout = 5 * time.Minute
 	reaperRetryInterval   = 3 * time.Second
 	reaperReadyTimeout    = 5 * time.Minute
+	nodePortServiceName   = "reaper-nodeport"
+	reaperPort            = 8080
+	nodePortServicePort   = 31080
 )
 
 var (
@@ -63,6 +68,13 @@ func TestReaper(t *testing.T) {
 		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
 	}
 
+	if err := createNodePortService(t); err != nil {
+		// TODO We can probably set a flag here instead of failing.
+		//      We can check the flag and possibly skip REST API verification steps
+		//      rather than aborting the whole test run.
+		t.Fatalf("Reaper REST API calls unavailable: %s", err)
+	}
+
 	t.Run("DeployReaperMemoryBackend", e2eTest(testDeployReaperMemoryBackend))
 
 	if err := initCassandra(t); err != nil {
@@ -73,6 +85,46 @@ func TestReaper(t *testing.T) {
 	}
 
 	t.Run("UpdateReaperConfiguration", e2eTest(testUpdateReaperConfiguration))
+}
+
+func createNodePortService(t *testing.T) error {
+	ctx := framework.NewTestCtx(t)
+	f := framework.Global
+
+	namespace, err := ctx.GetNamespace()
+	if err != nil {
+		return fmt.Errorf("failed to get namespace: %w", err)
+	}
+
+	svc := &corev1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      nodePortServiceName,
+			Namespace: namespace,
+			Labels:    map[string]string{"app": "reaper"},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeNodePort,
+			Ports: []corev1.ServicePort{
+				{
+					Port: reaperPort,
+					Name: "ui",
+					Protocol: corev1.ProtocolTCP,
+					NodePort: nodePortServicePort,
+				},
+			},
+		},
+	}
+
+	cleanup := &framework.CleanupOptions{TestContext: ctx, Timeout: time.Second * 5, RetryInterval: time.Second * 1}
+	if err = f.Client.Create(goctx.TODO(), svc, cleanup); err != nil {
+		return fmt.Errorf("failed to create (%s): %w", nodePortServiceName, err)
+	}
+
+	return nil
 }
 
 func initCassandra(t *testing.T) error {
@@ -159,14 +211,6 @@ func testDeployReaperCassandraBackend(t *testing.T, f *framework.Framework, ctx 
 		t.Fatalf("Failed to get namespace: %s", err)
 	}
 
-	//if err := createCassandraCluster(cassandraClusterName, namespace, f, ctx); err != nil {
-	//	t.Fatalf("Failed to create CassandraCluster: %s", err)
-	//}
-	//
-	//if err := e2eutil.WaitForCassKopCluster(t, f, namespace, cassandraClusterName, 10 * time.Second, cassandraReadyTimeout); err != nil {
-	//	t.Fatalf("Failed waiting for CassandraCluster to become ready: %s\n", err)
-	//}
-
 	reaper := v1alpha1.Reaper{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "Reaper",
@@ -203,14 +247,6 @@ func testAddDeleteManagedCluster(t *testing.T, f *framework.Framework, ctx *fram
 		t.Fatalf("Failed to get namespace: %s", err)
 	}
 
-	//if err := createCassandraCluster(cassandraClusterName, namespace, f, ctx); err != nil {
-	//	t.Fatalf("Failed to create CassandraCluster: %s", err)
-	//}
-	//
-	//if err := e2eutil.WaitForCassKopCluster(t, f, namespace, cassandraClusterName, 10 * time.Second, cassandraReadyTimeout); err != nil {
-	//	t.Fatalf("Failed waiting for CassandraCluster to become ready: %s\n", err)
-	//}
-
 	reaper := v1alpha1.Reaper{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "Reaper",
@@ -242,7 +278,7 @@ func testAddDeleteManagedCluster(t *testing.T, f *framework.Framework, ctx *fram
 	}
 
 	if err = e2eutil.WaitForReaperToBeReady(t, f, reaper.Namespace, reaper.Name, reaperRetryInterval, reaperReadyTimeout); err != nil {
-		t.Fatalf("Timed out waiting for Reaper (%s) to be ready: %s\n", reaper.Name, err)
+		t.Fatalf("timed out waiting for Reaper (%s) to be ready: %s\n", reaper.Name, err)
 	}
 
 	clusterAdded := func(reaper *v1alpha1.Reaper) (bool, error) {
@@ -257,8 +293,21 @@ func testAddDeleteManagedCluster(t *testing.T, f *framework.Framework, ctx *fram
 	clusterStatusTimeout := 1 * time.Minute
 	retryInterval := 1 * time.Second
 
+	// First, verify that the C* cluster is reported in the status
 	if err = e2eutil.WaitForReaperCondition(t, f, reaper.Namespace, reaper.Name, retryInterval, clusterStatusTimeout, clusterAdded); err != nil {
-		t.Errorf("Timed out waiting for status to be updated after adding cluster: %s", err)
+		t.Errorf("timed out waiting for status to be updated after adding cluster: %s", err)
+	}
+
+	// Second, verify that the C* cluster is found via the REST client
+	restClient, err := createRESTClient(&reaper)
+	if err == nil {
+		if cluster, err := restClient.GetCluster(goctx.TODO(), cassandraClusterName); err == nil {
+			assert.NotNil(t, cluster, "cassandra cluster (%s) not found with REST client", cassandraClusterName)
+		} else {
+			t.Errorf("failed to get cluster with REST client: %s", err)
+		}
+	} else {
+		t.Errorf("failed to create REST client: %s", err)
 	}
 
 	// Now we need to remove the cluster from the spec. First, we need to reload the Reaper
@@ -285,8 +334,16 @@ func testAddDeleteManagedCluster(t *testing.T, f *framework.Framework, ctx *fram
 		return true, nil
 	}
 
+	// First, verify that the C* cluster is no longer reported in the status
 	if err = e2eutil.WaitForReaperCondition(t, f, reaper.Namespace, reaper.Name, retryInterval, clusterStatusTimeout, clusterDeleted); err != nil {
-		t.Errorf("Timed out waiting for status to be updated after deleting cluster: %s", err)
+		t.Errorf("timed out waiting for status to be updated after deleting cluster: %s", err)
+	}
+
+	// Second, verify that the C* cluster is not found via the REST client
+	if restClient == nil {
+		t.Logf("cannot verify with REST client that the cassandra cluster has been removed from Reaper")
+	} else {
+
 	}
 }
 
@@ -416,4 +473,12 @@ func createCassandraCluster(name string, namespace string, f *framework.Framewor
 		},
 	}
 	return f.Client.Create(goctx.TODO(), &cc, cleanupWithPolling(ctx))
+}
+
+func createRESTClient(reaper *v1alpha1.Reaper) (reapergo.ReaperClient, error) {
+	if restClient, err := reapergo.NewReaperClient(fmt.Sprintf("http://127.0.0.1:%d", nodePortServicePort)); err == nil {
+		return restClient, nil
+	} else {
+		return nil, fmt.Errorf("failed to create REST client: %w", err)
+	}
 }
