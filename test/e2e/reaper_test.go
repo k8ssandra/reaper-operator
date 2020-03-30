@@ -299,7 +299,7 @@ func testAddDeleteManagedCluster(t *testing.T, f *framework.Framework, ctx *fram
 	}
 
 	// Second, verify that the C* cluster is found via the REST client
-	restClient, err := createRESTClient(&reaper)
+	restClient, err := createRESTClient()
 	if err == nil {
 		if cluster, err := restClient.GetCluster(goctx.TODO(), cassandraClusterName); err == nil {
 			assert.NotNil(t, cluster, "cassandra cluster (%s) not found with REST client", cassandraClusterName)
@@ -343,7 +343,8 @@ func testAddDeleteManagedCluster(t *testing.T, f *framework.Framework, ctx *fram
 	if restClient == nil {
 		t.Logf("cannot verify with REST client that the cassandra cluster has been removed from Reaper")
 	} else {
-
+		_, err := restClient.GetCluster(goctx.TODO(), cassandraClusterName)
+		assert.Equal(t, reapergo.CassandraClusterNotFound, err)
 	}
 }
 
@@ -475,7 +476,7 @@ func createCassandraCluster(name string, namespace string, f *framework.Framewor
 	return f.Client.Create(goctx.TODO(), &cc, cleanupWithPolling(ctx))
 }
 
-func createRESTClient(reaper *v1alpha1.Reaper) (reapergo.ReaperClient, error) {
+func createRESTClient() (reapergo.ReaperClient, error) {
 	if restClient, err := reapergo.NewReaperClient(fmt.Sprintf("http://127.0.0.1:%d", nodePortServicePort)); err == nil {
 		return restClient, nil
 	} else {

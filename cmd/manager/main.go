@@ -118,7 +118,7 @@ func main() {
 	// Add the Metrics Service
 	addMetrics(ctx, cfg, namespace)
 
-	clustersMonitor := &clusters.Monitor{Namespce: namespace, Manager: mgr}
+	clustersMonitor := &clusters.Monitor{Namespace: namespace, Manager: mgr}
 	mgr.Add(clustersMonitor)
 
 	log.Info("Starting the Cmd.")

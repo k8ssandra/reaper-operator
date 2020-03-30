@@ -35,13 +35,13 @@ func ClusterNameFilter(name string) ClusterFilter {
 }
 
 type Monitor struct {
-	Namespce  string
+	Namespace string
 	Manager   manager.Manager
 }
 
 func (m *Monitor) Start(stopCh <-chan struct{}) error {
 	go func() {
-		StartMonitor(m.Namespce, m.Manager.GetClient(), stopCh)
+		StartMonitor(m.Namespace, m.Manager.GetClient(), stopCh)
 	}()
 	return nil
 }
