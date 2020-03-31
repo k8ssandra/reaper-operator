@@ -109,12 +109,8 @@ func checkReapers(ctx context.Context, c client.Client, reaperCh <-chan v1alpha1
 	for reaper := range reaperCh {
 		log.Info("checking Reaper", "Reaper.Namespace", reaper.Namespace, "Reaper.Name", reaper.Name)
 
-		// TODO check that .Spec.Clusters matches .Status.Clusters.
-		//      If the desired state does not match actual state with respect to managed
-		//      cluster, then ignore this Reaper object until state converges.
-
 		if !reaper.ClustersInSync() {
-			log.Info("clusters are not in sync", "Reaper.Namespace", reaper.Namespace, "Reaper.Name",
+			log.Info("skipping check, clusters are not in sync", "Reaper.Namespace", reaper.Namespace, "Reaper.Name",
 				reaper.Name)
 			continue
 		}
@@ -134,20 +130,14 @@ func checkReapers(ctx context.Context, c client.Client, reaperCh <-chan v1alpha1
 						"Reaper.Name", reaper.Name)
 				}
 			}
-			log.Info("Reaper Clusters", "Reaper.Name", reaper.Name, "Clusters", reaper.Spec.Clusters)
-			log.Info("Actual Clusters", "Clusters", actualClusters)
 
 			// We are not concerned with all clusters, only managed clusters, i.e.,
 			// those listed in the spec.
-			if !clustersMatch(&reaper, actualClusters) {
+			if !allClustersRegistered(&reaper, actualClusters) {
 				log.Info("Clusters do not match")
 				// A managed cluster has been removed out of band, either through the Reaper UI
-				// or REST API. We add an annotation so that the Reaper object gets queued for
+				// or REST API. Update the Reaper object's status so that it gets queued for
 				// reconciliation.
-				//if reaper.Annotations == nil {
-				//	reaper.Annotations = make(map[string]string)
-				//}
-				//reaper.Annotations[syncClusters] = "true"
 				status := reaper.Status.DeepCopy()
 				status.Clusters = []v1alpha1.CassandraCluster{}
 				reaper.Status = *status
@@ -175,7 +165,7 @@ func createRESTClient(reaper *v1alpha1.Reaper) (reapergo.ReaperClient, error) {
 }
 
 // Returns true if each of reaper.Spec.Clusters is found in actualClusters
-func clustersMatch(reaper *v1alpha1.Reaper, actualClusters []*reapergo.Cluster) bool {
+func allClustersRegistered(reaper *v1alpha1.Reaper, actualClusters []*reapergo.Cluster) bool {
 	for _, cluster := range reaper.Spec.Clusters {
 		if findRegisteredClusterByName(actualClusters, cluster.Name) == nil {
 			return false
@@ -188,15 +178,6 @@ func findRegisteredClusterByName(clusters []*reapergo.Cluster, name string) *rea
 	for _, cluster := range clusters {
 		if cluster.Name == name {
 			return cluster
-		}
-	}
-	return nil
-}
-
-func findCluster(clusters []v1alpha1.CassandraCluster, filter ClusterFilter) *v1alpha1.CassandraCluster {
-	for _, cluster := range clusters {
-		if filter(cluster) {
-			return &cluster
 		}
 	}
 	return nil

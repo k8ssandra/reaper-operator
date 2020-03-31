@@ -286,6 +286,7 @@ func init() {
 	SchemeBuilder.Register(&Reaper{}, &ReaperList{})
 }
 
+// Return true if .Spec.Clusters matches .Status.Clusters
 func (r *Reaper) ClustersInSync() bool {
 	if len(r.Spec.Clusters) != len(r.Status.Clusters) {
 		return false
