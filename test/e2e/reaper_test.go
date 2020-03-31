@@ -16,6 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	deploymentutil "k8s.io/kubernetes/pkg/controller/deployment/util"
 	"testing"
 	"time"
@@ -79,9 +80,9 @@ func TestReaper(t *testing.T) {
 
 	if err := initCassandra(t); err != nil {
 		t.Run("DeployReaperCassandraBackend", e2eTest(testDeployReaperCassandraBackend))
-		t.Run("AddDeleteManagedCluster", e2eTest(testAddDeleteManagedCluster))
+		t.Run("ManagedClusters", e2eTest(testManagedClusters))
 	} else {
-		t.Logf("Failed to deployed Cassandra. Skipping DeployReaperCassandraBackend and AddDeleteManagedCluster")
+		t.Logf("Failed to deployed Cassandra. Skipping DeployReaperCassandraBackend, ManagedClusters")
 	}
 
 	t.Run("UpdateReaperConfiguration", e2eTest(testUpdateReaperConfiguration))
@@ -241,39 +242,16 @@ func testDeployReaperCassandraBackend(t *testing.T, f *framework.Framework, ctx 
 	}
 }
 
-func testAddDeleteManagedCluster(t *testing.T, f *framework.Framework, ctx *framework.TestCtx) {
+func testManagedClusters(t *testing.T, f *framework.Framework, ctx *framework.TestCtx) {
 	namespace, err := ctx.GetNamespace()
 	if err != nil {
 		t.Fatalf("Failed to get namespace: %s", err)
 	}
 
-	reaper := v1alpha1.Reaper{
-		TypeMeta: metav1.TypeMeta{
-			Kind: "Reaper",
-			APIVersion: "reaper.cassandra-reaper.io/v1alpha1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "reaper-e2e",
-			Namespace: namespace,
-		},
-		Spec: v1alpha1.ReaperSpec{
-			ServerConfig: v1alpha1.ServerConfig{
-				StorageType: "memory",
-			},
-			Clusters: []v1alpha1.CassandraCluster{
-				{
-					Name: cassandraClusterName,
-					Service: v1alpha1.CassandraService{
-						Name: cassandraClusterName,
-						Namespace: namespace,
-					},
-				},
-			},
-		},
-	}
+	reaper := createReaperWithManagedCluster(namespace)
 
 	cleanup := &framework.CleanupOptions{TestContext: ctx, Timeout: time.Second * 5, RetryInterval: time.Second * 1}
-	if err = f.Client.Create(goctx.TODO(), &reaper, cleanup); err != nil {
+	if err = f.Client.Create(goctx.TODO(), reaper, cleanup); err != nil {
 		t.Fatalf("Failed to create Reaper: %s\n", err)
 	}
 
@@ -310,18 +288,40 @@ func testAddDeleteManagedCluster(t *testing.T, f *framework.Framework, ctx *fram
 		t.Errorf("failed to create REST client: %s", err)
 	}
 
+	// Next use the REST client to perform an out of band delete of the cluster, removing
+	// it from the Reaper application. We need to verify that it gets added back to the
+	// application since the cluster is not removed from the spec.
+
+	monitoringCheckPassed := false
+
+	if err := restClient.DeleteCluster(goctx.TODO(), cassandraClusterName); err == nil {
+		monitorTimeout := 1 * time.Minute
+		monitorInterval := 10 * time.Second
+		err := wait.Poll(monitorInterval, monitorTimeout, func() (bool, error) {
+			cluster, getErr := restClient.GetCluster(goctx.TODO(), cassandraClusterName)
+			if cluster != nil && getErr == nil {
+				monitoringCheckPassed = true
+				return true, nil
+			}
+			return false, getErr
+		})
+		assert.Nil(t, err, "failed waiting for cluster to be added back after out of bad deletion: %s", err)
+	} else {
+		t.Errorf("cannot verify cluster monitoring, out of band cluster deletion failed: %s", err)
+	}
+
 	// Now we need to remove the cluster from the spec. First, we need to reload the Reaper
 	// object so that we have the latest version. Then we simply reassign .Spec.Clusters to an
 	// empty slice which effectively removes the cluster.
 
 	name := reaper.Name
-	reaper = v1alpha1.Reaper{}
-	if err := f.Client.Get(goctx.TODO(), types.NamespacedName{Namespace: namespace, Name: name}, &reaper); err!= nil {
+	reaper = &v1alpha1.Reaper{}
+	if err := f.Client.Get(goctx.TODO(), types.NamespacedName{Namespace: namespace, Name: name}, reaper); err!= nil {
 		t.Fatalf("failed to reload Reaper before deleting cluster: %s", err)
 	}
 
 	reaper.Spec.Clusters = []v1alpha1.CassandraCluster{}
-	if err = f.Client.Update(goctx.TODO(), &reaper); err != nil {
+	if err = f.Client.Update(goctx.TODO(), reaper); err != nil {
 		t.Fatalf("failed to update Reaper after removing cluster: %s", err)
 	}
 
@@ -339,12 +339,20 @@ func testAddDeleteManagedCluster(t *testing.T, f *framework.Framework, ctx *fram
 		t.Errorf("timed out waiting for status to be updated after deleting cluster: %s", err)
 	}
 
-	// Second, verify that the C* cluster is not found via the REST client
-	if restClient == nil {
-		t.Logf("cannot verify with REST client that the cassandra cluster has been removed from Reaper")
+	if monitoringCheckPassed {
+		// There is no point to check for cluster deletion if the the monitoring check failed.
+		// If it failed, then that most likely means that the cluster was never added back to
+		// the Reaper application
+
+		// Second, verify that the C* cluster is not found via the REST client
+		if restClient == nil {
+			t.Logf("cannot verify with REST client that the cassandra cluster has been removed from Reaper")
+		} else {
+			_, err := restClient.GetCluster(goctx.TODO(), cassandraClusterName)
+			assert.Equal(t, reapergo.CassandraClusterNotFound, err)
+		}
 	} else {
-		_, err := restClient.GetCluster(goctx.TODO(), cassandraClusterName)
-		assert.Equal(t, reapergo.CassandraClusterNotFound, err)
+		t.Logf("skipping check with REST client for cluster being removed from Reaper since monitoring check failed")
 	}
 }
 
@@ -459,7 +467,7 @@ func createCassandraCluster(name string, namespace string, f *framework.Framewor
 			Namespace: namespace,
 		},
 		Spec: casskop.CassandraClusterSpec{
-			DeletePVC: true,
+			DeletePVC: false,
 			DataCapacity: "5Gi",
 			Resources: casskop.CassandraResources{
 				Requests: casskop.CPUAndMem{
@@ -474,6 +482,33 @@ func createCassandraCluster(name string, namespace string, f *framework.Framewor
 		},
 	}
 	return f.Client.Create(goctx.TODO(), &cc, cleanupWithPolling(ctx))
+}
+
+func createReaperWithManagedCluster(namespace string) *v1alpha1.Reaper {
+	return &v1alpha1.Reaper{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Reaper",
+			APIVersion: "reaper.cassandra-reaper.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "reaper-e2e",
+			Namespace: namespace,
+		},
+		Spec: v1alpha1.ReaperSpec{
+			ServerConfig: v1alpha1.ServerConfig{
+				StorageType: "memory",
+			},
+			Clusters: []v1alpha1.CassandraCluster{
+				{
+					Name: cassandraClusterName,
+					Service: v1alpha1.CassandraService{
+						Name: cassandraClusterName,
+						Namespace: namespace,
+					},
+				},
+			},
+		},
+	}
 }
 
 func createRESTClient() (reapergo.ReaperClient, error) {
