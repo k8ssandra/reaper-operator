@@ -6,12 +6,13 @@ require (
 	github.com/Orange-OpenSource/cassandra-k8s-operator v0.3.2
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869
 	github.com/go-logr/logr v0.1.0
-	github.com/jsanda/reaper-client-go v0.2.0
+	github.com/jsanda/reaper-client-go v0.2.1-0.20200330033603-5ad3b9164c35
 	github.com/mitchellh/hashstructure v1.0.0
 	github.com/operator-framework/operator-sdk v0.14.0
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.5.1
+	golang.org/x/net v0.0.0-20191028085509-fe3aa8a45271
 	golang.org/x/sys v0.0.0-20200120151820-655fe14d7479 // indirect
 	gopkg.in/yaml.v2 v2.2.4
 	k8s.io/api v0.0.0

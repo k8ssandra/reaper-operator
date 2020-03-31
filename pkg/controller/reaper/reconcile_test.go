@@ -2,10 +2,11 @@ package reaper
 
 import (
 	"context"
-	"github.com/stretchr/testify/assert"
 	reapergo "github.com/jsanda/reaper-client-go/reaper"
+	"github.com/stretchr/testify/assert"
 	"github.com/thelastpickle/reaper-operator/pkg/apis"
 	"github.com/thelastpickle/reaper-operator/pkg/apis/reaper/v1alpha1"
+	"github.com/thelastpickle/reaper-operator/pkg/testutil"
 	appsv1 "k8s.io/api/apps/v1"
 	v1batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -592,7 +593,7 @@ func testAddCluster(t *testing.T) {
 
 	objs := []runtime.Object{reaper}
 
-	restClient := newFakeRESTClient()
+	restClient := testutil.NewFakeRESTClient()
 	r := createClustersReconciler(objs...)
 	r.newRESTClient = func(reaper *v1alpha1.Reaper) (reapergo.ReaperClient, error) {
 		return restClient, nil
@@ -649,7 +650,7 @@ func testDeleteCluster(t *testing.T) {
 
 	objs := []runtime.Object{reaper}
 
-	restClient := newFakeRESTClient()
+	restClient := testutil.NewFakeRESTClient()
 	r := createClustersReconciler(objs...)
 	r.newRESTClient = func(reaper *v1alpha1.Reaper) (reapergo.ReaperClient, error) {
 		return restClient, nil

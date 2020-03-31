@@ -419,6 +419,8 @@ github.com/jonboulle/clockwork v0.1.0 h1:VKV+ZcuP6l3yW9doeqz6ziZGgcynBVQO+obU0+0
 github.com/jonboulle/clockwork v0.1.0/go.mod h1:Ii8DK3G1RaLaWxj9trq07+26W01tbo22gdxWY5EU2bo=
 github.com/jsanda/reaper-client-go v0.2.0 h1:buULKt+SrRmnewTdUgEh19bsrVraQ68aMu62XTNUN0w=
 github.com/jsanda/reaper-client-go v0.2.0/go.mod h1:UjDpcFwKRDFoFZx2ronQ2p6uOP08hrClFGauQOeJzd4=
+github.com/jsanda/reaper-client-go v0.2.1-0.20200330033603-5ad3b9164c35 h1:XU6hm77NcZXNq0fvTJbW9o8qHaA5miYcN/4FUwzRg4o=
+github.com/jsanda/reaper-client-go v0.2.1-0.20200330033603-5ad3b9164c35/go.mod h1:UjDpcFwKRDFoFZx2ronQ2p6uOP08hrClFGauQOeJzd4=
 github.com/json-iterator/go v0.0.0-20180612202835-f2b4162afba3/go.mod h1:+SdeFBvtyEkXs7REEP0seUULqWtbJapLOCVDaaPEHmU=
 github.com/json-iterator/go v1.1.6/go.mod h1:+SdeFBvtyEkXs7REEP0seUULqWtbJapLOCVDaaPEHmU=
 github.com/json-iterator/go v1.1.7 h1:KfgG9LzI+pYjr4xvmz/5H4FXjokeP+rlHLhv3iH62Fo=

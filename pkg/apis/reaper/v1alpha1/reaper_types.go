@@ -285,3 +285,25 @@ type ReaperList struct {
 func init() {
 	SchemeBuilder.Register(&Reaper{}, &ReaperList{})
 }
+
+// Return true if .Spec.Clusters matches .Status.Clusters
+func (r *Reaper) ClustersInSync() bool {
+	if len(r.Spec.Clusters) != len(r.Status.Clusters) {
+		return false
+	}
+	for _, cluster := range r.Spec.Clusters {
+		if !containsCluster(r.Status.Clusters, cluster) {
+			return false
+		}
+	}
+	return true
+}
+
+func containsCluster(clusters []CassandraCluster, cluster CassandraCluster) bool {
+	for _, c := range clusters {
+		if c == cluster {
+			return true
+		}
+	}
+	return false
+}
