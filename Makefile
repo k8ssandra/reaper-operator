@@ -1,113 +1,123 @@
-ORG?=thelastpickle
-PROJECT=reaper-operator
-REG=docker.io
-SHELL=/bin/bash
-TAG?=latest
-PKG=github.com/thelastpickle/reaper-operator
-COMPILE_TARGET=./build/_output/bin/$(PROJECT)
+# Current Operator version
+VERSION ?= 0.0.1
+# Default bundle image tag
+BUNDLE_IMG ?= controller-bundle:$(VERSION)
+# Options for 'bundle-build'
+ifneq ($(origin CHANNELS), undefined)
+BUNDLE_CHANNELS := --channels=$(CHANNELS)
+endif
+ifneq ($(origin DEFAULT_CHANNEL), undefined)
+BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
+endif
+BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
-BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
-REV=$(shell git rev-parse --short=12 HEAD)
+# Image URL to use all building/pushing image targets
+IMG ?= controller:latest
+# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
+CRD_OPTIONS ?= "crd:trivialVersions=true"
 
-IMAGE_BASE=$(REG)/$(ORG)/$(PROJECT)
-PRE_TEST_TAG=$(BRANCH)-$(REV)-TEST
-POST_TEST_TAG=$(BRANCH)-$(REV)
-E2E_IMAGE?=$(IMAGE_BASE):$(PRE_TEST_TAG)
-BRANCH_REV_IMAGE=$(IMAGE_BASE):$(POST_TEST_TAG)
-REV_IMAGE=$(IMAGE_BASE):$(REV)
-BRANCH_LATEST_IMAGE=$(IMAGE_BASE):$(BRANCH)-latest
-LATEST_IMAGE=$(IMAGE_BASE):latest
-
-ifeq ($(CIRCLE_BRANCH),master)
-	PUSH_LATEST := true
+# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
+ifeq (,$(shell go env GOBIN))
+GOBIN=$(shell go env GOPATH)/bin
+else
+GOBIN=$(shell go env GOBIN)
 endif
 
-DEV_NS ?= reaper
-E2E_NS?=reaper-e2e
+all: manager
 
-.PHONY: clean
-clean:
-	rm -rf build/_output
+# Run tests
+ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
+test: generate fmt vet manifests
+	mkdir -p ${ENVTEST_ASSETS_DIR}
+	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/master/hack/setup-envtest.sh
+	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test ./... -coverprofile cover.out
 
-.PHONY: e2e-image
-e2e-image:
-	@echo E2E_IMAGE = $(E2E_IMAGE)
+# Build manager binary
+manager: generate fmt vet
+	go build -o bin/manager main.go
 
-.PHONY: run
-run:
-	@operator-sdk up local --namespace=${DEV_NS}
+# Run against the configured Kubernetes cluster in ~/.kube/config
+run: generate fmt vet manifests
+	go run ./main.go
 
-.PHONY: build
-build:
-	@GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -o=$(COMPILE_TARGET) ./cmd/manager
+# Install CRDs into a cluster
+install: manifests kustomize
+	$(KUSTOMIZE) build config/crd | kubectl apply -f -
 
-.PHONY: code-gen
-code-gen:
-	operator-sdk generate k8s
+# Uninstall CRDs from a cluster
+uninstall: manifests kustomize
+	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
-.PHONE: openapi-gen
-openapi-gen:
-	operator-sdk generate openapi
+# Deploy controller in the configured Kubernetes cluster in ~/.kube/config
+deploy: manifests kustomize
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
-.PHONY: build-e2e-image
-build-e2e-image:
-	@echo Building ${E2E_IMAGE}
-	@operator-sdk build ${E2E_IMAGE}
+# Generate manifests e.g. CRD, RBAC etc.
+manifests: controller-gen
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
-.PHONY: push-e2e-image
-push-e2e-image:
-	docker push ${E2E_IMAGE}
+# Run go fmt against code
+fmt:
+	go fmt ./...
 
-.PHONY: build-image
-build-image: code-gen openapi-gen
-	@operator-sdk build ${REG}/${ORG}/${PROJECT}:${TAG}
+# Run go vet against code
+vet:
+	go vet ./...
 
-.PHONY: push-image
-push-image:
-	@echo Pushing ${BRANCH_REV_IMAGE}
-	docker tag ${E2E_IMAGE} ${BRANCH_REV_IMAGE}
-	docker push ${BRANCH_REV_IMAGE}
-	@echo Pushing ${REV_IMAGE}
-	docker tag ${BRANCH_REV_IMAGE} ${REV_IMAGE}
-	docker push ${REV_IMAGE}
-ifdef CIRCLE_BRANCH
-	@echo Pushing ${BRANCH_LATEST_IMAGE}
-	docker tag ${BRANCH_REV_IMAGE} ${BRANCH_LATEST_IMAGE}
-	docker push ${BRANCH_LATEST_IMAGE}
+# Generate code
+generate: controller-gen
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+
+# Build the docker image
+docker-build: test
+	docker build . -t ${IMG}
+
+# Push the docker image
+docker-push:
+	docker push ${IMG}
+
+# find or download controller-gen
+# download controller-gen if necessary
+controller-gen:
+ifeq (, $(shell which controller-gen))
+	@{ \
+	set -e ;\
+	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$CONTROLLER_GEN_TMP_DIR ;\
+	go mod init tmp ;\
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.3.0 ;\
+	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
+	}
+CONTROLLER_GEN=$(GOBIN)/controller-gen
+else
+CONTROLLER_GEN=$(shell which controller-gen)
 endif
-ifdef PUSH_LATEST
-	@echo PUSHING ${LATEST_IMAGE}
-	docker tag ${BRANCH_REV_IMAGE} ${LATEST_IMAGE}
-	docker push ${IMAGE_BASE}:latest
+
+kustomize:
+ifeq (, $(shell which kustomize))
+	@{ \
+	set -e ;\
+	KUSTOMIZE_GEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$KUSTOMIZE_GEN_TMP_DIR ;\
+	go mod init tmp ;\
+	go get sigs.k8s.io/kustomize/kustomize/v3@v3.5.4 ;\
+	rm -rf $$KUSTOMIZE_GEN_TMP_DIR ;\
+	}
+KUSTOMIZE=$(GOBIN)/kustomize
+else
+KUSTOMIZE=$(shell which kustomize)
 endif
 
-.PHONY: unit-test
-unit-test:
-	@echo Running tests:
-	go test -v -race -cover ./pkg/...
+# Generate bundle manifests and metadata, then validate generated files.
+.PHONY: bundle
+bundle: manifests
+	operator-sdk generate kustomize manifests -q
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	operator-sdk bundle validate ./bundle
 
-.PHONY: do-deploy-casskop
-do-deploy-casskop:
-	kubectl -n $(CASSKOP_NS) apply -f config/casskop
-
-.PHONY: deploy-casskop
-deploy-casskop: CASSKOP_NS ?= $(DEV_NS)
-deploy-casskop: do-deploy-casskop
-
-.PHONY: create-e2e-ns
-create-e2e-ns:
-	./scripts/create-ns.sh $(E2E_NS)
-
-.PHONY: e2e-setup
-e2e-setup: CASSKOP_NS = $(E2E_NS)
-e2e-setup: create-e2e-ns do-deploy-casskop
-
-.PHONY: e2e-test
-e2e-test: e2e-setup
-	@echo Running e2e tests
-	operator-sdk test local ./test/e2e --image $(E2E_IMAGE) --namespace $(E2E_NS) --debug  --go-test-flags "-timeout 0"
-
-.PHONY: e2e-test-local
-e2e-test-local: e2e-setup
-	@echo Running e2e tests
-	operator-sdk test local ./test/e2e --up-local --namespace $(E2E_NS) --go-test-flags "-timeout 0"
+# Build the bundle image.
+.PHONY: bundle-build
+bundle-build:
+	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .

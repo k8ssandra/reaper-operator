@@ -1,0 +1,4 @@
+## Append samples you want in your CSV to this file as resources ##
+resources:
+- reaper_v1alpha1_reaper.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples
