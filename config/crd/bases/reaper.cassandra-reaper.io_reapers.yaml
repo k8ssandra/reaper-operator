@@ -36,9 +36,7 @@ spec:
         spec:
           description: ReaperSpec defines the desired state of Reaper
           properties:
-            foo:
-              description: Foo is an example field of Reaper. Edit Reaper_types.go
-                to remove/update
+            image:
               type: string
           type: object
         status:

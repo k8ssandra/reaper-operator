@@ -4,6 +4,8 @@ testbin/*
 # Temporary Build Files
 build/_output
 build/_test
+# Generated binaries
+bin/*
 # Created by https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
 ### Emacs ###
 # -*- mode: gitignore; -*-
