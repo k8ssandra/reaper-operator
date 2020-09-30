@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/thelastpickle/reaper-operator/pkg/reconcile"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -76,9 +77,10 @@ func main() {
 	}
 
 	if err = (&controllers.ReaperReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("Reaper"),
-		Scheme: mgr.GetScheme(),
+		Client:               mgr.GetClient(),
+		Log:                  ctrl.Log.WithName("controllers").WithName("Reaper"),
+		Scheme:               mgr.GetScheme(),
+		DeploymentReconciler: reconcile.NewDeploymentReconciler(mgr.GetClient()),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Reaper")
 		os.Exit(1)

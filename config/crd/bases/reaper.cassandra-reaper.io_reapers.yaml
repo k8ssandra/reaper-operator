@@ -38,6 +38,50 @@ spec:
           properties:
             image:
               type: string
+            serverConfig:
+              properties:
+                cassandraBackend:
+                  properties:
+                    authProvider:
+                      properties:
+                        password:
+                          type: string
+                        type:
+                          type: string
+                        username:
+                          type: string
+                      type: object
+                    cassandraService:
+                      description: The headless service that provides endpoints for
+                        the Cassandra pods
+                      type: string
+                    clusterName:
+                      type: string
+                    keyspace:
+                      description: Defaults to reaper
+                      type: string
+                    replication:
+                      description: Specifies the replication strategy for a keyspace
+                      properties:
+                        networkTopologyStrategy:
+                          additionalProperties:
+                            format: int32
+                            type: integer
+                          description: Specifies the replication_factor when NetworkTopologyStrategy
+                            is used. The mapping is data center name to RF.
+                          type: object
+                        simpleStrategy:
+                          description: Specifies the replication_factor when SimpleStrategy
+                            is used
+                          format: int32
+                          type: integer
+                      type: object
+                  required:
+                  - cassandraService
+                  - clusterName
+                  - replication
+                  type: object
+              type: object
           type: object
         status:
           description: ReaperStatus defines the observed state of Reaper

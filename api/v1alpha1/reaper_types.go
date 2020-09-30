@@ -23,12 +23,49 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+type ServerConfig struct {
+	CassandraBackend *CassandraBackend `json:"cassandraBackend,omitempty" yaml:"cassandra,omitempty"`
+}
+
+// Specifies the replication strategy for a keyspace
+type ReplicationConfig struct {
+	// Specifies the replication_factor when SimpleStrategy is used
+	SimpleStrategy *int32 `json:"simpleStrategy,omitempty"`
+
+	// Specifies the replication_factor when NetworkTopologyStrategy is used. The mapping is data center name to RF.
+	NetworkTopologyStrategy *map[string]int32 `json:"networkTopologyStrategy,omitempty"`
+}
+
+type AuthProvider struct {
+	Type string `json:"type,omitempty" yaml:"type,omitempty"`
+
+	Username string `json:"username,omitempty" yaml:"username,omitempty"`
+
+	Password string `json:"password,omitempty" yaml:"password,omitempty"`
+}
+
+type CassandraBackend struct {
+	ClusterName string `json:"clusterName" yaml:"clusterName"`
+
+	// The headless service that provides endpoints for the Cassandra pods
+	CassandraService string `json:"cassandraService" yaml:"contactPoints"`
+
+	// Defaults to reaper
+	Keyspace string `json:"keyspace,omitempty" yaml:"keyspace,omitempty"`
+
+	Replication ReplicationConfig `json:"replication" yaml:"-"`
+
+	AuthProvider AuthProvider `json:"authProvider,omitempty" yaml:"authProvider,omitempty"`
+}
+
 // ReaperSpec defines the desired state of Reaper
 type ReaperSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
 	Image string `json:"image,omitempty"`
+
+	ServerConfig ServerConfig `json:"serverConfig,omitempty" yaml:"serverConfig,omitempty"`
 }
 
 // ReaperStatus defines the observed state of Reaper
