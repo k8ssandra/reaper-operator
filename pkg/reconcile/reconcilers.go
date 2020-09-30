@@ -19,6 +19,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	schemaJobImage           = "jsanda/create_keyspace:latest"
+	schemaJobImagePullPolicy = corev1.PullIfNotPresent
+)
+
 type Reconciler interface {
 	Reconcile(ctx context.Context, reaper *api.Reaper, log logr.Logger) (*ctrl.Result, error)
 }
@@ -45,11 +50,16 @@ func (r *schemaReconciler) Reconcile(ctx context.Context, reaper *api.Reaper, lo
 	log.WithValues("schemaJob", key)
 	log.Info("reconciling schema")
 
+	if reaper.Spec.ServerConfig.StorageType == api.StorageTypeMemory {
+		// No need to run schema job when using in-memory backend
+		return nil, nil
+	}
+
 	schemaJob := &v1batch.Job{}
 	err := r.Client.Get(ctx, key, schemaJob)
 	if err != nil && errors.IsNotFound(err) {
 		// create the job
-		schemaJob = r.newSchemaJob(reaper)
+		schemaJob = newSchemaJob(reaper)
 		log.Info("creating schema job")
 		if err = r.Client.Create(ctx, schemaJob); err != nil {
 			log.Error(err, "failed to create schema job")
@@ -71,7 +81,7 @@ func getSchemaJobName(r *api.Reaper) string {
 	return fmt.Sprintf("%s-schema", r.Name)
 }
 
-func (r *schemaReconciler) newSchemaJob(reaper *api.Reaper) *v1batch.Job {
+func newSchemaJob(reaper *api.Reaper) *v1batch.Job {
 	cassandra := *reaper.Spec.ServerConfig.CassandraBackend
 	return &v1batch.Job{
 		TypeMeta: metav1.TypeMeta{
@@ -90,8 +100,8 @@ func (r *schemaReconciler) newSchemaJob(reaper *api.Reaper) *v1batch.Job {
 					Containers: []corev1.Container{
 						{
 							Name:            getSchemaJobName(reaper),
-							Image:           "jsanda/create_keyspace:latest",
-							ImagePullPolicy: corev1.PullIfNotPresent,
+							Image:           schemaJobImage,
+							ImagePullPolicy: schemaJobImagePullPolicy,
 							Env: []corev1.EnvVar{
 								{
 									Name:  "KEYSPACE",
