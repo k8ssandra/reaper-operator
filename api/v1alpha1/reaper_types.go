@@ -23,7 +23,21 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+type StorageType string
+
+const (
+	DefaultReaperImage = "thelastpickle/cassandra-reaper:2.0.5"
+
+	StorageTypeMemory    = StorageType("memory")
+	StorageTypeCassandra = StorageType("cassandra")
+
+	DefaultKeyspace    = "reaper_db"
+	DefaultStorageType = StorageTypeMemory
+)
+
 type ServerConfig struct {
+	StorageType StorageType `json:"storageType,omitempty"`
+
 	CassandraBackend *CassandraBackend `json:"cassandraBackend,omitempty" yaml:"cassandra,omitempty"`
 }
 
@@ -47,7 +61,7 @@ type AuthProvider struct {
 type CassandraBackend struct {
 	ClusterName string `json:"clusterName" yaml:"clusterName"`
 
-	// The headless service that provides endpoints for the Cassandra pods
+	// The headless service that provides endpoints for the StorageTypeCassandra pods
 	CassandraService string `json:"cassandraService" yaml:"contactPoints"`
 
 	// Defaults to reaper

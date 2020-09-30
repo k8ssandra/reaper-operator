@@ -82,7 +82,7 @@ func TestReaper(t *testing.T) {
 		t.Run("DeployReaperCassandraBackend", e2eTest(testDeployReaperCassandraBackend))
 		t.Run("ManagedClusters", e2eTest(testManagedClusters))
 	} else {
-		t.Logf("Failed to deployed Cassandra. Skipping DeployReaperCassandraBackend, ManagedClusters")
+		t.Logf("Failed to deployed StorageTypeCassandra. Skipping DeployReaperCassandraBackend, ManagedClusters")
 	}
 
 	t.Run("UpdateReaperConfiguration", e2eTest(testUpdateReaperConfiguration))

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/thelastpickle/reaper-operator/pkg/config"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,11 +37,14 @@ type ReaperReconciler struct {
 	Log                  logr.Logger
 	Scheme               *runtime.Scheme
 	DeploymentReconciler reconcile.Reconciler
+	SchemaReconciler     reconcile.Reconciler
+	Validator            config.Validator
 }
 
 // +kubebuilder:rbac:groups=reaper.cassandra-reaper.io,namespace="reaper-operator",resources=reapers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=reaper.cassandra-reaper.io,namespace="reaper-operator",resources=reapers/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups="apps",namespace="reaper-operator",resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="batch",namespace="reaper-operator",resources=jobs,verbs=get;list;create
 
 func (r *ReaperReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
@@ -57,6 +61,21 @@ func (r *ReaperReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	instance = instance.DeepCopy()
+
+	if err := r.Validator.Validate(instance); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if r.Validator.SetDefaults(instance) {
+		if err = r.Update(ctx, instance); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	if result, err := r.SchemaReconciler.Reconcile(ctx, instance, r.Log); result != nil {
+		return *result, err
+	}
 
 	if result, err := r.DeploymentReconciler.Reconcile(ctx, instance, r.Log); result != nil {
 		return *result, err

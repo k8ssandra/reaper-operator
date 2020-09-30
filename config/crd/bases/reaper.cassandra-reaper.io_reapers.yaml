@@ -53,7 +53,7 @@ spec:
                       type: object
                     cassandraService:
                       description: The headless service that provides endpoints for
-                        the Cassandra pods
+                        the StorageTypeCassandra pods
                       type: string
                     clusterName:
                       type: string
@@ -81,6 +81,8 @@ spec:
                   - clusterName
                   - replication
                   type: object
+                storageType:
+                  type: string
               type: object
           type: object
         status:

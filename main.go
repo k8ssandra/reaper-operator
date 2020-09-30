@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/thelastpickle/reaper-operator/pkg/config"
 	"github.com/thelastpickle/reaper-operator/pkg/reconcile"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -81,6 +82,8 @@ func main() {
 		Log:                  ctrl.Log.WithName("controllers").WithName("Reaper"),
 		Scheme:               mgr.GetScheme(),
 		DeploymentReconciler: reconcile.NewDeploymentReconciler(mgr.GetClient()),
+		SchemaReconciler:     reconcile.NewSchemaReonciler(mgr.GetClient()),
+		Validator:            config.NewValidator(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Reaper")
 		os.Exit(1)

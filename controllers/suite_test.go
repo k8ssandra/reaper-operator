@@ -24,6 +24,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+	"github.com/thelastpickle/reaper-operator/pkg/config"
+	"github.com/thelastpickle/reaper-operator/pkg/reconcile"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -76,8 +78,11 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).ToNot(HaveOccurred())
 
 	err = (&ReaperReconciler{
-		Client: k8sManager.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("Reaper"),
+		Client:               k8sManager.GetClient(),
+		Log:                  ctrl.Log.WithName("controllers").WithName("Reaper"),
+		DeploymentReconciler: reconcile.NewDeploymentReconciler(k8sManager.GetClient()),
+		SchemaReconciler:     reconcile.NewSchemaReonciler(k8sManager.GetClient()),
+		Validator:            config.NewValidator(),
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 

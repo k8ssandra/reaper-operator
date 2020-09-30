@@ -7,7 +7,9 @@ import (
 
 	"github.com/go-logr/logr"
 	api "github.com/thelastpickle/reaper-operator/api/v1alpha1"
+	"github.com/thelastpickle/reaper-operator/pkg/config"
 	appsv1 "k8s.io/api/apps/v1"
+	v1batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,8 +27,109 @@ type deploymentReconciler struct {
 	client.Client
 }
 
+type schemaReconciler struct {
+	client.Client
+}
+
 func NewDeploymentReconciler(client client.Client) Reconciler {
 	return &deploymentReconciler{Client: client}
+}
+
+func NewSchemaReonciler(client client.Client) Reconciler {
+	return &schemaReconciler{Client: client}
+}
+
+func (r *schemaReconciler) Reconcile(ctx context.Context, reaper *api.Reaper, log logr.Logger) (*ctrl.Result, error) {
+	key := types.NamespacedName{Namespace: reaper.Namespace, Name: getSchemaJobName(reaper)}
+
+	log.WithValues("schemaJob", key)
+	log.Info("reconciling schema")
+
+	schemaJob := &v1batch.Job{}
+	err := r.Client.Get(ctx, key, schemaJob)
+	if err != nil && errors.IsNotFound(err) {
+		// create the job
+		schemaJob = r.newSchemaJob(reaper)
+		log.Info("creating schema job")
+		if err = r.Client.Create(ctx, schemaJob); err != nil {
+			log.Error(err, "failed to create schema job")
+			return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
+		} else {
+			return &ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+		}
+	} else if !jobFinished(schemaJob) {
+		return &ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
+	} else if failed, err := jobFailed(schemaJob); failed {
+		return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
+	} else {
+		// the job completed successfully
+		return nil, nil
+	}
+}
+
+func getSchemaJobName(r *api.Reaper) string {
+	return fmt.Sprintf("%s-schema", r.Name)
+}
+
+func (r *schemaReconciler) newSchemaJob(reaper *api.Reaper) *v1batch.Job {
+	cassandra := *reaper.Spec.ServerConfig.CassandraBackend
+	return &v1batch.Job{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Job",
+			APIVersion: "batch/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: reaper.Namespace,
+			Name:      getSchemaJobName(reaper),
+			//Labels: createLabels(reaper),
+		},
+		Spec: v1batch.JobSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					RestartPolicy: corev1.RestartPolicyOnFailure,
+					Containers: []corev1.Container{
+						{
+							Name:            getSchemaJobName(reaper),
+							Image:           "jsanda/create_keyspace:latest",
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Env: []corev1.EnvVar{
+								{
+									Name:  "KEYSPACE",
+									Value: cassandra.Keyspace,
+								},
+								{
+									Name:  "CONTACT_POINTS",
+									Value: cassandra.CassandraService,
+								},
+								{
+									Name:  "REPLICATION",
+									Value: config.ReplicationToString(cassandra.Replication),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func jobFinished(job *v1batch.Job) bool {
+	for _, c := range job.Status.Conditions {
+		if (c.Type == v1batch.JobComplete || c.Type == v1batch.JobFailed) && c.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
+}
+
+func jobFailed(job *v1batch.Job) (bool, error) {
+	for _, cond := range job.Status.Conditions {
+		if cond.Type == v1batch.JobFailed && cond.Status == corev1.ConditionTrue {
+			return true, fmt.Errorf("schema job failed: %s", cond.Message)
+		}
+	}
+	return false, nil
 }
 
 func (r *deploymentReconciler) Reconcile(ctx context.Context, reaper *api.Reaper, log logr.Logger) (*ctrl.Result, error) {
