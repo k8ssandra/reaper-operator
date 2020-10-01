@@ -27,6 +27,7 @@ rules:
   - create
   - get
   - list
+  - watch
 - apiGroups:
   - reaper.cassandra-reaper.io
   resources:

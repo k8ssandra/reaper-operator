@@ -65,6 +65,9 @@ var _ = Describe("Reaper controller", func() {
 		})
 		Expect(k8sClient.Status().Patch(context.Background(), job, jobPatch))
 
+		Expect(len(job.OwnerReferences)).Should(Equal(1))
+		Expect(job.OwnerReferences[0].UID).Should(Equal(reaper.GetUID()))
+
 		By("check that the deployment is created")
 		deploymentKey := types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName}
 		deployment := &appsv1.Deployment{}

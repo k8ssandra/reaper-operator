@@ -36,15 +36,15 @@ type ReaperReconciler struct {
 	client.Client
 	Log                  logr.Logger
 	Scheme               *runtime.Scheme
-	DeploymentReconciler reconcile.Reconciler
-	SchemaReconciler     reconcile.Reconciler
+	DeploymentReconciler reconcile.DeploymentReconciler
+	SchemaReconciler     reconcile.SchemaReconciler
 	Validator            config.Validator
 }
 
 // +kubebuilder:rbac:groups=reaper.cassandra-reaper.io,namespace="reaper-operator",resources=reapers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=reaper.cassandra-reaper.io,namespace="reaper-operator",resources=reapers/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups="apps",namespace="reaper-operator",resources=deployments,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups="batch",namespace="reaper-operator",resources=jobs,verbs=get;list;create
+// +kubebuilder:rbac:groups="batch",namespace="reaper-operator",resources=jobs,verbs=get;list;watch;create
 
 func (r *ReaperReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
@@ -73,11 +73,11 @@ func (r *ReaperReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	if result, err := r.SchemaReconciler.Reconcile(ctx, instance, r.Log); result != nil {
+	if result, err := r.SchemaReconciler.ReconcileSchema(ctx, instance); result != nil {
 		return *result, err
 	}
 
-	if result, err := r.DeploymentReconciler.Reconcile(ctx, instance, r.Log); result != nil {
+	if result, err := r.DeploymentReconciler.ReconcileDeployment(ctx, instance); result != nil {
 		return *result, err
 	}
 

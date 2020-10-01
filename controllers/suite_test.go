@@ -77,11 +77,14 @@ var _ = BeforeSuite(func(done Done) {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
+	log := ctrl.Log.WithName("controllers").WithName("Reaper")
+	reconcile.InitReconcilers(k8sManager.GetClient(), k8sManager.GetScheme(), log)
+
 	err = (&ReaperReconciler{
 		Client:               k8sManager.GetClient(),
-		Log:                  ctrl.Log.WithName("controllers").WithName("Reaper"),
-		DeploymentReconciler: reconcile.NewDeploymentReconciler(k8sManager.GetClient()),
-		SchemaReconciler:     reconcile.NewSchemaReonciler(k8sManager.GetClient()),
+		Log:                  log,
+		DeploymentReconciler: reconcile.GetDeploymentReconciler(),
+		SchemaReconciler:     reconcile.GetSchemaReconciler(),
 		Validator:            config.NewValidator(),
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())

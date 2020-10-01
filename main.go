@@ -77,12 +77,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	log := ctrl.Log.WithName("controllers").WithName("Reaper")
+	reconcile.InitReconcilers(mgr.GetClient(), mgr.GetScheme(), log)
+
 	if err = (&controllers.ReaperReconciler{
 		Client:               mgr.GetClient(),
-		Log:                  ctrl.Log.WithName("controllers").WithName("Reaper"),
+		Log:                  log,
 		Scheme:               mgr.GetScheme(),
-		DeploymentReconciler: reconcile.NewDeploymentReconciler(mgr.GetClient()),
-		SchemaReconciler:     reconcile.NewSchemaReonciler(mgr.GetClient()),
+		DeploymentReconciler: reconcile.GetDeploymentReconciler(),
+		SchemaReconciler:     reconcile.GetSchemaReconciler(),
 		Validator:            config.NewValidator(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Reaper")
