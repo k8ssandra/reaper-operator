@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	api "github.com/thelastpickle/reaper-operator/api/v1alpha1"
 	"github.com/thelastpickle/reaper-operator/pkg/config"
+	mlabels "github.com/thelastpickle/reaper-operator/pkg/labels"
 	appsv1 "k8s.io/api/apps/v1"
 	v1batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -125,7 +126,7 @@ func newSchemaJob(reaper *api.Reaper) *v1batch.Job {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: reaper.Namespace,
 			Name:      getSchemaJobName(reaper),
-			//Labels: createLabels(reaper),
+			Labels:    createLabels(reaper),
 		},
 		Spec: v1batch.JobSpec{
 			Template: corev1.PodTemplateSpec{
@@ -204,15 +205,17 @@ func (r *defaultReconciler) ReconcileDeployment(ctx context.Context, reaper *api
 }
 
 func newDeployment(reaper *api.Reaper) *appsv1.Deployment {
+	labels := createLabels(reaper)
+
 	selector := metav1.LabelSelector{
 		MatchExpressions: []metav1.LabelSelectorRequirement{
 			{
-				Key:      "app",
+				Key:      mlabels.ManagedByLabel,
 				Operator: metav1.LabelSelectorOpIn,
-				Values:   []string{"reaper"},
+				Values:   []string{mlabels.ManagedByLabelValue},
 			},
 			{
-				Key:      "reaper",
+				Key:      mlabels.ReaperLabel,
 				Operator: metav1.LabelSelectorOpIn,
 				Values:   []string{reaper.Name},
 			},
@@ -245,9 +248,6 @@ func newDeployment(reaper *api.Reaper) *appsv1.Deployment {
 				Name:  "REAPER_CASS_CONTACT_POINTS",
 				Value: fmt.Sprintf("[%s]", reaper.Spec.ServerConfig.CassandraBackend.CassandraService),
 			},
-			//{
-			//	Name:
-			//},
 		}
 	}
 
@@ -260,10 +260,7 @@ func newDeployment(reaper *api.Reaper) *appsv1.Deployment {
 			Selector: &selector,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"app":    "reaper",
-						"reaper": reaper.Name,
-					},
+					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
@@ -292,4 +289,12 @@ func newDeployment(reaper *api.Reaper) *appsv1.Deployment {
 			},
 		},
 	}
+}
+
+func createLabels(r *api.Reaper) map[string]string {
+	labels := make(map[string]string)
+	labels[mlabels.ReaperLabel] = r.Name
+	mlabels.SetOperatorLabels(labels)
+
+	return labels
 }

@@ -42,6 +42,7 @@ func TestNewSchemaJob(t *testing.T) {
 
 	assert.Equal(t, getSchemaJobName(reaper), job.Name)
 	assert.Equal(t, namespace, job.Namespace)
+	assert.Equal(t, createLabels(reaper), job.Labels)
 
 	podSpec := job.Spec.Template.Spec
 	assert.Equal(t, corev1.RestartPolicyOnFailure, podSpec.RestartPolicy)
