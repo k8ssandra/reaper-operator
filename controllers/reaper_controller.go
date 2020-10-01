@@ -48,7 +48,9 @@ type ReaperReconciler struct {
 
 func (r *ReaperReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-	_ = r.Log.WithValues("reaper", req.NamespacedName)
+	reqLogger := r.Log.WithValues("reaper", req.NamespacedName)
+
+	reqLogger.Info("starting reconciliation")
 
 	// Fetch the Reaper instance
 	instance := &api.Reaper{}
@@ -73,11 +75,13 @@ func (r *ReaperReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	if result, err := r.SchemaReconciler.ReconcileSchema(ctx, instance); result != nil {
+	reaperReq := reconcile.ReaperRequest{Reaper: instance, Logger: reqLogger}
+
+	if result, err := r.SchemaReconciler.ReconcileSchema(ctx, reaperReq); result != nil {
 		return *result, err
 	}
 
-	if result, err := r.DeploymentReconciler.ReconcileDeployment(ctx, instance); result != nil {
+	if result, err := r.DeploymentReconciler.ReconcileDeployment(ctx, reaperReq); result != nil {
 		return *result, err
 	}
 

@@ -29,41 +29,31 @@ const (
 
 // ReaperRequest containers the information necessary to perform reconciliation actions on a Reaper object.
 type ReaperRequest struct {
-	ctx context.Context
+	Reaper *api.Reaper
 
-	reaper *api.Reaper
-
-	client.Client
-
-	log logr.Logger
-
-	scheme *runtime.Scheme
+	Logger logr.Logger
 }
 
 type SchemaReconciler interface {
-	ReconcileSchema(ctx context.Context, reaper *api.Reaper) (*ctrl.Result, error)
+	ReconcileSchema(ctx context.Context, req ReaperRequest) (*ctrl.Result, error)
 }
 
 type DeploymentReconciler interface {
-	ReconcileDeployment(ctx context.Context, reaper *api.Reaper) (*ctrl.Result, error)
+	ReconcileDeployment(ctx context.Context, req ReaperRequest) (*ctrl.Result, error)
 }
 
 type defaultReconciler struct {
 	client.Client
-
-	log logr.Logger
 
 	scheme *runtime.Scheme
 }
 
 var reconciler defaultReconciler
 
-func InitReconcilers(client client.Client, scheme *runtime.Scheme, log logr.Logger) {
+func InitReconcilers(client client.Client, scheme *runtime.Scheme) {
 	reconciler = defaultReconciler{
 		Client: client,
 		scheme: scheme,
-		// TODO should this be a separate logger
-		log: log,
 	}
 }
 
@@ -75,11 +65,11 @@ func GetDeploymentReconciler() DeploymentReconciler {
 	return &reconciler
 }
 
-func (r *defaultReconciler) ReconcileSchema(ctx context.Context, reaper *api.Reaper) (*ctrl.Result, error) {
+func (r *defaultReconciler) ReconcileSchema(ctx context.Context, req ReaperRequest) (*ctrl.Result, error) {
+	reaper := req.Reaper
 	key := types.NamespacedName{Namespace: reaper.Namespace, Name: getSchemaJobName(reaper)}
 
-	r.log.WithValues("schemaJob", key)
-	r.log.Info("reconciling schema")
+	req.Logger.Info("reconciling schema", "job", key)
 
 	if reaper.Spec.ServerConfig.StorageType == api.StorageTypeMemory {
 		// No need to run schema job when using in-memory backend
@@ -92,12 +82,12 @@ func (r *defaultReconciler) ReconcileSchema(ctx context.Context, reaper *api.Rea
 		// create the job
 		schemaJob = newSchemaJob(reaper)
 		if err = controllerutil.SetControllerReference(reaper, schemaJob, r.scheme); err != nil {
-			r.log.Error(err, "failed to set owner on schema job")
+			req.Logger.Error(err, "failed to set owner on schema job", "job", key)
 			return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 		}
-		r.log.Info("creating schema job")
+		req.Logger.Info("creating schema job", "job", key)
 		if err = r.Client.Create(ctx, schemaJob); err != nil {
-			r.log.Error(err, "failed to create schema job")
+			req.Logger.Error(err, "failed to create schema job", "job", key)
 			return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 		} else {
 			return &ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
@@ -177,11 +167,11 @@ func jobFailed(job *v1batch.Job) (bool, error) {
 	return false, nil
 }
 
-func (r *defaultReconciler) ReconcileDeployment(ctx context.Context, reaper *api.Reaper) (*ctrl.Result, error) {
+func (r *defaultReconciler) ReconcileDeployment(ctx context.Context, req ReaperRequest) (*ctrl.Result, error) {
+	reaper := req.Reaper
 	key := types.NamespacedName{Namespace: reaper.Namespace, Name: reaper.Name}
 
-	r.log.WithValues("deployment", key)
-	r.log.Info("reconciling deployment")
+	req.Logger.Info("reconciling deployment", "deployment", key)
 
 	deployment := &appsv1.Deployment{}
 	err := r.Get(ctx, key, deployment)
@@ -189,12 +179,12 @@ func (r *defaultReconciler) ReconcileDeployment(ctx context.Context, reaper *api
 		// create the deployment
 		deployment = newDeployment(reaper)
 		if err = controllerutil.SetControllerReference(reaper, deployment, r.scheme); err != nil {
-			r.log.Error(err, "failed to set owner on schema job")
+			req.Logger.Error(err, "failed to set owner on deployment", "deployment", key)
 			return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 		}
-		r.log.Info("creating deployment")
+		req.Logger.Info("creating deployment", "deployment", key)
 		if err = r.Create(ctx, deployment); err != nil {
-			r.log.Error(err, "failed to create deployment")
+			req.Logger.Error(err, "failed to create deployment", "deployment", key)
 			return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 		} else {
 			return nil, nil

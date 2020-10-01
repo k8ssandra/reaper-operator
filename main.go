@@ -77,12 +77,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	log := ctrl.Log.WithName("controllers").WithName("Reaper")
-	reconcile.InitReconcilers(mgr.GetClient(), mgr.GetScheme(), log)
+	reconcile.InitReconcilers(mgr.GetClient(), mgr.GetScheme())
 
 	if err = (&controllers.ReaperReconciler{
 		Client:               mgr.GetClient(),
-		Log:                  log,
+		Log:                  ctrl.Log.WithName("controllers").WithName("Reaper"),
 		Scheme:               mgr.GetScheme(),
 		DeploymentReconciler: reconcile.GetDeploymentReconciler(),
 		SchemaReconciler:     reconcile.GetSchemaReconciler(),
