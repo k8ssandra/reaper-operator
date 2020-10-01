@@ -79,5 +79,8 @@ var _ = Describe("Reaper controller", func() {
 			}
 			return true
 		}, timeout, interval).Should(BeTrue(), "deployment creation check failed")
+
+		Expect(len(deployment.OwnerReferences)).Should(Equal(1))
+		Expect(deployment.OwnerReferences[0].UID).Should(Equal(reaper.GetUID()))
 	})
 })

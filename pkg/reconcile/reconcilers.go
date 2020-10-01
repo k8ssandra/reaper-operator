@@ -185,7 +185,12 @@ func (r *defaultReconciler) ReconcileDeployment(ctx context.Context, reaper *api
 	deployment := &appsv1.Deployment{}
 	err := r.Get(ctx, key, deployment)
 	if err != nil && errors.IsNotFound(err) {
+		// create the deployment
 		deployment = newDeployment(reaper)
+		if err = controllerutil.SetControllerReference(reaper, deployment, r.scheme); err != nil {
+			r.log.Error(err, "failed to set owner on schema job")
+			return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
+		}
 		r.log.Info("creating deployment")
 		if err = r.Create(ctx, deployment); err != nil {
 			r.log.Error(err, "failed to create deployment")
