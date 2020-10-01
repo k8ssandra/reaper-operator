@@ -255,6 +255,7 @@ func newDeployment(reaper *api.Reaper) *appsv1.Deployment {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: reaper.Namespace,
 			Name:      reaper.Name,
+			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &selector,
@@ -267,7 +268,7 @@ func newDeployment(reaper *api.Reaper) *appsv1.Deployment {
 						{
 							Name:            "reaper",
 							ImagePullPolicy: corev1.PullIfNotPresent,
-							Image:           "thelastpickle/cassandra-reaper:2.0.5",
+							Image:           reaper.Spec.Image,
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          "ui",

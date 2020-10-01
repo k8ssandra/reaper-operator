@@ -11,8 +11,8 @@ import (
 )
 
 func TestNewSchemaJob(t *testing.T) {
-	namespace := "memory-backend"
-	reaperName := "memory-backend-reaper"
+	namespace := "schema-job-test"
+	reaperName := "test-reaper"
 	clusterName := "cassandra"
 	cassandraService := "cassandra-svc"
 
@@ -65,4 +65,35 @@ func TestNewSchemaJob(t *testing.T) {
 			Value: config.ReplicationToString(reaper.Spec.ServerConfig.CassandraBackend.Replication),
 		},
 	})
+}
+
+func TestNewDeployment(t *testing.T) {
+	namespace := "deployment-test"
+	reaperName := "test-reaper"
+	image := "test/reaper:latest"
+
+	reaper := &api.Reaper{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      reaperName,
+		},
+		Spec: api.ReaperSpec{
+			Image: image,
+		},
+	}
+
+	labels := createLabels(reaper)
+	deployment := newDeployment(reaper)
+
+	assert.Equal(t, namespace, deployment.Namespace)
+	assert.Equal(t, reaperName, deployment.Name)
+	assert.Equal(t, labels, deployment.Labels)
+
+	assert.Equal(t, labels, deployment.Spec.Template.Labels)
+
+	podSpec := deployment.Spec.Template.Spec
+	assert.Equal(t, 1, len(podSpec.Containers))
+
+	container := podSpec.Containers[0]
+	assert.Equal(t, image, container.Image)
 }
