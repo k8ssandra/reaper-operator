@@ -32,6 +32,8 @@ type ReaperRequest struct {
 	Reaper *api.Reaper
 
 	Logger logr.Logger
+
+	// TODO Probably want to add StatusManager in here at some point
 }
 
 type SchemaReconciler interface {

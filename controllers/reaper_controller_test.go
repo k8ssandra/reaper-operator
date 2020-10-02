@@ -82,5 +82,15 @@ var _ = Describe("Reaper controller", func() {
 
 		Expect(len(deployment.OwnerReferences)).Should(Equal(1))
 		Expect(deployment.OwnerReferences[0].UID).Should(Equal(reaper.GetUID()))
+
+		By("check that the reaper is ready")
+		Eventually(func() bool {
+			key := types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName}
+			updatedReaper := &api.Reaper{}
+			if err := k8sClient.Get(context.Background(), key, updatedReaper); err != nil {
+				return false
+			}
+			return updatedReaper.Status.Ready
+		}, timeout, interval)
 	})
 })

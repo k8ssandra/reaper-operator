@@ -49,6 +49,7 @@ type ReaperReconciler struct {
 func (r *ReaperReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
 	reqLogger := r.Log.WithValues("reaper", req.NamespacedName)
+	statusManager := &reconcile.StatusManager{Client: r.Client}
 
 	reqLogger.Info("starting reconciliation")
 
@@ -83,6 +84,10 @@ func (r *ReaperReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	if result, err := r.DeploymentReconciler.ReconcileDeployment(ctx, reaperReq); result != nil {
 		return *result, err
+	}
+
+	if err := statusManager.SetReady(ctx, reaperReq.Reaper); err != nil {
+		return ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 	}
 
 	return ctrl.Result{}, nil
