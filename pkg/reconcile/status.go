@@ -15,5 +15,5 @@ type StatusManager struct {
 func (s *StatusManager) SetReady(ctx context.Context, reaper *api.Reaper) error {
 	patch := client.MergeFrom(reaper.DeepCopy())
 	reaper.Status.Ready = true
-	return s.Patch(ctx, reaper, patch)
+	return s.Status().Patch(ctx, reaper, patch)
 }

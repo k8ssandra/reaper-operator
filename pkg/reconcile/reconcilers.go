@@ -95,6 +95,7 @@ func (r *defaultReconciler) ReconcileSchema(ctx context.Context, req ReaperReque
 			return &ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
 		}
 	} else if !jobFinished(schemaJob) {
+		req.Logger.Info("schema job not finished", "job", key)
 		return &ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 	} else if failed, err := jobFailed(schemaJob); failed {
 		return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
@@ -191,6 +192,8 @@ func (r *defaultReconciler) ReconcileDeployment(ctx context.Context, req ReaperR
 		} else {
 			return nil, nil
 		}
+	} else if !isDeploymentReady(deployment) {
+		return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, nil
 	}
 
 	return nil, nil
@@ -282,6 +285,10 @@ func newDeployment(reaper *api.Reaper) *appsv1.Deployment {
 			},
 		},
 	}
+}
+
+func isDeploymentReady(deployment *appsv1.Deployment) bool {
+	return deployment.Status.ReadyReplicas == 1
 }
 
 func createLabels(r *api.Reaper) map[string]string {

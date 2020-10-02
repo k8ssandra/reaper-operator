@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -15,34 +16,34 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("Reaper controller", func() {
-	const (
-		ReaperName           = "test-reaper"
-		ReaperNamespace      = "default"
-		CassandraClusterName = "test-cluster"
-		CassandraServiceName = "test-cluster-svc"
+const (
+	ReaperName           = "test-reaper"
+	CassandraClusterName = "test-cluster"
+	CassandraServiceName = "test-cluster-svc"
 
-		timeout  = time.Second * 10
-		interval = time.Millisecond * 250
-	)
+	timeout  = time.Second * 10
+	interval = time.Millisecond * 250
+)
+
+var _ = Describe("Reaper controller", func() {
+	i := 0
+	ReaperNamespace := ""
+
+	BeforeEach(func() {
+		ReaperNamespace = "reaper-test-" + strconv.Itoa(i)
+		testNamespace := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: ReaperNamespace,
+			},
+		}
+		Expect(k8sClient.Create(context.Background(), testNamespace)).Should(Succeed())
+		i = i + 1
+
+	})
 
 	Specify("create a new Reaper instance", func() {
 		By("create the Reaper object")
-		reaper := &api.Reaper{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: ReaperNamespace,
-				Name:      ReaperName,
-			},
-			Spec: api.ReaperSpec{
-				ServerConfig: api.ServerConfig{
-					StorageType: api.StorageTypeCassandra,
-					CassandraBackend: &api.CassandraBackend{
-						ClusterName:      CassandraClusterName,
-						CassandraService: CassandraServiceName,
-					},
-				},
-			},
-		}
+		reaper := createReaper(ReaperNamespace)
 		Expect(k8sClient.Create(context.Background(), reaper)).Should(Succeed())
 
 		By("check that the schema job is created")
@@ -63,7 +64,7 @@ var _ = Describe("Reaper controller", func() {
 			Type:   v1batch.JobComplete,
 			Status: corev1.ConditionTrue,
 		})
-		Expect(k8sClient.Status().Patch(context.Background(), job, jobPatch))
+		Expect(k8sClient.Status().Patch(context.Background(), job, jobPatch)).Should(Succeed())
 
 		Expect(len(job.OwnerReferences)).Should(Equal(1))
 		Expect(job.OwnerReferences[0].UID).Should(Equal(reaper.GetUID()))
@@ -83,14 +84,119 @@ var _ = Describe("Reaper controller", func() {
 		Expect(len(deployment.OwnerReferences)).Should(Equal(1))
 		Expect(deployment.OwnerReferences[0].UID).Should(Equal(reaper.GetUID()))
 
-		By("check that the reaper is ready")
-		Eventually(func() bool {
-			key := types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName}
-			updatedReaper := &api.Reaper{}
-			if err := k8sClient.Get(context.Background(), key, updatedReaper); err != nil {
-				return false
-			}
-			return updatedReaper.Status.Ready
-		}, timeout, interval)
+		verifyReaperReady(types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName})
+	})
+
+	Specify("create a new Reaper instance when objects exist", func() {
+		// The purpose of this test is to cover code paths where an object, e.g., the
+		// deployment already exists. This could happen after a failed reconciliation and
+		// the request gets requeued.
+
+		By("create the schema job")
+		jobKey := types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName + "-schema"}
+		// We can use a fake job here with only the required properties set. Since the job already
+		// exists, the reconciler will just check its status. There are unit tests to verify that
+		// the job is created as expected.
+		job := &v1batch.Job{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: jobKey.Namespace,
+				Name:      jobKey.Name,
+			},
+			Spec: v1batch.JobSpec{
+				Template: corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						RestartPolicy: corev1.RestartPolicyOnFailure,
+						Containers: []corev1.Container{
+							{
+								Name:  "fake-schema-job",
+								Image: "fake-schema-job:test",
+							},
+						},
+					},
+				},
+			},
+		}
+		Expect(k8sClient.Create(context.Background(), job)).Should(Succeed())
+
+		// We need to mock the job completion in order for the deployment to get created
+		jobPatch := client.MergeFrom(job.DeepCopy())
+		job.Status.Conditions = append(job.Status.Conditions, v1batch.JobCondition{
+			Type:   v1batch.JobComplete,
+			Status: corev1.ConditionTrue,
+		})
+		Expect(k8sClient.Status().Patch(context.Background(), job, jobPatch)).Should(Succeed())
+
+		By("create the deployment")
+		// We can use a fake deployment here with only the required properties set. Since the deployment
+		// already exists, the reconciler will just check that it is ready. There are unit tests to
+		// verify that the deployment is created as expected.
+		labels := map[string]string{"reaper": "test"}
+		deployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: ReaperNamespace,
+				Name:      ReaperName,
+			},
+			Spec: appsv1.DeploymentSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: labels,
+				},
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: labels,
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  "fake-deployment",
+								Image: "fake-deployment:test",
+							},
+						},
+					},
+				},
+			},
+		}
+		Expect(k8sClient.Create(context.Background(), deployment)).Should(Succeed())
+
+		// We need to mock the deployment being ready in order for Reaper status to be updated
+		deploymentPatch := client.MergeFrom(deployment.DeepCopy())
+		deployment.Status.Replicas = 1
+		deployment.Status.ReadyReplicas = 1
+		Expect(k8sClient.Status().Patch(context.Background(), deployment, deploymentPatch)).Should(Succeed())
+
+		By("create the Reaper object")
+		reaper := createReaper(ReaperNamespace)
+		Expect(k8sClient.Create(context.Background(), reaper)).Should(Succeed())
+
+		verifyReaperReady(types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName})
 	})
 })
+
+// Creates a new Reaper object with a Cassandra backend
+func createReaper(namespace string) *api.Reaper {
+	return &api.Reaper{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      ReaperName,
+		},
+		Spec: api.ReaperSpec{
+			ServerConfig: api.ServerConfig{
+				StorageType: api.StorageTypeCassandra,
+				CassandraBackend: &api.CassandraBackend{
+					ClusterName:      CassandraClusterName,
+					CassandraService: CassandraServiceName,
+				},
+			},
+		},
+	}
+}
+
+func verifyReaperReady(key types.NamespacedName) {
+	By("check that the reaper is ready")
+	Eventually(func() bool {
+		updatedReaper := &api.Reaper{}
+		if err := k8sClient.Get(context.Background(), key, updatedReaper); err != nil {
+			return false
+		}
+		return updatedReaper.Status.Ready
+	}, timeout, interval).Should(BeTrue())
+}
