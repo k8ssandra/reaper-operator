@@ -1,0 +1,29 @@
+name: Go
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build_operator_image:
+    name: Build reaper-operator image
+    runs-on: ubuntu-latest
+    env:
+      GOPATH: /home/runner/go
+      GOROOT: /usr/local/go1.13
+    steps:
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.13
+        id: go
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+
+      - name: Unit Tests
+        run: |
+          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
+          make test
