@@ -8,6 +8,15 @@ metadata:
   namespace: reaper-operator
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
   - apps
   resources:
   - deployments

@@ -37,6 +37,7 @@ type ReaperReconciler struct {
 	client.Client
 	Log                  logr.Logger
 	Scheme               *runtime.Scheme
+	ServiceReconciler    reconcile.ServiceReconciler
 	DeploymentReconciler reconcile.DeploymentReconciler
 	SchemaReconciler     reconcile.SchemaReconciler
 	Validator            config.Validator
@@ -46,6 +47,7 @@ type ReaperReconciler struct {
 // +kubebuilder:rbac:groups=reaper.cassandra-reaper.io,namespace="reaper-operator",resources=reapers/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups="apps",namespace="reaper-operator",resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="batch",namespace="reaper-operator",resources=jobs,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups="",namespace="reaper-operator",resources=services,verbs=get;list;watch;create
 
 func (r *ReaperReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
@@ -78,6 +80,10 @@ func (r *ReaperReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	reaperReq := reconcile.ReaperRequest{Reaper: instance, Logger: reqLogger, StatusManager: statusManager}
+
+	if result, err := r.ServiceReconciler.ReconcileService(ctx, reaperReq); result != nil {
+		return *result, err
+	}
 
 	if result, err := r.SchemaReconciler.ReconcileSchema(ctx, reaperReq); result != nil {
 		return *result, err
