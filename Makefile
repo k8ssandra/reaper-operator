@@ -13,8 +13,20 @@ BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
 endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
+ORG?=thelastpickle
+PROJECT=reaper-operator
+REG=docker.io
+
+BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
+REV=$(shell git rev-parse --short=12 HEAD)
+
+IMAGE_BASE=$(REG)/$(ORG)/$(PROJECT)
+REV_IMAGE=$(IMAGE_BASE):$(REV)
+LATEST_IMAGE=$(IMAGE_BASE):latest
+
 # Image URL to use all building/pushing image targets
-IMG ?= thelastpickle/reaper-operator:latest
+IMG ?= $(LATEST_IMAGE)
+
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
@@ -72,12 +84,15 @@ generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 # Build the docker image
-docker-build: test
-	docker build . -t ${IMG}
+docker-build:
+	@echo Building ${REV_IMAGE}
+	docker build . -t ${REV_IMAGE}
+	docker tag ${REV_IMAGE} ${LATEST_IMAGE}
 
 # Push the docker image
 docker-push:
-	docker push ${IMG}
+	docker push ${REV_IMAGE}
+	docker push ${LATEST_IMAGE}
 
 # find or download controller-gen
 # download controller-gen if necessary

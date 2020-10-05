@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - master
-      - operator-sdk-v1.0.1
-      - gh-actions-debug
 
   pull_request:
     branches: [ master ]
