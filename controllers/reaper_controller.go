@@ -77,7 +77,7 @@ func (r *ReaperReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	reaperReq := reconcile.ReaperRequest{Reaper: instance, Logger: reqLogger}
+	reaperReq := reconcile.ReaperRequest{Reaper: instance, Logger: reqLogger, StatusManager: statusManager}
 
 	if result, err := r.SchemaReconciler.ReconcileSchema(ctx, reaperReq); result != nil {
 		return *result, err

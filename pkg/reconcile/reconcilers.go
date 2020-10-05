@@ -33,7 +33,7 @@ type ReaperRequest struct {
 
 	Logger logr.Logger
 
-	// TODO Probably want to add StatusManager in here at some point
+	StatusManager *StatusManager
 }
 
 type SchemaReconciler interface {
@@ -193,10 +193,8 @@ func (r *defaultReconciler) ReconcileDeployment(ctx context.Context, req ReaperR
 			return nil, nil
 		}
 	} else if !isDeploymentReady(deployment) {
-		req.Logger.Info("deployment not ready!", "deployment", key)
-		patch := client.MergeFrom(reaper.DeepCopy())
-		reaper.Status.Ready = false
-		if err := r.Client.Status().Patch(ctx, reaper, patch); err != nil {
+		req.Logger.Info("deployment not ready", "deployment", key)
+		if err := req.StatusManager.SetNotReady(ctx, reaper); err != nil {
 			req.Logger.Error(err, "deployment is not ready, failed to update reaper status", "deployment", key)
 			return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 		}

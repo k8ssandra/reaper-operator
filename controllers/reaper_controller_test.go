@@ -86,10 +86,7 @@ var _ = Describe("Reaper controller", func() {
 		Expect(deployment.OwnerReferences[0].UID).Should(Equal(reaper.GetUID()))
 
 		By("update deployment to be ready")
-		deploymentPatch := client.MergeFrom(deployment.DeepCopy())
-		deployment.Status.Replicas = 1
-		deployment.Status.ReadyReplicas = 1
-		Expect(k8sClient.Status().Patch(context.Background(), deployment, deploymentPatch)).Should(Succeed())
+		patchDeploymentStatus(deployment, 1, 1)
 
 		verifyReaperReady(types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName})
 
@@ -97,10 +94,7 @@ var _ = Describe("Reaper controller", func() {
 		// should cause the deployment to have its status updated. The Reaper object's .Status.Ready
 		// field should subsequently be updated.
 		By("update deployment to be not ready")
-		deploymentPatch = client.MergeFrom(deployment.DeepCopy())
-		deployment.Status.Replicas = 1
-		deployment.Status.ReadyReplicas = 0
-		Expect(k8sClient.Status().Patch(context.Background(), deployment, deploymentPatch)).Should(Succeed())
+		patchDeploymentStatus(deployment, 1, 0)
 
 		reaperKey := types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName}
 		updatedReaper := &api.Reaper{}
@@ -185,10 +179,8 @@ var _ = Describe("Reaper controller", func() {
 		Expect(k8sClient.Create(context.Background(), deployment)).Should(Succeed())
 
 		// We need to mock the deployment being ready in order for Reaper status to be updated
-		deploymentPatch := client.MergeFrom(deployment.DeepCopy())
-		deployment.Status.Replicas = 1
-		deployment.Status.ReadyReplicas = 1
-		Expect(k8sClient.Status().Patch(context.Background(), deployment, deploymentPatch)).Should(Succeed())
+		By("update deployment to be ready")
+		patchDeploymentStatus(deployment, 1, 1)
 
 		By("create the Reaper object")
 		reaper := createReaper(ReaperNamespace)
@@ -227,4 +219,11 @@ func verifyReaperReady(key types.NamespacedName) {
 		ctrl.Log.WithName("test").Info("after update", "updatedReaper", updatedReaper)
 		return updatedReaper.Status.Ready
 	}, timeout, interval).Should(BeTrue())
+}
+
+func patchDeploymentStatus(deployment *appsv1.Deployment, replicas, readyReplicas int32) {
+	deploymentPatch := client.MergeFrom(deployment.DeepCopy())
+	deployment.Status.Replicas = replicas
+	deployment.Status.ReadyReplicas = readyReplicas
+	Expect(k8sClient.Status().Patch(context.Background(), deployment, deploymentPatch)).Should(Succeed())
 }
