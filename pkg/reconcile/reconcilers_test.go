@@ -15,7 +15,7 @@ import (
 
 func TestNewService(t *testing.T) {
 	reaper := newReaperWithCassandraBackend()
-	key := types.NamespacedName{Namespace: reaper.Namespace, Name: GetServiceName(reaper)}
+	key := types.NamespacedName{Namespace: reaper.Namespace, Name: GetServiceName(reaper.Name)}
 
 	service := newService(key, reaper)
 

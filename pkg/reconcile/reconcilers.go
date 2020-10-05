@@ -77,7 +77,7 @@ func GetDeploymentReconciler() DeploymentReconciler {
 
 func (r *defaultReconciler) ReconcileService(ctx context.Context, req ReaperRequest) (*ctrl.Result, error) {
 	reaper := req.Reaper
-	key := types.NamespacedName{Namespace: reaper.Namespace, Name: GetServiceName(reaper)}
+	key := types.NamespacedName{Namespace: reaper.Namespace, Name: GetServiceName(reaper.Name)}
 
 	req.Logger.Info("reconciling service", "service", key)
 
@@ -106,8 +106,8 @@ func (r *defaultReconciler) ReconcileService(ctx context.Context, req ReaperRequ
 	return nil, nil
 }
 
-func GetServiceName(reaper *api.Reaper) string {
-	return reaper.Name + "-reaper-service"
+func GetServiceName(reaperName string) string {
+	return reaperName + "-reaper-service"
 }
 
 func newService(key types.NamespacedName, reaper *api.Reaper) *corev1.Service {

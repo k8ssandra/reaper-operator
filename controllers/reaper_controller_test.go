@@ -49,7 +49,7 @@ var _ = Describe("Reaper controller", func() {
 		Expect(k8sClient.Create(context.Background(), reaper)).Should(Succeed())
 
 		By("check that the service is created")
-		serviceKey := types.NamespacedName{Namespace: ReaperNamespace, Name: reconcile.GetServiceName(reaper)}
+		serviceKey := types.NamespacedName{Namespace: ReaperNamespace, Name: reconcile.GetServiceName(reaper.Name)}
 		service := &corev1.Service{}
 
 		Eventually(func() bool {
@@ -128,6 +128,28 @@ var _ = Describe("Reaper controller", func() {
 		// The purpose of this test is to cover code paths where an object, e.g., the
 		// deployment already exists. This could happen after a failed reconciliation and
 		// the request gets requeued.
+
+		By("create the service")
+		serviceKey := types.NamespacedName{Namespace: ReaperNamespace, Name: reconcile.GetServiceName(ReaperName)}
+		// We can use a fake service here with only the required properties set. Since the service already
+		// exists, the reconciler should continue its work. There are unit tests to verify that the service
+		// is created as expected.
+		service := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: serviceKey.Namespace,
+				Name:      serviceKey.Name,
+			},
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{
+					{
+						Name:     "fake-port",
+						Protocol: corev1.ProtocolTCP,
+						Port:     8888,
+					},
+				},
+			},
+		}
+		Expect(k8sClient.Create(context.Background(), service)).Should(Succeed())
 
 		By("create the schema job")
 		jobKey := types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName + "-schema"}
