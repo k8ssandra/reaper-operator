@@ -36,6 +36,10 @@ type ReaperRequest struct {
 	StatusManager *StatusManager
 }
 
+type ServiceReconciler interface {
+	ReconcileService(ctx context.Context, req ReaperRequest) (*ctrl.Result, error)
+}
+
 type SchemaReconciler interface {
 	ReconcileSchema(ctx context.Context, req ReaperRequest) (*ctrl.Result, error)
 }
@@ -59,12 +63,79 @@ func InitReconcilers(client client.Client, scheme *runtime.Scheme) {
 	}
 }
 
+func GetServiceReconciler() ServiceReconciler {
+	return &reconciler
+}
+
 func GetSchemaReconciler() SchemaReconciler {
 	return &reconciler
 }
 
 func GetDeploymentReconciler() DeploymentReconciler {
 	return &reconciler
+}
+
+func (r *defaultReconciler) ReconcileService(ctx context.Context, req ReaperRequest) (*ctrl.Result, error) {
+	reaper := req.Reaper
+	key := types.NamespacedName{Namespace: reaper.Namespace, Name: getServiceName(reaper)}
+
+	req.Logger.Info("reconciling service", "service", key)
+
+	service := &corev1.Service{}
+	err := r.Client.Get(ctx, key, service)
+	if err != nil && errors.IsNotFound(err) {
+		// create the service
+		service = newService(key, reaper)
+		if err = controllerutil.SetControllerReference(reaper, service, r.scheme); err != nil {
+			req.Logger.Error(err, "failed to set owner reference on service", "service", key)
+			return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
+		}
+
+		req.Logger.Info("creating service", "service", key)
+		if err = r.Client.Create(ctx, service); err != nil {
+			req.Logger.Error(err, "failed to create service", "service", key)
+			return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
+		}
+
+		return nil, nil
+	} else {
+		req.Logger.Error(err, "failed to get service", "service", key)
+		return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
+	}
+}
+
+func getServiceName(reaper *api.Reaper) string {
+	return reaper.Name + "-reaper-service"
+}
+
+func newService(key types.NamespacedName, reaper *api.Reaper) *corev1.Service {
+	labels := createLabels(reaper)
+
+	return &corev1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      key.Name,
+			Namespace: key.Namespace,
+			Labels:    labels,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Port:     8080,
+					Name:     "app",
+					Protocol: corev1.ProtocolTCP,
+					TargetPort: intstr.IntOrString{
+						Type:   intstr.String,
+						StrVal: "app",
+					},
+				},
+			},
+			Selector: labels,
+		},
+	}
 }
 
 func (r *defaultReconciler) ReconcileSchema(ctx context.Context, req ReaperRequest) (*ctrl.Result, error) {

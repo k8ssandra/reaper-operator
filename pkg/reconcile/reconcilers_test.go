@@ -9,41 +9,42 @@ import (
 	mlabels "github.com/thelastpickle/reaper-operator/pkg/labels"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func TestNewSchemaJob(t *testing.T) {
-	namespace := "schema-job-test"
-	reaperName := "test-reaper"
-	clusterName := "cassandra"
-	cassandraService := "cassandra-svc"
+func TestNewService(t *testing.T) {
+	reaper := newReaperWithCassandraBackend()
+	key := types.NamespacedName{Namespace: reaper.Namespace, Name: getServiceName(reaper)}
 
-	reaper := &api.Reaper{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      reaperName,
-		},
-		Spec: api.ReaperSpec{
-			ServerConfig: api.ServerConfig{
-				StorageType: api.StorageTypeCassandra,
-				CassandraBackend: &api.CassandraBackend{
-					ClusterName:      clusterName,
-					CassandraService: cassandraService,
-					Keyspace:         api.DefaultKeyspace,
-					Replication: api.ReplicationConfig{
-						NetworkTopologyStrategy: &map[string]int32{
-							"DC1": 3,
-						},
-					},
-				},
-			},
+	service := newService(key, reaper)
+
+	assert.Equal(t, key.Name, service.Name)
+	assert.Equal(t, key.Namespace, service.Namespace)
+	assert.Equal(t, createLabels(reaper), service.Labels)
+
+	assert.Equal(t, createLabels(reaper), service.Spec.Selector)
+	assert.Equal(t, 1, len(service.Spec.Ports))
+
+	port := corev1.ServicePort{
+		Name:     "app",
+		Protocol: corev1.ProtocolTCP,
+		Port:     8080,
+		TargetPort: intstr.IntOrString{
+			Type:   intstr.String,
+			StrVal: "app",
 		},
 	}
+	assert.Equal(t, port, service.Spec.Ports[0])
+}
+
+func TestNewSchemaJob(t *testing.T) {
+	reaper := newReaperWithCassandraBackend()
 
 	job := newSchemaJob(reaper)
 
 	assert.Equal(t, getSchemaJobName(reaper), job.Name)
-	assert.Equal(t, namespace, job.Namespace)
+	assert.Equal(t, reaper.Namespace, job.Namespace)
 	assert.Equal(t, createLabels(reaper), job.Labels)
 
 	podSpec := job.Spec.Template.Spec
@@ -60,7 +61,7 @@ func TestNewSchemaJob(t *testing.T) {
 		},
 		{
 			Name:  "CONTACT_POINTS",
-			Value: cassandraService,
+			Value: reaper.Spec.ServerConfig.CassandraBackend.CassandraService,
 		},
 		{
 			Name:  "REPLICATION",
@@ -70,34 +71,15 @@ func TestNewSchemaJob(t *testing.T) {
 }
 
 func TestNewDeployment(t *testing.T) {
-	namespace := "deployment-test"
-	reaperName := "test-reaper"
 	image := "test/reaper:latest"
-	clusterName := "cassandra"
-	cassandraService := "cassandra-svc"
-
-	reaper := &api.Reaper{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      reaperName,
-		},
-		Spec: api.ReaperSpec{
-			Image: image,
-			ServerConfig: api.ServerConfig{
-				StorageType: api.StorageTypeCassandra,
-				CassandraBackend: &api.CassandraBackend{
-					ClusterName:      clusterName,
-					CassandraService: cassandraService,
-				},
-			},
-		},
-	}
+	reaper := newReaperWithCassandraBackend()
+	reaper.Spec.Image = image
 
 	labels := createLabels(reaper)
 	deployment := newDeployment(reaper)
 
-	assert.Equal(t, namespace, deployment.Namespace)
-	assert.Equal(t, reaperName, deployment.Name)
+	assert.Equal(t, reaper.Namespace, deployment.Namespace)
+	assert.Equal(t, reaper.Name, deployment.Name)
 	assert.Equal(t, labels, deployment.Labels)
 
 	selector := deployment.Spec.Selector
@@ -133,7 +115,7 @@ func TestNewDeployment(t *testing.T) {
 		},
 		{
 			Name:  "REAPER_CASS_CONTACT_POINTS",
-			Value: "[" + cassandraService + "]",
+			Value: "[" + reaper.Spec.ServerConfig.CassandraBackend.CassandraService + "]",
 		},
 	})
 
@@ -149,4 +131,33 @@ func TestNewDeployment(t *testing.T) {
 	}
 	assert.Equal(t, probe, container.LivenessProbe)
 	assert.Equal(t, probe, container.ReadinessProbe)
+}
+
+func newReaperWithCassandraBackend() *api.Reaper {
+	namespace := "service-test"
+	reaperName := "test-reaper"
+	clusterName := "cassandra"
+	cassandraService := "cassandra-svc"
+
+	return &api.Reaper{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      reaperName,
+		},
+		Spec: api.ReaperSpec{
+			ServerConfig: api.ServerConfig{
+				StorageType: api.StorageTypeCassandra,
+				CassandraBackend: &api.CassandraBackend{
+					ClusterName:      clusterName,
+					CassandraService: cassandraService,
+					Keyspace:         api.DefaultKeyspace,
+					Replication: api.ReplicationConfig{
+						NetworkTopologyStrategy: &map[string]int32{
+							"DC1": 3,
+						},
+					},
+				},
+			},
+		},
+	}
 }
