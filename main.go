@@ -83,6 +83,7 @@ func main() {
 		Client:               mgr.GetClient(),
 		Log:                  ctrl.Log.WithName("controllers").WithName("Reaper"),
 		Scheme:               mgr.GetScheme(),
+		ServiceReconciler:    reconcile.GetServiceReconciler(),
 		DeploymentReconciler: reconcile.GetDeploymentReconciler(),
 		SchemaReconciler:     reconcile.GetSchemaReconciler(),
 		Validator:            config.NewValidator(),

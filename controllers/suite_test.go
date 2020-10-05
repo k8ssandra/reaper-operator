@@ -82,6 +82,7 @@ var _ = BeforeSuite(func(done Done) {
 	err = (&ReaperReconciler{
 		Client:               k8sManager.GetClient(),
 		Log:                  ctrl.Log.WithName("controllers").WithName("Reaper"),
+		ServiceReconciler:    reconcile.GetServiceReconciler(),
 		DeploymentReconciler: reconcile.GetDeploymentReconciler(),
 		SchemaReconciler:     reconcile.GetSchemaReconciler(),
 		Validator:            config.NewValidator(),

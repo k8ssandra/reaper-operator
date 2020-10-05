@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	api "github.com/thelastpickle/reaper-operator/api/v1alpha1"
+	"github.com/thelastpickle/reaper-operator/pkg/reconcile"
 	appsv1 "k8s.io/api/apps/v1"
 	v1batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -46,6 +47,21 @@ var _ = Describe("Reaper controller", func() {
 		By("create the Reaper object")
 		reaper := createReaper(ReaperNamespace)
 		Expect(k8sClient.Create(context.Background(), reaper)).Should(Succeed())
+
+		By("check that the service is created")
+		serviceKey := types.NamespacedName{Namespace: ReaperNamespace, Name: reconcile.GetServiceName(reaper)}
+		service := &corev1.Service{}
+
+		Eventually(func() bool {
+			err := k8sClient.Get(context.Background(), serviceKey, service)
+			if err != nil {
+				return false
+			}
+			return true
+		}, timeout, interval).Should(BeTrue(), "service creation check failed")
+
+		Expect(len(service.OwnerReferences)).Should(Equal(1))
+		Expect(service.OwnerReferences[0].UID).Should(Equal(reaper.UID))
 
 		By("check that the schema job is created")
 		jobKey := types.NamespacedName{Namespace: reaper.Namespace, Name: reaper.Name + "-schema"}

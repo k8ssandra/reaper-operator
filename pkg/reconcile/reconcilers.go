@@ -77,7 +77,7 @@ func GetDeploymentReconciler() DeploymentReconciler {
 
 func (r *defaultReconciler) ReconcileService(ctx context.Context, req ReaperRequest) (*ctrl.Result, error) {
 	reaper := req.Reaper
-	key := types.NamespacedName{Namespace: reaper.Namespace, Name: getServiceName(reaper)}
+	key := types.NamespacedName{Namespace: reaper.Namespace, Name: GetServiceName(reaper)}
 
 	req.Logger.Info("reconciling service", "service", key)
 
@@ -98,13 +98,15 @@ func (r *defaultReconciler) ReconcileService(ctx context.Context, req ReaperRequ
 		}
 
 		return nil, nil
-	} else {
+	} else if err != nil {
 		req.Logger.Error(err, "failed to get service", "service", key)
 		return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 	}
+
+	return nil, nil
 }
 
-func getServiceName(reaper *api.Reaper) string {
+func GetServiceName(reaper *api.Reaper) string {
 	return reaper.Name + "-reaper-service"
 }
 
@@ -163,7 +165,7 @@ func (r *defaultReconciler) ReconcileSchema(ctx context.Context, req ReaperReque
 			req.Logger.Error(err, "failed to create schema job", "job", key)
 			return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 		} else {
-			return &ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+			return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 		}
 	} else if !jobFinished(schemaJob) {
 		req.Logger.Info("schema job not finished", "job", key)
@@ -261,7 +263,7 @@ func (r *defaultReconciler) ReconcileDeployment(ctx context.Context, req ReaperR
 			req.Logger.Error(err, "failed to create deployment", "deployment", key)
 			return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 		} else {
-			return nil, nil
+			return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, nil
 		}
 	} else if !isDeploymentReady(deployment) {
 		req.Logger.Info("deployment not ready", "deployment", key)
