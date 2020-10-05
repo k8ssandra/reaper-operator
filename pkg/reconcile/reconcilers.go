@@ -193,6 +193,13 @@ func (r *defaultReconciler) ReconcileDeployment(ctx context.Context, req ReaperR
 			return nil, nil
 		}
 	} else if !isDeploymentReady(deployment) {
+		req.Logger.Info("deployment not ready!", "deployment", key)
+		patch := client.MergeFrom(reaper.DeepCopy())
+		reaper.Status.Ready = false
+		if err := r.Client.Status().Patch(ctx, reaper, patch); err != nil {
+			req.Logger.Error(err, "deployment is not ready, failed to update reaper status", "deployment", key)
+			return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
+		}
 		return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, nil
 	}
 

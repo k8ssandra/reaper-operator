@@ -29,6 +29,7 @@ import (
 
 	api "github.com/thelastpickle/reaper-operator/api/v1alpha1"
 	"github.com/thelastpickle/reaper-operator/pkg/reconcile"
+	appsv1 "k8s.io/api/apps/v1"
 )
 
 // ReaperReconciler reconciles a Reaper object
@@ -96,5 +97,6 @@ func (r *ReaperReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 func (r *ReaperReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&api.Reaper{}).
+		Owns(&appsv1.Deployment{}).
 		Complete(r)
 }

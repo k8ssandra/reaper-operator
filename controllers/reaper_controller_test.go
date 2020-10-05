@@ -13,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -84,7 +85,33 @@ var _ = Describe("Reaper controller", func() {
 		Expect(len(deployment.OwnerReferences)).Should(Equal(1))
 		Expect(deployment.OwnerReferences[0].UID).Should(Equal(reaper.GetUID()))
 
+		By("update deployment to be ready")
+		deploymentPatch := client.MergeFrom(deployment.DeepCopy())
+		deployment.Status.Replicas = 1
+		deployment.Status.ReadyReplicas = 1
+		Expect(k8sClient.Status().Patch(context.Background(), deployment, deploymentPatch)).Should(Succeed())
+
 		verifyReaperReady(types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName})
+
+		// Now simulate the Reaper app entering a state in which its readiness probe fails. This
+		// should cause the deployment to have its status updated. The Reaper object's .Status.Ready
+		// field should subsequently be updated.
+		By("update deployment to be not ready")
+		deploymentPatch = client.MergeFrom(deployment.DeepCopy())
+		deployment.Status.Replicas = 1
+		deployment.Status.ReadyReplicas = 0
+		Expect(k8sClient.Status().Patch(context.Background(), deployment, deploymentPatch)).Should(Succeed())
+
+		reaperKey := types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName}
+		updatedReaper := &api.Reaper{}
+		Eventually(func() bool {
+			err := k8sClient.Get(context.Background(), reaperKey, updatedReaper)
+			if err != nil {
+				return false
+			}
+			ctrl.Log.WithName("test").Info("after update", "updatedReaper", updatedReaper)
+			return updatedReaper.Status.Ready == false
+		}, timeout, interval).Should(BeTrue(), "reaper status should have been updated")
 	})
 
 	Specify("create a new Reaper instance when objects exist", func() {
@@ -197,6 +224,7 @@ func verifyReaperReady(key types.NamespacedName) {
 		if err := k8sClient.Get(context.Background(), key, updatedReaper); err != nil {
 			return false
 		}
+		ctrl.Log.WithName("test").Info("after update", "updatedReaper", updatedReaper)
 		return updatedReaper.Status.Ready
 	}, timeout, interval).Should(BeTrue())
 }
