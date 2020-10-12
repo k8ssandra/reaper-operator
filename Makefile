@@ -79,6 +79,11 @@ fmt:
 vet:
 	go vet ./...
 
+PHONY: e2e-test
+e2e-test:
+	@echo Running e2e tests
+	go test -timeout 1800s ./test/e2e/... -ginkgo.v -ginkgo.progress -test.v
+
 # Generate code
 generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
