@@ -6,8 +6,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/thelastpickle/reaper-operator/test/framework"
-	"k8s.io/apimachinery/pkg/types"
-
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
@@ -38,13 +36,11 @@ var _ = Describe("Deploy Reaper with Cassandra backend", func() {
 			framework.KustomizeAndApply(namespace, "deploy_reaper_test")
 
 			By("wait for cass-operator to be ready")
-			cassOperatorKey := types.NamespacedName{Namespace: namespace, Name: "cass-operator"}
-			err = framework.WaitForDeploymentReady(cassOperatorKey, 1, defaultRetryInterval, defaultTimeout)
+			err = framework.WaitForCassOperatorReady(namespace)
 			Expect(err).ToNot(HaveOccurred(), "failed waiting for cass-operator to become ready")
 
 			By("wait for reaper-operator to be ready")
-			reaperOperatorKey := types.NamespacedName{Namespace: namespace, Name: "controller-manager"}
-			err = framework.WaitForDeploymentReady(reaperOperatorKey, 1, defaultRetryInterval, defaultTimeout)
+			err = framework.WaitForReaperOperatorReady(namespace)
 			Expect(err).ToNot(HaveOccurred(), "failed waiting for reaper-operator to become ready")
 		})
 	})

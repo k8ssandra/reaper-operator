@@ -25,7 +25,8 @@ import (
 )
 
 const (
-	CassOperatorVersion = "1.4.1"
+	OperatorRetryInterval = 5 * time.Second
+	OperatorTimeout = 30 * time.Second
 )
 
 var (
@@ -83,12 +84,6 @@ func ApplyFile(namespace, file string) {
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("kubectl apply failed: %s", err))
 }
 
-func InstallCassOperator(namespace string) {
-	//url := fmt.Sprintf("https://raw.githubusercontent.com/datastax/cass-operator/v%s/docs/user/cass-operator-manifests-v%s.yaml", CassOperatorVersion, k8sVersion)
-	//GinkgoWriter.Write([]byte("applying " + url))
-	KustomizeAndApply(namespace, "cass-operator")
-}
-
 func CreateNamespace(name string) error {
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -114,6 +109,16 @@ func WaitForDeploymentReady(key types.NamespacedName, readyReplicas int32, retry
 		}
 		return deployment.Status.ReadyReplicas == readyReplicas, nil
 	})
+}
+
+func WaitForCassOperatorReady(namespace string) error {
+	key := types.NamespacedName{Namespace: namespace, Name: "cass-operator"}
+	return WaitForDeploymentReady(key, 1, OperatorRetryInterval, OperatorTimeout)
+}
+
+func WaitForReaperOperatorReady(namespace string) error {
+	key := types.NamespacedName{Namespace: namespace, Name: "controller-manager"}
+	return WaitForDeploymentReady(key, 1, OperatorRetryInterval, OperatorTimeout)
 }
 
 // Returns s with a date suffix of -yyMMddHHmmss
