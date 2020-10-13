@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"time"
-	"log"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -99,12 +99,15 @@ func CreateNamespace(name string) error {
 	}
 
 	err := Client.Create(context.Background(), namespace)
+	// TODO I think it safer to fail if the namespace exists. Add a flag to continue if it already exists.
 	if err == nil || apierrors.IsAlreadyExists(err) {
 		return nil
 	}
 	return fmt.Errorf("failed to create namespace %s: %s", name, err)
 }
 
+// Blocks until .Status.ReadyReplicas == readyReplicas or until timeout is reached. An error is returned
+// if fetching the Deployment fails.
 func WaitForDeploymentReady(key types.NamespacedName, readyReplicas int32, retryInterval, timeout time.Duration) error {
 	return wait.Poll(retryInterval, timeout, func() (bool, error) {
 		deployment := &appsv1.Deployment{}
@@ -119,19 +122,25 @@ func WaitForDeploymentReady(key types.NamespacedName, readyReplicas int32, retry
 	})
 }
 
+// Blocks until the cass-operator Deployment is ready. This function assumes that there will be a
+// single replica in the Deployment.
 func WaitForCassOperatorReady(namespace string) error {
 	key := types.NamespacedName{Namespace: namespace, Name: "cass-operator"}
 	return WaitForDeploymentReady(key, 1, OperatorRetryInterval, OperatorTimeout)
 }
 
+// Blocks until the reaper-operator deployment is ready. This function assumes that there will be
+// a single replica in the Deployment.
 func WaitForReaperOperatorReady(namespace string) error {
 	key := types.NamespacedName{Namespace: namespace, Name: "controller-manager"}
 	return WaitForDeploymentReady(key, 1, OperatorRetryInterval, OperatorTimeout)
 }
 
-func WaitForCassDcReady(key types.NamespacedName) error {
-	retryInterval := 15 * time.Second
-	timeout := 7 * time.Minute
+// Blocks until the CassandraDatacenter is ready as determined by
+// .Status.CassandraOperatorProgress == ProgressReady or until timeout is reached. An error is returned
+// is fetching the CassandraDatacenter fails.
+func WaitForCassDcReady(key types.NamespacedName, retryInterval, timeout time.Duration) error {
+	start := time.Now()
 	return wait.Poll(retryInterval, timeout, func() (bool, error) {
 		cassdc := &cassdcv1beta1.CassandraDatacenter{}
 		err := Client.Get(context.Background(), key, cassdc)
@@ -141,14 +150,20 @@ func WaitForCassDcReady(key types.NamespacedName) error {
 			}
 			return true, err
 		}
-		if d, err := yaml.Marshal(cassdc.Status); err == nil {
-			s := fmt.Sprintf("cassdc status...\n%s\n\n", string(d))
-			GinkgoWriter.Write([]byte(s))
-		} else {
-			log.Printf("failed to log cassdc status: %s", err)
-		}
+		logCassDcStatus(cassdc, start)
 		return cassdc.Status.CassandraOperatorProgress == cassdcv1beta1.ProgressReady, nil
 	})
+}
+
+func logCassDcStatus(cassdc *cassdcv1beta1.CassandraDatacenter, start time.Time) {
+	if d, err := yaml.Marshal(cassdc.Status); err == nil {
+		duration := time.Now().Sub(start)
+		sec := int(duration.Seconds())
+		s := fmt.Sprintf("cassdc status after %d sec...\n%s\n\n", sec, string(d))
+		GinkgoWriter.Write([]byte(s))
+	} else {
+		log.Printf("failed to log cassdc status: %s", err)
+	}
 }
 
 // Returns s with a date suffix of -yyMMddHHmmss
