@@ -302,8 +302,8 @@ func newDeployment(reaper *api.Reaper) *appsv1.Deployment {
 				Port: intstr.FromInt(8081),
 			},
 		},
-		InitialDelaySeconds: 10,
-		PeriodSeconds:       3,
+		InitialDelaySeconds: 45,
+		PeriodSeconds:       15,
 	}
 
 	envVars := make([]corev1.EnvVar, 0)
