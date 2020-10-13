@@ -8,20 +8,23 @@ import (
 	"os/exec"
 	"path/filepath"
 	"time"
+	"log"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	cassdcv1beta1 "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	api "github.com/thelastpickle/reaper-operator/api/v1alpha1"
-	"k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -38,8 +41,12 @@ func Init() {
 	if initialized {
 		return
 	}
+
 	err := api.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
+
+	err = cassdcv1beta1.AddToScheme(scheme.Scheme)
+	Expect(err).ToNot(HaveOccurred())
 
 	apiConfig, err := clientcmd.NewDefaultClientConfigLoadingRules().Load()
 	Expect(err).ToNot(HaveOccurred())
@@ -91,10 +98,11 @@ func CreateNamespace(name string) error {
 		},
 	}
 
-	if err := Client.Create(context.Background(), namespace); err != nil {
-		return fmt.Errorf("failed to create namespace %s: %s", name, err)
+	err := Client.Create(context.Background(), namespace)
+	if err == nil || apierrors.IsAlreadyExists(err) {
+		return nil
 	}
-	return nil
+	return fmt.Errorf("failed to create namespace %s: %s", name, err)
 }
 
 func WaitForDeploymentReady(key types.NamespacedName, readyReplicas int32, retryInterval, timeout time.Duration) error {
@@ -105,7 +113,7 @@ func WaitForDeploymentReady(key types.NamespacedName, readyReplicas int32, retry
 			if apierrors.IsNotFound(err) {
 				return false, nil
 			}
-			return true, nil
+			return true, err
 		}
 		return deployment.Status.ReadyReplicas == readyReplicas, nil
 	})
@@ -119,6 +127,28 @@ func WaitForCassOperatorReady(namespace string) error {
 func WaitForReaperOperatorReady(namespace string) error {
 	key := types.NamespacedName{Namespace: namespace, Name: "controller-manager"}
 	return WaitForDeploymentReady(key, 1, OperatorRetryInterval, OperatorTimeout)
+}
+
+func WaitForCassDcReady(key types.NamespacedName) error {
+	retryInterval := 15 * time.Second
+	timeout := 7 * time.Minute
+	return wait.Poll(retryInterval, timeout, func() (bool, error) {
+		cassdc := &cassdcv1beta1.CassandraDatacenter{}
+		err := Client.Get(context.Background(), key, cassdc)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return false, nil
+			}
+			return true, err
+		}
+		if d, err := yaml.Marshal(cassdc.Status); err == nil {
+			s := fmt.Sprintf("cassdc status...\n%s\n\n", string(d))
+			GinkgoWriter.Write([]byte(s))
+		} else {
+			log.Printf("failed to log cassdc status: %s", err)
+		}
+		return cassdc.Status.CassandraOperatorProgress == cassdcv1beta1.ProgressReady, nil
+	})
 }
 
 // Returns s with a date suffix of -yyMMddHHmmss

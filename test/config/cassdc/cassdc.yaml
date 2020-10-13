@@ -1,0 +1,31 @@
+apiVersion: cassandra.datastax.com/v1beta1
+kind: CassandraDatacenter
+metadata:
+  name: reaper-test
+spec:
+  clusterName: reaper-test
+  serverType: cassandra
+  serverVersion: 3.11.7
+  managementApiAuth:
+    insecure: {}
+  size: 3
+  allowMultipleNodesPerWorker: true
+  config:
+    jvm-options:
+      initial_heap_size: "1024m"
+      max_heap_size: "1024m"
+  resources:
+    requests:
+      cpu: 1
+      memory: 2Gi
+    limits:
+      cpu: 1
+      memory: 2Gi
+  storageConfig:
+    cassandraDataVolumeClaimSpec:
+      storageClassName: standard
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 5Gi
