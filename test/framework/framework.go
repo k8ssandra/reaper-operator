@@ -29,11 +29,11 @@ import (
 
 const (
 	OperatorRetryInterval = 5 * time.Second
-	OperatorTimeout = 30 * time.Second
+	OperatorTimeout       = 30 * time.Second
 )
 
 var (
-	Client client.Client
+	Client      client.Client
 	initialized bool
 )
 
@@ -72,7 +72,6 @@ func KustomizeAndApply(namespace, dir string) {
 	kustomize.Stderr = &stderr
 	err = kustomize.Run()
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("kustomize build failed: %s", err))
-
 
 	kubectl := exec.Command("kubectl", "-n", namespace, "apply", "-f", "-")
 	kubectl.Stdin = &stdout
@@ -142,8 +141,7 @@ func WaitForReaperOperatorReady(namespace string) error {
 func WaitForCassDcReady(key types.NamespacedName, retryInterval, timeout time.Duration) error {
 	start := time.Now()
 	return wait.Poll(retryInterval, timeout, func() (bool, error) {
-		cassdc := &cassdcv1beta1.CassandraDatacenter{}
-		err := Client.Get(context.Background(), key, cassdc)
+		cassdc, err := GetCassDc(key)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				return false, nil
@@ -153,6 +151,13 @@ func WaitForCassDcReady(key types.NamespacedName, retryInterval, timeout time.Du
 		logCassDcStatus(cassdc, start)
 		return cassdc.Status.CassandraOperatorProgress == cassdcv1beta1.ProgressReady, nil
 	})
+}
+
+func GetCassDc(key types.NamespacedName) (*cassdcv1beta1.CassandraDatacenter, error) {
+	cassdc := &cassdcv1beta1.CassandraDatacenter{}
+	err := Client.Get(context.Background(), key, cassdc)
+
+	return cassdc, err
 }
 
 func logCassDcStatus(cassdc *cassdcv1beta1.CassandraDatacenter, start time.Time) {
@@ -166,8 +171,21 @@ func logCassDcStatus(cassdc *cassdcv1beta1.CassandraDatacenter, start time.Time)
 	}
 }
 
+func WaitForReaperReady(key types.NamespacedName, retryInterval, timeout time.Duration) error {
+	return wait.Poll(retryInterval, timeout, func() (bool, error) {
+		reaper := &api.Reaper{}
+		err := Client.Get(context.Background(), key, reaper)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return false, nil
+			}
+			return true, err
+		}
+		return reaper.Status.Ready, nil
+	})
+}
+
 // Returns s with a date suffix of -yyMMddHHmmss
 func WithDateSuffix(s string) string {
 	return s + "-" + time.Now().Format("060102150405")
 }
-

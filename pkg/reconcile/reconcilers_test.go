@@ -126,8 +126,8 @@ func TestNewDeployment(t *testing.T) {
 				Port: intstr.FromInt(8081),
 			},
 		},
-		InitialDelaySeconds: 10,
-		PeriodSeconds:       3,
+		InitialDelaySeconds: 45,
+		PeriodSeconds:       15,
 	}
 	assert.Equal(t, probe, container.LivenessProbe)
 	assert.Equal(t, probe, container.ReadinessProbe)
