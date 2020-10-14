@@ -55,6 +55,4 @@ jobs:
         run: |
           kind create cluster --name reaper
           export KUBECONFIG="$(kind get kubeconfig-path --name="reaper")"
-          kubectl create namespace deploy-reaper-test
-          kustomize build test/config/deploy_reaper_test | kubectl -n deploy-reaper-test apply -f -
           make e2e-test
