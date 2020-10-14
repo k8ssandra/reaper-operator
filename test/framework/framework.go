@@ -68,20 +68,23 @@ func KustomizeAndApply(namespace, dir string) error {
 	}
 	kustomizeDir := filepath.Clean(path + "/../config/" + dir)
 
+	By("running kustomize build")
 	kustomize := exec.Command("kustomize", "build", kustomizeDir)
 	var stdout, stderr bytes.Buffer
 	kustomize.Stdout = &stdout
 	kustomize.Stderr = &stderr
-
+	GinkgoWriter.Write([]byte(fmt.Sprintf("kustomize exit code: %d", kustomize.ProcessState.ExitCode())))
 	if err = kustomize.Run(); err != nil {
 		return err
 	}
 
 	//Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("kustomize build failed: %s", err))
 
+	By("running kubectl apply")
 	kubectl := exec.Command("kubectl", "-n", namespace, "apply", "-f", "-")
 	kubectl.Stdin = &stdout
 	out, err := kubectl.CombinedOutput()
+	GinkgoWriter.Write([]byte(fmt.Sprintf("kubectl exit code: %d", kubectl.ProcessState.ExitCode())))
 	GinkgoWriter.Write(out)
 	//Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("kubectl apply failed: %s", err))
 
