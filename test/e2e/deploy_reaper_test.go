@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -38,7 +39,16 @@ var _ = Describe("Deploy Reaper with Cassandra backend", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("deploy cass-operator and reaper-operator")
-			framework.KustomizeAndApply(namespace, "deploy_reaper_test")
+			succeeded := false
+			for i := 0; i < 3; i++ {
+				if err = framework.KustomizeAndApply(namespace, "deploy_reaper_test"); err == nil {
+					succeeded = true
+					break
+				}
+			}
+			if !succeeded {
+				Fail(fmt.Sprintf("test setup failed: %s", err))
+			}
 
 			By("wait for cass-operator to be ready")
 			err = framework.WaitForCassOperatorReady(namespace)

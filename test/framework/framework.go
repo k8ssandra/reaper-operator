@@ -61,33 +61,43 @@ func Init() {
 	initialized = true
 }
 
-func KustomizeAndApply(namespace, dir string) {
+func KustomizeAndApply(namespace, dir string) error {
 	path, err := os.Getwd()
-	Expect(err).ToNot(HaveOccurred())
+	if err != nil {
+		return err
+	}
 	kustomizeDir := filepath.Clean(path + "/../config/" + dir)
 
 	kustomize := exec.Command("kustomize", "build", kustomizeDir)
 	var stdout, stderr bytes.Buffer
 	kustomize.Stdout = &stdout
 	kustomize.Stderr = &stderr
-	err = kustomize.Run()
-	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("kustomize build failed: %s", err))
+
+	if err = kustomize.Run(); err != nil {
+		return err
+	}
+
+	//Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("kustomize build failed: %s", err))
 
 	kubectl := exec.Command("kubectl", "-n", namespace, "apply", "-f", "-")
 	kubectl.Stdin = &stdout
 	out, err := kubectl.CombinedOutput()
 	GinkgoWriter.Write(out)
-	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("kubectl apply failed: %s", err))
+	//Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("kubectl apply failed: %s", err))
+
+	return err
 }
 
-func ApplyFile(namespace, file string) {
+func ApplyFile(namespace, file string) error {
 	var stdout bytes.Buffer
 
 	kubectl := exec.Command("kubectl", "-n", namespace, "apply", "-f", file)
 	kubectl.Stdin = &stdout
 	out, err := kubectl.CombinedOutput()
 	GinkgoWriter.Write(out)
-	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("kubectl apply failed: %s", err))
+	
+	return err
+	//Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("kubectl apply failed: %s", err))
 }
 
 func CreateNamespace(name string) error {
