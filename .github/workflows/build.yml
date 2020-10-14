@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - e2e-kind
 
   pull_request:
     branches: [ master ]
