@@ -34,3 +34,12 @@ jobs:
 
       - name: Build and push image
         run: make docker-build docker-push
+
+      - name: Install kind
+        run: go get sigs.k8s.io/kind@v0.7.0
+
+      - name: Run e2e tests
+        run: |
+          kind create cluster --name reaper
+          export KUBECONFIG="$(kind get kubeconfig-path --name="reaper")"
+          make e2e-test
