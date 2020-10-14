@@ -29,7 +29,7 @@ import (
 
 const (
 	OperatorRetryInterval = 5 * time.Second
-	OperatorTimeout       = 30 * time.Second
+	OperatorTimeout       = 60 * time.Second
 )
 
 var (
