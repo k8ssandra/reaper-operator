@@ -42,6 +42,12 @@ jobs:
           chmod +x ./kubectl
           sudo mv ./kubectl /usr/local/bin/kubectl
 
+      - name: Install kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/\
+          kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv ./kustomize /usr/local/bin/kustomize
+
       - name: Install kind
         run: go get sigs.k8s.io/kind@v0.7.0
 
