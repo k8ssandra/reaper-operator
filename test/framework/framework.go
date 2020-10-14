@@ -73,8 +73,9 @@ func KustomizeAndApply(namespace, dir string) error {
 	var stdout, stderr bytes.Buffer
 	kustomize.Stdout = &stdout
 	kustomize.Stderr = &stderr
-	GinkgoWriter.Write([]byte(fmt.Sprintf("kustomize exit code: %d", kustomize.ProcessState.ExitCode())))
+
 	if err = kustomize.Run(); err != nil {
+		GinkgoWriter.Write([]byte(fmt.Sprintf("kustomize exit code: %d", kustomize.ProcessState.ExitCode())))
 		return err
 	}
 
