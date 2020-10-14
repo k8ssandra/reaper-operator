@@ -131,6 +131,11 @@ else
 KUSTOMIZE=$(shell which kustomize)
 endif
 
+kind:
+ifeq (, $(shell which kind))
+	go get sigs.k8s.io/kind@v0.9.0
+endif
+
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
 bundle: manifests
