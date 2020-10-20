@@ -81,6 +81,8 @@ spec:
                   - clusterName
                   - replication
                   type: object
+                jmxUserSecretName:
+                  type: string
                 storageType:
                   type: string
               type: object

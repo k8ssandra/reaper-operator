@@ -52,14 +52,17 @@ type defaultReconciler struct {
 	client.Client
 
 	scheme *runtime.Scheme
+
+	secretsManager SecretsManager
 }
 
 var reconciler defaultReconciler
 
 func InitReconcilers(client client.Client, scheme *runtime.Scheme) {
 	reconciler = defaultReconciler{
-		Client: client,
-		scheme: scheme,
+		Client:         client,
+		scheme:         scheme,
+		secretsManager: NewSecretsManager(client),
 	}
 }
 
@@ -253,7 +256,12 @@ func (r *defaultReconciler) ReconcileDeployment(ctx context.Context, req ReaperR
 	err := r.Get(ctx, key, deployment)
 	if err != nil && errors.IsNotFound(err) {
 		// create the deployment
-		deployment = newDeployment(reaper)
+		deployment, err = newDeployment(reaper, r.secretsManager)
+		if err != nil {
+			req.Logger.Error(err, "failed to create deployment", "deployment", key)
+			return &ctrl.Result{RequeueAfter: 10 * time.Second}, err
+		}
+
 		if err = controllerutil.SetControllerReference(reaper, deployment, r.scheme); err != nil {
 			req.Logger.Error(err, "failed to set owner on deployment", "deployment", key)
 			return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
@@ -277,7 +285,7 @@ func (r *defaultReconciler) ReconcileDeployment(ctx context.Context, req ReaperR
 	return nil, nil
 }
 
-func newDeployment(reaper *api.Reaper) *appsv1.Deployment {
+func newDeployment(reaper *api.Reaper, secretsManager SecretsManager) (*appsv1.Deployment, error) {
 	labels := createLabels(reaper)
 
 	selector := metav1.LabelSelector{
@@ -324,6 +332,15 @@ func newDeployment(reaper *api.Reaper) *appsv1.Deployment {
 		}
 	}
 
+	if len(reaper.Spec.ServerConfig.JmxUserSecretName) > 0 {
+		jmxUsername, jmxPassword, err := secretsManager.GetJmxAuthCredentials(reaper)
+		if err != nil {
+			return nil, err
+		}
+		envVars = append(envVars, *jmxUsername)
+		envVars = append(envVars, *jmxPassword)
+	}
+
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: reaper.Namespace,
@@ -362,7 +379,7 @@ func newDeployment(reaper *api.Reaper) *appsv1.Deployment {
 				},
 			},
 		},
-	}
+	}, nil
 }
 
 func isDeploymentReady(deployment *appsv1.Deployment) bool {

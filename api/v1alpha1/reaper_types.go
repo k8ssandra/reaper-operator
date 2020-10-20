@@ -39,6 +39,8 @@ type ServerConfig struct {
 	StorageType StorageType `json:"storageType,omitempty"`
 
 	CassandraBackend *CassandraBackend `json:"cassandraBackend,omitempty" yaml:"cassandra,omitempty"`
+
+	JmxUserSecretName string `json:"jmxUserSecretName,omitempty"`
 }
 
 // Specifies the replication strategy for a keyspace
