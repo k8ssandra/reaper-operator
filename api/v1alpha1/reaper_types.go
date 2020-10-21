@@ -40,6 +40,8 @@ type ServerConfig struct {
 
 	CassandraBackend *CassandraBackend `json:"cassandraBackend,omitempty" yaml:"cassandra,omitempty"`
 
+	// Defines the username and password that Reaper will use to authenticate JMX connections to Cassandra
+	// clusters. These credentials need to be stored on each Cassandra node.
 	JmxUserSecretName string `json:"jmxUserSecretName,omitempty"`
 }
 
