@@ -71,16 +71,12 @@ func TestNewSchemaJob(t *testing.T) {
 }
 
 func TestNewDeployment(t *testing.T) {
-	secretsManager := &fakeSecretsManager{}
-
 	image := "test/reaper:latest"
 	reaper := newReaperWithCassandraBackend()
 	reaper.Spec.Image = image
 
 	labels := createLabels(reaper)
-	deployment, err := newDeployment(reaper, secretsManager)
-
-	assert.NoError(t, err)
+	deployment := newDeployment(reaper)
 
 	assert.Equal(t, reaper.Namespace, deployment.Namespace)
 	assert.Equal(t, reaper.Name, deployment.Name)
@@ -164,11 +160,4 @@ func newReaperWithCassandraBackend() *api.Reaper {
 			},
 		},
 	}
-}
-
-type fakeSecretsManager struct {
-}
-
-func (s *fakeSecretsManager) GetJmxAuthCredentials(reaper *api.Reaper) (*corev1.EnvVar, *corev1.EnvVar, error) {
-	return nil, nil, nil
 }

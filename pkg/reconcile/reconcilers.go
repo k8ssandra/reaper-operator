@@ -62,7 +62,7 @@ func InitReconcilers(client client.Client, scheme *runtime.Scheme) {
 	reconciler = defaultReconciler{
 		Client:         client,
 		scheme:         scheme,
-		secretsManager: NewSecretsManager(client),
+		secretsManager: NewSecretsManager(),
 	}
 }
 
@@ -256,10 +256,21 @@ func (r *defaultReconciler) ReconcileDeployment(ctx context.Context, req ReaperR
 	err := r.Get(ctx, key, deployment)
 	if err != nil && errors.IsNotFound(err) {
 		// create the deployment
-		deployment, err = newDeployment(reaper, r.secretsManager)
-		if err != nil {
-			req.Logger.Error(err, "failed to create deployment", "deployment", key)
-			return &ctrl.Result{RequeueAfter: 10 * time.Second}, err
+		deployment = newDeployment(reaper)
+
+		if len(reaper.Spec.ServerConfig.JmxUserSecretName) > 0 {
+			secret, err := r.getSecret(types.NamespacedName{Namespace: reaper.Namespace, Name: reaper.Spec.ServerConfig.JmxUserSecretName})
+			if err != nil {
+				req.Logger.Error(err, "failed to get jmxUserSecret", "deployment", key)
+				return &ctrl.Result{RequeueAfter: 10 * time.Second}, err
+			}
+
+			if usernameEnvVar, passwordEnvVar, err := r.secretsManager.GetJmxAuthCredentials(secret); err == nil {
+				addJmxAuthEnvVars(deployment, usernameEnvVar, passwordEnvVar)
+			} else {
+				req.Logger.Error(err, "failed to get JMX credentials", "deployment", key)
+				return &ctrl.Result{RequeueAfter: 10 * time.Second}, err
+			}
 		}
 
 		if err = controllerutil.SetControllerReference(reaper, deployment, r.scheme); err != nil {
@@ -285,7 +296,13 @@ func (r *defaultReconciler) ReconcileDeployment(ctx context.Context, req ReaperR
 	return nil, nil
 }
 
-func newDeployment(reaper *api.Reaper, secretsManager SecretsManager) (*appsv1.Deployment, error) {
+func addJmxAuthEnvVars(deployment *appsv1.Deployment, usernameEnvVar, passwordEnvVar *corev1.EnvVar) {
+	envVars := deployment.Spec.Template.Spec.Containers[0].Env
+	envVars = append(envVars, *usernameEnvVar)
+	envVars = append(envVars, *passwordEnvVar)
+}
+
+func newDeployment(reaper *api.Reaper) *appsv1.Deployment {
 	labels := createLabels(reaper)
 
 	selector := metav1.LabelSelector{
@@ -332,15 +349,6 @@ func newDeployment(reaper *api.Reaper, secretsManager SecretsManager) (*appsv1.D
 		}
 	}
 
-	if len(reaper.Spec.ServerConfig.JmxUserSecretName) > 0 {
-		jmxUsername, jmxPassword, err := secretsManager.GetJmxAuthCredentials(reaper)
-		if err != nil {
-			return nil, err
-		}
-		envVars = append(envVars, *jmxUsername)
-		envVars = append(envVars, *jmxPassword)
-	}
-
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: reaper.Namespace,
@@ -379,7 +387,7 @@ func newDeployment(reaper *api.Reaper, secretsManager SecretsManager) (*appsv1.D
 				},
 			},
 		},
-	}, nil
+	}
 }
 
 func isDeploymentReady(deployment *appsv1.Deployment) bool {
@@ -392,4 +400,11 @@ func createLabels(r *api.Reaper) map[string]string {
 	mlabels.SetOperatorLabels(labels)
 
 	return labels
+}
+
+func (r *defaultReconciler) getSecret(key types.NamespacedName) (*corev1.Secret, error) {
+	secret := &corev1.Secret{}
+	err := r.Get(context.Background(), key, secret)
+
+	return secret, err
 }

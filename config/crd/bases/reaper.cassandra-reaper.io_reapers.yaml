@@ -82,6 +82,9 @@ spec:
                   - replication
                   type: object
                 jmxUserSecretName:
+                  description: Defines the username and password that Reaper will
+                    use to authenticate JMX connections to Cassandra clusters. These
+                    credentials need to be stored on each Cassandra node.
                   type: string
                 storageType:
                   type: string
