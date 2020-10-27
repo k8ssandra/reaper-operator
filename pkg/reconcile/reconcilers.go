@@ -369,7 +369,7 @@ func newDeployment(reaper *api.Reaper) *appsv1.Deployment {
 							Image:           reaper.Spec.Image,
 							Ports: []corev1.ContainerPort{
 								{
-									Name:          "ui",
+									Name:          "app",
 									ContainerPort: 8080,
 									Protocol:      "TCP",
 								},
