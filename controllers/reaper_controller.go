@@ -48,7 +48,7 @@ type ReaperReconciler struct {
 // +kubebuilder:rbac:groups="apps",namespace="reaper-operator",resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="batch",namespace="reaper-operator",resources=jobs,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="",namespace="reaper-operator",resources=services,verbs=get;list;watch;create
-// +kubebuilder:rbac:groups="",namespace="reaper-operator",resources=secrets,verbs=get;list
+// +kubebuilder:rbac:groups="",namespace="reaper-operator",resources=secrets,verbs=get;list;watch
 
 func (r *ReaperReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
