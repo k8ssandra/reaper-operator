@@ -21,6 +21,35 @@ spec:
     limits:
       cpu: 1
       memory: 2Gi
+  podTemplateSpec:
+    spec:
+      initContainers:
+        - name: jmx-credentials
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: JMX_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: reaper-jmx
+                  key: username
+            - name: JMX_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: reaper-jmx
+                  key: password
+          args:
+            - /bin/sh
+            - -c
+            - echo -n "$JMX_USERNAME $JMX_PASSWORD" > /config/jmxremote.password
+          volumeMounts:
+            - mountPath: /config
+              name: server-config
+      containers:
+        - name: cassandra
+          env:
+            - name: LOCAL_JMX
+              value: "no"
   storageConfig:
     cassandraDataVolumeClaimSpec:
       storageClassName: standard
