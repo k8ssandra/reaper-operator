@@ -96,6 +96,11 @@ var _ = Describe("Deploy Reaper with Cassandra backend", func() {
 			By("register cluster with reaper")
 			err = restClient.AddCluster(context.Background(), cassdc.Spec.ClusterName, cassdc.GetDatacenterServiceName())
 			Expect(err).ToNot(HaveOccurred(), "failed to add cluster with REST api")
+
+			cluster, err := restClient.GetCluster(context.Background(), cassdc.Spec.ClusterName)
+			Expect(err).ToNot(HaveOccurred(), "failed to get cluster with REST api")
+			Expect(len(cluster.NodeState.GossipStates)).To(Equal(1))
+			Expect(len(cluster.NodeState.GossipStates[0].EndpointNames)).To(Equal(3), "expected to get 3 endpoints")
 		})
 	})
 })
