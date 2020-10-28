@@ -346,6 +346,10 @@ func newDeployment(reaper *api.Reaper) *appsv1.Deployment {
 				Name:  "REAPER_CASS_CONTACT_POINTS",
 				Value: fmt.Sprintf("[%s]", reaper.Spec.ServerConfig.CassandraBackend.CassandraService),
 			},
+			{
+				Name:  "REAPER_AUTH_ENABLED",
+				Value: "false",
+			},
 		}
 	}
 
