@@ -1,2 +1,5 @@
 resources:
 - cass-operator.yaml
+
+patchesStrategicMerge:
+  - operator-deployment-patch.yaml
