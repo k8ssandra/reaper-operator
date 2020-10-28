@@ -1,11 +1,7 @@
-
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  creationTimestamp: null
-  name: manager-role
-#  namespace: reaper-operator
+  name: reaper-operator
 rules:
 - apiGroups:
   - ""

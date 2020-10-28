@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: controller-manager
+  name: reaper-operator
   labels:
-    control-plane: controller-manager
+    control-plane: reaper-operator
 spec:
   selector:
     matchLabels:
-      control-plane: controller-manager
+      control-plane: reaper-operator
   replicas: 1
   template:
     metadata:
       labels:
-        control-plane: controller-manager
+        control-plane: reaper-operator
     spec:
       containers:
       - command:
