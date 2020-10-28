@@ -300,6 +300,7 @@ func addJmxAuthEnvVars(deployment *appsv1.Deployment, usernameEnvVar, passwordEn
 	envVars := deployment.Spec.Template.Spec.Containers[0].Env
 	envVars = append(envVars, *usernameEnvVar)
 	envVars = append(envVars, *passwordEnvVar)
+	deployment.Spec.Template.Spec.Containers[0].Env = envVars
 }
 
 func newDeployment(reaper *api.Reaper) *appsv1.Deployment {
