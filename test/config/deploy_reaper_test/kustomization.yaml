@@ -6,4 +6,4 @@ resources:
 - ../../../config/manager
 - ../cass-operator
 - ../cassdc
-
+- ./nodeport-service.yaml

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -183,6 +184,48 @@ func WaitForReaperReady(key types.NamespacedName, retryInterval, timeout time.Du
 		}
 		return reaper.Status.Ready, nil
 	})
+}
+
+func GetNodePortServiceAddress(serviceKey types.NamespacedName, portName string) (string, error) {
+	svc := &corev1.Service{}
+	err := Client.Get(context.Background(), serviceKey, svc)
+
+	if err != nil {
+		return "", err
+	}
+
+	port, err := getNodePort(svc, portName)
+	if err != nil {
+		return "", err
+	}
+
+	nodeList := &corev1.NodeList{}
+	err = Client.List(context.Background(), nodeList)
+
+	if err != nil {
+		return "", err
+	}
+
+	for _, node := range nodeList.Items {
+		for _, addr := range node.Status.Addresses {
+			if addr.Type == corev1.NodeExternalIP {
+				svcAddr := addr.Address + ":" + port
+				return svcAddr, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("failed to get nodeport service address for service (%s) with nodeport (%s)", serviceKey.Name, portName)
+}
+
+func getNodePort(service *corev1.Service, portName string) (string, error) {
+	for _, port := range service.Spec.Ports {
+		if port.Name == portName {
+			return strconv.FormatInt(int64(port.NodePort), 10), nil
+		}
+	}
+
+	return "", fmt.Errorf("failed to find nodeport %s", portName)
 }
 
 // Returns s with a date suffix of -yyMMddHHmmss
