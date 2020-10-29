@@ -132,7 +132,7 @@ func WaitForCassOperatorReady(namespace string) error {
 // Blocks until the reaper-operator deployment is ready. This function assumes that there will be
 // a single replica in the Deployment.
 func WaitForReaperOperatorReady(namespace string) error {
-	key := types.NamespacedName{Namespace: namespace, Name: "controller-manager"}
+	key := types.NamespacedName{Namespace: namespace, Name: "reaper-operator"}
 	return WaitForDeploymentReady(key, 1, OperatorRetryInterval, OperatorTimeout)
 }
 
