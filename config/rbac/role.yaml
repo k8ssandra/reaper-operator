@@ -1,7 +1,11 @@
+
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
+  creationTimestamp: null
   name: reaper-operator
+  namespace: reaper-operator
 rules:
 - apiGroups:
   - ""
@@ -36,6 +40,15 @@ rules:
   - batch
   resources:
   - jobs
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cassandra.datastax.com.
+  resources:
+  - cassandradatacenters
   verbs:
   - create
   - get
