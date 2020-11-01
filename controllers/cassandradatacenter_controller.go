@@ -41,7 +41,7 @@ type CassandraDatacenterReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=cassandra.datastax.com.,namespace="reaper-operator",resources=cassandradatacenters,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups=cassandra.datastax.com,namespace="reaper-operator",resources=cassandradatacenters,verbs=get;list;watch;create
 
 func (r *CassandraDatacenterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
@@ -117,7 +117,7 @@ func (r *CassandraDatacenterReconciler) Reconcile(req ctrl.Request) (ctrl.Result
 
 func getReaperKey(instanceName, cassdcNamespace string) types.NamespacedName {
 	parts := strings.Split(instanceName,".")
-	if len(parts) == 0 {
+	if len(parts) == 1 {
 		return types.NamespacedName{Namespace: cassdcNamespace, Name: instanceName}
 	} else {
 		return types.NamespacedName{Namespace: parts[1], Name: parts[0]}
