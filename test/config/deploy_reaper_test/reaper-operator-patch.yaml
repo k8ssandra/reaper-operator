@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reaper-operator
+spec:
+  template:
+    spec:
+      containers:
+      - image: controller:latest
+        name: manager
+        env:
+          - name: REQUEUE_DELAY_LONG
+            value: 15s
+          - name: REQUEUE_DELAY_SHORT
+            value: 5s
+          - name: REQUEUE_DELAY_STATUS_CHECK
+            value: 30s

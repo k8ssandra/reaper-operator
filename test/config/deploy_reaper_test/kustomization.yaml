@@ -6,4 +6,11 @@ resources:
 - ../../../config/manager
 - ../cass-operator
 - ../cassdc
-- ./nodeport-service.yaml
+
+images:
+- name: controller
+  newName: docker.io/thelastpickle/reaper-operator
+  newTag: latest
+
+patchesStrategicMerge:
+- reaper-operator-patch.yaml
