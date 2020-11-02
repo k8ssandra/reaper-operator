@@ -92,6 +92,8 @@ type ReaperStatus struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	Ready bool `json:"ready,omitempty"`
+
+	Clusters []string `json:"clusters,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

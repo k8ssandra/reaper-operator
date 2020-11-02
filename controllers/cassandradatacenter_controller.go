@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/thelastpickle/reaper-operator/pkg/reconcile"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -78,6 +79,7 @@ func getReconcileDelay(name string, defaultDelay time.Duration) time.Duration {
 func (r *CassandraDatacenterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
 	_ = r.Log.WithValues("cassandradatacenter", req.NamespacedName)
+	statusManager := &reconcile.StatusManager{Client: r.Client}
 
 	instance := &cassdcv1beta1.CassandraDatacenter{}
 	err := r.Get(ctx, req.NamespacedName, instance)
@@ -92,9 +94,9 @@ func (r *CassandraDatacenterReconciler) Reconcile(req ctrl.Request) (ctrl.Result
 
 	if reaperName, ok := cassdc.Annotations["reaper.cassandra-reaper.io/instance"]; ok {
 		reaperKey := getReaperKey(reaperName, cassdc.Namespace)
-		reaper := &api.Reaper{}
+		reaperInstance := &api.Reaper{}
 
-		err := r.Get(ctx, reaperKey, reaper)
+		err := r.Get(ctx, reaperKey, reaperInstance)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				// It is possible that the Reaper has not been deployed yet or that it has
@@ -106,6 +108,8 @@ func (r *CassandraDatacenterReconciler) Reconcile(req ctrl.Request) (ctrl.Result
 				return ctrl.Result{RequeueAfter: shortDelay}, err
 			}
 		}
+
+		reaper := reaperInstance.DeepCopy()
 
 		if !reaper.Status.Ready {
 			r.Log.Info("waiting for reaper to become ready", "reaper", reaperKey)
@@ -124,16 +128,26 @@ func (r *CassandraDatacenterReconciler) Reconcile(req ctrl.Request) (ctrl.Result
 		_, err = restClient.GetCluster(ctx, cassdc.Spec.ClusterName)
 
 		if err == nil {
-			// The cluster was found in Reaper, so our work here is done; however, we still
-			// requeue the request to periodically check that the cluster has not be removed
-			// from Reaper.
-			return ctrl.Result{RequeueAfter: statusCheckDelay}, nil
+			// The only thing left to do is to make sure that the cluster is listed in
+			// Reaper's status. We still requeue the request to periodically check that
+			// the cluster has not be removed from Reaper.
+			if err = statusManager.AddClusterToStatus(ctx, reaper, cassdc); err == nil {
+				return ctrl.Result{RequeueAfter: statusCheckDelay}, nil
+			} else {
+				r.Log.Error(err, "failed to re-add cluster in reaper status", "reaper", reaperKey)
+				return ctrl.Result{RequeueAfter: shortDelay}, err
+			}
 		}
 
 		if err == reapergo.CassandraClusterNotFound {
 			r.Log.Info("registering cluster with reaper", "reaper", reaperKey)
 			if err = restClient.AddCluster(ctx, cassdc.Spec.ClusterName, cassdc.GetDatacenterServiceName()); err == nil {
-				return ctrl.Result{RequeueAfter: statusCheckDelay}, nil
+				if err = statusManager.AddClusterToStatus(ctx, reaper, cassdc); err == nil {
+					return ctrl.Result{RequeueAfter: statusCheckDelay}, nil
+				} else {
+					r.Log.Error(err, "failed to add cluster in reaper status", "reaper", reaperKey)
+					return ctrl.Result{RequeueAfter: shortDelay}, err
+				}
 			} else {
 				r.Log.Error(err, "failed to register cluster with reaper", "reaper", reaperKey)
 				return ctrl.Result{RequeueAfter: shortDelay}, err

@@ -93,6 +93,10 @@ spec:
         status:
           description: ReaperStatus defines the observed state of Reaper
           properties:
+            clusters:
+              items:
+                type: string
+              type: array
             ready:
               type: boolean
           type: object
