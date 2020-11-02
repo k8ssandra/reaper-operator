@@ -2,10 +2,8 @@ package e2e
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	reapergo "github.com/jsanda/reaper-client-go/reaper"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	api "github.com/thelastpickle/reaper-operator/api/v1alpha1"
@@ -86,34 +84,15 @@ var _ = Describe("Deploy Reaper with Cassandra backend", func() {
 
 			By("wait for reaper to become ready")
 			reaperKey := types.NamespacedName{Namespace: reaper.Namespace, Name: reaper.Name}
-			err = framework.WaitForReaperReady(reaperKey, 10*time.Second, 3*time.Minute)
+			err = framework.WaitForReaperReady(reaperKey, 10 *time.Second, 3*time.Minute)
 			Expect(err).ToNot(HaveOccurred(), "failed waiting for reaper to become ready")
 
-			By("create reaper REST client")
-			restClient, err := createRESTClient()
-			Expect(err).ToNot(HaveOccurred(), "failed to create REST client")
-
-			By("register cluster with reaper")
-			err = restClient.AddCluster(context.Background(), cassdc.Spec.ClusterName, cassdc.GetDatacenterServiceName())
-			Expect(err).ToNot(HaveOccurred(), "failed to add cluster with REST api")
-
-			cluster, err := restClient.GetCluster(context.Background(), cassdc.Spec.ClusterName)
-			Expect(err).ToNot(HaveOccurred(), "failed to get cluster with REST api")
-			Expect(len(cluster.NodeState.GossipStates)).To(Equal(1))
-			Expect(len(cluster.NodeState.GossipStates[0].EndpointNames)).To(Equal(3), "expected to get 3 endpoints")
+			By("wait for the cluster to get registered with reaper")
+			err = framework.WaitForReaper(reaperKey, 10 * time.Second, 3 * time.Minute, func(reaper *api.Reaper) bool {
+				return len(reaper.Status.Clusters) == 1 && reaper.Status.Clusters[0] == cassdc.Spec.ClusterName
+			})
+			Expect(err).ToNot(HaveOccurred(), "failing waiting for cluster to get registered")
 		})
 	})
 })
 
-func createRESTClient() (reapergo.ReaperClient, error) {
-	serviceAddr, err := framework.GetNodePortServiceAddress(types.NamespacedName{Namespace: namespace, Name: "reaper-nodeport"}, "app")
-	if err != nil {
-		return nil, err
-	}
-
-	if restClient, err := reapergo.NewReaperClient(fmt.Sprintf("http://%s", serviceAddr)); err == nil {
-		return restClient, nil
-	} else {
-		return nil, fmt.Errorf("failed to create REST client: %w", err)
-	}
-}

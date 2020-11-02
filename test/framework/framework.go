@@ -38,6 +38,8 @@ var (
 	initialized bool
 )
 
+type ReaperConditionFunc func(reaper *api.Reaper) bool
+
 func Init() {
 	if initialized {
 		return
@@ -183,6 +185,19 @@ func WaitForReaperReady(key types.NamespacedName, retryInterval, timeout time.Du
 			return true, err
 		}
 		return reaper.Status.Ready, nil
+	})
+}
+
+func WaitForReaper(key types.NamespacedName, retryInterval, timeout time.Duration, condition ReaperConditionFunc) error {
+	return wait.Poll(retryInterval, timeout, func() (bool, error) {
+		reaper := &api.Reaper{}
+		err := Client.Get(context.Background(), key, reaper)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return false, nil
+			}
+		}
+		return condition(reaper), nil
 	})
 }
 
