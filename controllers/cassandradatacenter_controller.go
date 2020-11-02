@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -29,9 +30,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	api "github.com/thelastpickle/reaper-operator/api/v1alpha1"
 	cassdcv1beta1 "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	reapergo "github.com/jsanda/reaper-client-go/reaper"
+	api "github.com/thelastpickle/reaper-operator/api/v1alpha1"
 )
 
 // CassandraDatacenterReconciler reconciles a CassandraDatacenter object
@@ -39,6 +40,37 @@ type CassandraDatacenterReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
+}
+
+const (
+	DefaultStatusCheckDelay = 30 * time.Minute
+	DefaultShortDelay       = 30 * time.Second
+	DefaultLongDelay        = 10 * time.Minute
+)
+
+var (
+	statusCheckDelay time.Duration
+	shortDelay       time.Duration
+	longDelay        time.Duration
+)
+
+func init() {
+	statusCheckDelay = getReconcileDelay("REQUEUE_DELAY_STATUS_CHECK", DefaultStatusCheckDelay)
+	shortDelay = getReconcileDelay("REQUEUE_DELAY_SHORT", DefaultShortDelay)
+	longDelay = getReconcileDelay("REQUEUE_DELAY_LONG", DefaultLongDelay)
+}
+
+func getReconcileDelay(name string, defaultDelay time.Duration) time.Duration {
+	value := os.Getenv(name)
+	if len(value) == 0 {
+		return defaultDelay
+	} else {
+		if delay, err := time.ParseDuration(value); err == nil {
+			return delay
+		} else {
+			panic(fmt.Sprintf("failed to parse %s=%s", name, value))
+		}
+	}
 }
 
 // +kubebuilder:rbac:groups=cassandra.datastax.com,namespace="reaper-operator",resources=cassandradatacenters,verbs=get;list;watch;create
@@ -53,7 +85,7 @@ func (r *CassandraDatacenterReconciler) Reconcile(req ctrl.Request) (ctrl.Result
 		if errors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
+		return ctrl.Result{RequeueAfter: shortDelay}, err
 	}
 
 	cassdc := instance.DeepCopy()
@@ -68,16 +100,16 @@ func (r *CassandraDatacenterReconciler) Reconcile(req ctrl.Request) (ctrl.Result
 				// It is possible that the Reaper has not been deployed yet or that it has
 				// been deleted, or the annotation could specify an incorrect value.
 				r.Log.Info("reaper instance not found", "reaper", reaperKey)
-				return ctrl.Result{RequeueAfter: 10 * time.Minute}, nil
+				return ctrl.Result{RequeueAfter: longDelay}, nil
 			} else {
 				r.Log.Error(err, "failed to retrieve reaper instance", "reaper", reaperKey)
-				return ctrl.Result{RequeueAfter: 30 * time.Second}, err
+				return ctrl.Result{RequeueAfter: shortDelay}, err
 			}
 		}
 
 		if !reaper.Status.Ready {
 			r.Log.Info("waiting for reaper to become ready", "reaper", reaperKey)
-			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+			return ctrl.Result{RequeueAfter: shortDelay}, nil
 		}
 
 		// Include the namespace in case Reaper is deployed in a different namespace than
@@ -86,7 +118,7 @@ func (r *CassandraDatacenterReconciler) Reconcile(req ctrl.Request) (ctrl.Result
 		restClient, err := reapergo.NewReaperClient(fmt.Sprintf("http://%s:8080", reaperSvc))
 		if err != nil {
 			r.Log.Error(err, "failed to create reaper rest client", "reaperService", reaperSvc)
-			return ctrl.Result{RequeueAfter: 30 * time.Second}, err
+			return ctrl.Result{RequeueAfter: shortDelay}, err
 		}
 
 		_, err = restClient.GetCluster(ctx, cassdc.Spec.ClusterName)
@@ -95,16 +127,16 @@ func (r *CassandraDatacenterReconciler) Reconcile(req ctrl.Request) (ctrl.Result
 			// The cluster was found in Reaper, so our work here is done; however, we still
 			// requeue the request to periodically check that the cluster has not be removed
 			// from Reaper.
-			return ctrl.Result{RequeueAfter: 30 * time.Minute}, nil
+			return ctrl.Result{RequeueAfter: statusCheckDelay}, nil
 		}
 
 		if err == reapergo.CassandraClusterNotFound {
 			r.Log.Info("registering cluster with reaper", "reaper", reaperKey)
 			if err = restClient.AddCluster(ctx, cassdc.Spec.ClusterName, cassdc.GetDatacenterServiceName()); err == nil {
-				return ctrl.Result{RequeueAfter: 30 * time.Minute}, nil
+				return ctrl.Result{RequeueAfter: statusCheckDelay}, nil
 			} else {
 				r.Log.Error(err, "failed to register cluster with reaper", "reaper", reaperKey)
-				return ctrl.Result{RequeueAfter: 30 *time.Second}, err
+				return ctrl.Result{RequeueAfter: shortDelay}, err
 			}
 		}
 	}
@@ -116,7 +148,7 @@ func (r *CassandraDatacenterReconciler) Reconcile(req ctrl.Request) (ctrl.Result
 }
 
 func getReaperKey(instanceName, cassdcNamespace string) types.NamespacedName {
-	parts := strings.Split(instanceName,".")
+	parts := strings.Split(instanceName, ".")
 	if len(parts) == 1 {
 		return types.NamespacedName{Namespace: cassdcNamespace, Name: instanceName}
 	} else {
