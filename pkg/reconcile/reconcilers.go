@@ -9,6 +9,7 @@ import (
 	api "github.com/thelastpickle/reaper-operator/api/v1alpha1"
 	"github.com/thelastpickle/reaper-operator/pkg/config"
 	mlabels "github.com/thelastpickle/reaper-operator/pkg/labels"
+	"github.com/thelastpickle/reaper-operator/pkg/status"
 	appsv1 "k8s.io/api/apps/v1"
 	v1batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -33,7 +34,7 @@ type ReaperRequest struct {
 
 	Logger logr.Logger
 
-	StatusManager *StatusManager
+	StatusManager *status.StatusManager
 }
 
 type ServiceReconciler interface {

@@ -1,4 +1,4 @@
-package reconcile
+package status
 
 import (
 	"context"
@@ -12,11 +12,12 @@ import (
 type StatusManager struct {
 	client.Client
 }
-
+// Sets .status.ready to true and patch the status.
 func (s *StatusManager) SetReady(ctx context.Context, reaper *api.Reaper) error {
 	return s.updateReady(ctx, reaper, true)
 }
 
+// Sets .status.ready to false and patch the status.
 func (s *StatusManager) SetNotReady(ctx context.Context, reaper *api.Reaper) error {
 	return s.updateReady(ctx, reaper, false)
 }
@@ -27,6 +28,8 @@ func (s *StatusManager) updateReady(ctx context.Context, reaper *api.Reaper, rea
 	return s.Status().Patch(ctx, reaper, patch)
 }
 
+// Adds the cluster to .status.clusters if it not already in the list. The status is patch
+// updated if the list is modified.
 func (s *StatusManager) AddClusterToStatus(ctx context.Context, reaper *api.Reaper, cassdc *cassdcv1beta1.CassandraDatacenter) error {
 	if contains(reaper.Status.Clusters, cassdc.Spec.ClusterName) {
 		return nil
@@ -39,6 +42,8 @@ func (s *StatusManager) AddClusterToStatus(ctx context.Context, reaper *api.Reap
 	return s.Status().Patch(ctx, reaper, patch)
 }
 
+// Removes the cluster from .status.clusters if it is in the list. The status is patch
+// updated if the list is modified.
 func (s *StatusManager) RemoveClusterFromStatus(ctx context.Context, reaper *api.Reaper, cassdc *cassdcv1beta1.CassandraDatacenter) error {
 	if !contains(reaper.Status.Clusters, cassdc.Spec.ClusterName) {
 		return nil

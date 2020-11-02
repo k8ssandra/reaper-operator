@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/thelastpickle/reaper-operator/pkg/config"
+	"github.com/thelastpickle/reaper-operator/pkg/status"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -53,7 +54,7 @@ type ReaperReconciler struct {
 func (r *ReaperReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
 	reqLogger := r.Log.WithValues("reaper", req.NamespacedName)
-	statusManager := &reconcile.StatusManager{Client: r.Client}
+	statusManager := &status.StatusManager{Client: r.Client}
 
 	reqLogger.Info("starting reconciliation")
 

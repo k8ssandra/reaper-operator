@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/thelastpickle/reaper-operator/pkg/reconcile"
+	"github.com/thelastpickle/reaper-operator/pkg/status"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -79,7 +79,7 @@ func getReconcileDelay(name string, defaultDelay time.Duration) time.Duration {
 func (r *CassandraDatacenterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
 	_ = r.Log.WithValues("cassandradatacenter", req.NamespacedName)
-	statusManager := &reconcile.StatusManager{Client: r.Client}
+	statusManager := &status.StatusManager{Client: r.Client}
 
 	instance := &cassdcv1beta1.CassandraDatacenter{}
 	err := r.Get(ctx, req.NamespacedName, instance)
