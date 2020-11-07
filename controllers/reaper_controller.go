@@ -95,9 +95,7 @@ func (r *ReaperReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return *result, err
 	}
 
-	if err := statusManager.SetReady(ctx, reaperReq.Reaper); err != nil {
-		return ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
-	}
+	reqLogger.Info("the reaper instance is reconciled")
 
 	return ctrl.Result{}, nil
 }

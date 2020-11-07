@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	api "github.com/thelastpickle/reaper-operator/api/v1alpha1"
+	mlabels "github.com/thelastpickle/reaper-operator/pkg/labels"
 	"github.com/thelastpickle/reaper-operator/pkg/reconcile"
 	appsv1 "k8s.io/api/apps/v1"
 	v1batch "k8s.io/api/batch/v1"
@@ -98,8 +99,8 @@ var _ = Describe("Reaper controller", func() {
 			return true
 		}, timeout, interval).Should(BeTrue(), "deployment creation check failed")
 
-		Expect(len(deployment.OwnerReferences)).Should(Equal(1))
-		Expect(deployment.OwnerReferences[0].UID).Should(Equal(reaper.GetUID()))
+		Expect(len(deployment.OwnerReferences)).Should(Equal(1), "deployment owner reference not set")
+		Expect(deployment.OwnerReferences[0].UID).Should(Equal(reaper.GetUID()), "deployment owner reference has wrong uid")
 
 		By("update deployment to be ready")
 		patchDeploymentStatus(deployment, 1, 1)
@@ -189,7 +190,10 @@ var _ = Describe("Reaper controller", func() {
 		// We can use a fake deployment here with only the required properties set. Since the deployment
 		// already exists, the reconciler will just check that it is ready. There are unit tests to
 		// verify that the deployment is created as expected.
-		labels := map[string]string{"reaper": "test"}
+		labels := map[string]string{
+			"reaper.cassandra-reaper.io/reaper": ReaperName,
+			"app.kubernetes.io/managed-by":      "reaper-operator",
+		}
 		deployment := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: ReaperNamespace,
@@ -197,7 +201,18 @@ var _ = Describe("Reaper controller", func() {
 			},
 			Spec: appsv1.DeploymentSpec{
 				Selector: &metav1.LabelSelector{
-					MatchLabels: labels,
+					MatchExpressions: []metav1.LabelSelectorRequirement{
+						{
+							Key:      mlabels.ManagedByLabel,
+							Operator: metav1.LabelSelectorOpIn,
+							Values:   []string{mlabels.ManagedByLabelValue},
+						},
+						{
+							Key:      mlabels.ReaperLabel,
+							Operator: metav1.LabelSelectorOpIn,
+							Values:   []string{ReaperName},
+						},
+					},
 				},
 				Template: corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
