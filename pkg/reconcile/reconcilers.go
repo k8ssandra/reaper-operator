@@ -10,6 +10,7 @@ import (
 	"github.com/thelastpickle/reaper-operator/pkg/config"
 	mlabels "github.com/thelastpickle/reaper-operator/pkg/labels"
 	"github.com/thelastpickle/reaper-operator/pkg/status"
+	"github.com/thelastpickle/reaper-operator/pkg/util"
 	appsv1 "k8s.io/api/apps/v1"
 	v1batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -254,47 +255,101 @@ func (r *defaultReconciler) ReconcileDeployment(ctx context.Context, req ReaperR
 	req.Logger.Info("reconciling deployment", "deployment", key)
 
 	deployment := &appsv1.Deployment{}
-	err := r.Get(ctx, key, deployment)
-	if err != nil && errors.IsNotFound(err) {
-		// create the deployment
-		deployment = newDeployment(reaper)
-
-		if len(reaper.Spec.ServerConfig.JmxUserSecretName) > 0 {
-			secret, err := r.getSecret(types.NamespacedName{Namespace: reaper.Namespace, Name: reaper.Spec.ServerConfig.JmxUserSecretName})
-			if err != nil {
-				req.Logger.Error(err, "failed to get jmxUserSecret", "deployment", key)
-				return &ctrl.Result{RequeueAfter: 10 * time.Second}, err
-			}
-
-			if usernameEnvVar, passwordEnvVar, err := r.secretsManager.GetJmxAuthCredentials(secret); err == nil {
-				addJmxAuthEnvVars(deployment, usernameEnvVar, passwordEnvVar)
-			} else {
-				req.Logger.Error(err, "failed to get JMX credentials", "deployment", key)
-				return &ctrl.Result{RequeueAfter: 10 * time.Second}, err
-			}
-		}
-
-		if err = controllerutil.SetControllerReference(reaper, deployment, r.scheme); err != nil {
-			req.Logger.Error(err, "failed to set owner on deployment", "deployment", key)
-			return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
-		}
-		req.Logger.Info("creating deployment", "deployment", key)
-		if err = r.Create(ctx, deployment); err != nil {
-			req.Logger.Error(err, "failed to create deployment", "deployment", key)
-			return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
-		} else {
-			return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, nil
-		}
-	} else if !isDeploymentReady(deployment) {
-		req.Logger.Info("deployment not ready", "deployment", key)
-		if err := req.StatusManager.SetNotReady(ctx, reaper); err != nil {
-			req.Logger.Error(err, "deployment is not ready, failed to update reaper status", "deployment", key)
-			return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
-		}
-		return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, nil
+	desiredDeployment, err := r.buildNewDeployment(req)
+	if err != nil {
+		req.Logger.Error(err, "failed to build deployment", "deployment", key)
+		return &ctrl.Result{RequeueAfter: 10 * time.Second}, err
 	}
 
-	return nil, nil
+	err = r.Get(ctx, key, deployment)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			if err = controllerutil.SetControllerReference(reaper, desiredDeployment, r.scheme); err != nil {
+				req.Logger.Error(err, "failed to set owner on deployment", "deployment", key)
+				return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
+			}
+
+			if err = r.Create(ctx, desiredDeployment); err != nil {
+				req.Logger.Error(err, "failed to create deployment", "deployment", key)
+			}
+			return &ctrl.Result{RequeueAfter: 10 * time.Second}, err
+		} else {
+			req.Logger.Error(err, "failed to get deployment", "deployment", key)
+			return &ctrl.Result{RequeueAfter: 10 * time.Second}, err
+		}
+	} else {
+		if !util.ResourcesHaveSameHash(desiredDeployment, deployment) {
+			req.Logger.Info("updating deployment", "deployment", key)
+
+			// TODO Figure out how we want to handle any deployment template spec updates and intelligently copy them.
+			// Note that simply calling Deployment.DeepCopy() will fail on update because the
+			// label selector is immutable.
+
+			// TODO add unit/integration tests
+
+			desiredDeployment.Labels = util.MergeMap(map[string]string{}, deployment.Labels, desiredDeployment.Labels)
+			desiredDeployment.Annotations = util.MergeMap(map[string]string{}, deployment.Annotations, desiredDeployment.Annotations)
+
+			deployment.Labels = desiredDeployment.Labels
+			deployment.Annotations = desiredDeployment.Annotations
+
+			deployment.Spec.Template.Labels = desiredDeployment.Spec.Template.Labels
+			deployment.Spec.Template.Annotations = desiredDeployment.Spec.Template.Annotations
+			deployment.Spec.Template.Spec.Containers = desiredDeployment.Spec.Template.Spec.Containers
+
+			deployment.Spec.MinReadySeconds = desiredDeployment.Spec.MinReadySeconds
+			deployment.Spec.Paused = desiredDeployment.Spec.Paused
+			deployment.Spec.ProgressDeadlineSeconds = desiredDeployment.Spec.ProgressDeadlineSeconds
+			deployment.Spec.RevisionHistoryLimit = desiredDeployment.Spec.RevisionHistoryLimit
+			deployment.Spec.Strategy = desiredDeployment.Spec.Strategy
+
+			if err = r.Update(ctx, deployment); err != nil {
+				req.Logger.Error(err, "failed to update deployment", "deployment", deployment)
+			}
+			return &ctrl.Result{RequeueAfter: 10 * time.Second}, err
+		}
+
+		if isDeploymentReady(deployment) {
+			if err := req.StatusManager.SetReady(ctx, reaper); err == nil {
+				return nil, nil
+			} else {
+				req.Logger.Error(err, "failed to update status")
+				return &ctrl.Result{RequeueAfter: 10 * time.Second}, err
+			}
+		} else {
+			req.Logger.Info("deployment not ready", "deployment", key)
+			if err := req.StatusManager.SetNotReady(ctx, reaper); err != nil {
+				req.Logger.Error(err, "deployment is not ready, failed to update reaper status", "deployment", key)
+				return &ctrl.Result{RequeueAfter: 10 * time.Second}, err
+			}
+			return &ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+		}
+	}
+}
+
+func (r *defaultReconciler) buildNewDeployment(req ReaperRequest) (*appsv1.Deployment, error) {
+	reaper := req.Reaper
+	deployment := newDeployment(reaper)
+	key := types.NamespacedName{Namespace: deployment.Namespace, Name: deployment.Name}
+
+	if len(reaper.Spec.ServerConfig.JmxUserSecretName) > 0 {
+		secret, err := r.getSecret(types.NamespacedName{Namespace: reaper.Namespace, Name: reaper.Spec.ServerConfig.JmxUserSecretName})
+		if err != nil {
+			req.Logger.Error(err, "failed to get jmxUserSecret", "deployment", key)
+			return nil, err
+		}
+
+		if usernameEnvVar, passwordEnvVar, err := r.secretsManager.GetJmxAuthCredentials(secret); err == nil {
+			addJmxAuthEnvVars(deployment, usernameEnvVar, passwordEnvVar)
+		} else {
+			req.Logger.Error(err, "failed to get JMX credentials", "deployment", key)
+			return nil, err
+		}
+	}
+
+	util.AddHashAnnotation(deployment)
+
+	return deployment, nil
 }
 
 func addJmxAuthEnvVars(deployment *appsv1.Deployment, usernameEnvVar, passwordEnvVar *corev1.EnvVar) {

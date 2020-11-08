@@ -100,6 +100,7 @@ type ReaperStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:path=reapers,scope=Namespaced
 
 // Reaper is the Schema for the reapers API
 type Reaper struct {
