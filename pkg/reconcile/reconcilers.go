@@ -159,27 +159,37 @@ func (r *defaultReconciler) ReconcileSchema(ctx context.Context, req ReaperReque
 	schemaJob := &v1batch.Job{}
 	err := r.Client.Get(ctx, key, schemaJob)
 	if err != nil && errors.IsNotFound(err) {
-		// create the job
-		schemaJob = newSchemaJob(reaper)
-		if err = controllerutil.SetControllerReference(reaper, schemaJob, r.scheme); err != nil {
-			req.Logger.Error(err, "failed to set owner on schema job", "job", key)
-			return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
-		}
-		req.Logger.Info("creating schema job", "job", key)
-		if err = r.Client.Create(ctx, schemaJob); err != nil {
-			req.Logger.Error(err, "failed to create schema job", "job", key)
-			return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
-		} else {
-			return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
-		}
+		return r.createSchemaJob(ctx, schemaJob, req)
 	} else if !jobFinished(schemaJob) {
 		req.Logger.Info("schema job not finished", "job", key)
 		return &ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
-	} else if failed, err := jobFailed(schemaJob); failed {
-		return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
+	} else if jobFailed(schemaJob) {
+		req.Logger.Info("schema job failed, recreating it to try again.", "job", key)
+		return r.createSchemaJob(ctx, schemaJob, req)
 	} else {
 		// the job completed successfully
+		req.Logger.Info("schema job completed successfully", "job", key)
 		return nil, nil
+	}
+}
+
+func (r *defaultReconciler) createSchemaJob(ctx context.Context, schemaJob *v1batch.Job, req ReaperRequest) (*ctrl.Result, error) {
+	reaper := req.Reaper
+	schemaJob = newSchemaJob(reaper)
+	key := types.NamespacedName{Namespace: schemaJob.Namespace, Name: schemaJob.Name}
+
+	req.Logger.Info("creating schema job", "job", key)
+
+	if err := controllerutil.SetControllerReference(reaper, schemaJob, r.scheme); err != nil {
+		req.Logger.Error(err, "failed to set owner on schema job", "job", key)
+		return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
+	}
+	req.Logger.Info("creating schema job", "job", key)
+	if err := r.Client.Create(ctx, schemaJob); err != nil {
+		req.Logger.Error(err, "failed to create schema job", "job", key)
+		return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
+	} else {
+		return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 	}
 }
 
@@ -239,13 +249,13 @@ func jobFinished(job *v1batch.Job) bool {
 	return false
 }
 
-func jobFailed(job *v1batch.Job) (bool, error) {
+func jobFailed(job *v1batch.Job) bool {
 	for _, cond := range job.Status.Conditions {
 		if cond.Type == v1batch.JobFailed && cond.Status == corev1.ConditionTrue {
-			return true, fmt.Errorf("schema job failed: %s", cond.Message)
+			return true
 		}
 	}
-	return false, nil
+	return false
 }
 
 func (r *defaultReconciler) ReconcileDeployment(ctx context.Context, req ReaperRequest) (*ctrl.Result, error) {
