@@ -164,8 +164,13 @@ func (r *defaultReconciler) ReconcileSchema(ctx context.Context, req ReaperReque
 		req.Logger.Info("schema job not finished", "job", key)
 		return &ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 	} else if jobFailed(schemaJob) {
-		req.Logger.Info("schema job failed, recreating it to try again.", "job", key)
-		return r.createSchemaJob(ctx, schemaJob, req)
+		req.Logger.Info("schema job failed. deleting it so can be recreated to try again.", "job", key)
+		if err = r.Delete(ctx, schemaJob); err == nil {
+			return &ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+		} else {
+			req.Logger.Error(err, "failed to delete schema job", "job", key)
+			return &ctrl.Result{RequeueAfter: 5 * time.Second}, err
+		}
 	} else {
 		// the job completed successfully
 		req.Logger.Info("schema job completed successfully", "job", key)
