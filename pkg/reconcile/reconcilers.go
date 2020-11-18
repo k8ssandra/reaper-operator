@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	cassdcapi "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/go-logr/logr"
 	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
 	"github.com/k8ssandra/reaper-operator/pkg/config"
@@ -156,8 +157,14 @@ func (r *defaultReconciler) ReconcileSchema(ctx context.Context, req ReaperReque
 		return nil, nil
 	}
 
+	// Check that Cassandra is ready before creating the schema job if running under k8ssandra
+	err := r.checkForCassandraDatacenterReadiness(ctx, req)
+	if err != nil {
+		return &ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
+	}
+
 	schemaJob := &v1batch.Job{}
-	err := r.Client.Get(ctx, key, schemaJob)
+	err = r.Client.Get(ctx, key, schemaJob)
 	if err != nil && errors.IsNotFound(err) {
 		return r.createSchemaJob(ctx, schemaJob, req)
 	} else if !jobFinished(schemaJob) {
@@ -176,6 +183,56 @@ func (r *defaultReconciler) ReconcileSchema(ctx context.Context, req ReaperReque
 		req.Logger.Info("schema job completed successfully", "job", key)
 		return nil, nil
 	}
+}
+
+func (r *defaultReconciler) checkForCassandraDatacenterReadiness(ctx context.Context, req ReaperRequest) error {
+	reaper := req.Reaper
+	cassandra := *reaper.Spec.ServerConfig.CassandraBackend
+	cassdc := &cassdcapi.CassandraDatacenter{}
+
+	fetchStatus := func() error {
+		cassdcKey := types.NamespacedName{Namespace: reaper.Namespace, Name: cassandra.DatacenterName()}
+		err := r.Client.Get(ctx, cassdcKey, cassdc)
+		if err != nil {
+			req.Logger.Error(err, "failed to fetch CassandraDatacenter")
+			return err
+		}
+		return nil
+	}
+
+	maxWaitTime := time.Now().Add(30 * time.Second)
+
+	for {
+		err := fetchStatus()
+		if err != nil {
+			return err
+		}
+		if cassdc.Name != cassandra.DatacenterName() {
+			// Not running under k8ssandra or this object was empty (it will error elsewhere)
+			return nil
+		}
+		if value, found := cassdc.Annotations["reaper.cassandra-reaper.io/instance"]; found {
+			if value == reaper.Name {
+				if isCassdcReady(cassdc) {
+					return nil
+				}
+			}
+		}
+		// Sleep half a second and then try again
+		time.Sleep(500 * time.Millisecond)
+		if time.Now().After(maxWaitTime) {
+			// This will cause a CrashLoopBackoff, but it will be retried later - however a good indication of perf issue
+			return fmt.Errorf("CassandraDatacenter did not start")
+		}
+	}
+}
+
+func isCassdcReady(cassdc *cassdcapi.CassandraDatacenter) bool {
+	if cassdc.Status.CassandraOperatorProgress != cassdcapi.ProgressReady {
+		return false
+	}
+	status := cassdc.GetConditionStatus(cassdcapi.DatacenterReady)
+	return status == corev1.ConditionTrue
 }
 
 func (r *defaultReconciler) createSchemaJob(ctx context.Context, schemaJob *v1batch.Job, req ReaperRequest) (*ctrl.Result, error) {

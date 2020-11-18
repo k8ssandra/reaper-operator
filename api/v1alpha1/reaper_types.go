@@ -76,6 +76,12 @@ type CassandraBackend struct {
 	AuthProvider AuthProvider `json:"authProvider,omitempty" yaml:"authProvider,omitempty"`
 }
 
+func (c *CassandraBackend) DatacenterName() string {
+	// This depends on the k8cassandra's helm deployment
+	//cassandraService: {{ .Values.clusterName }}-{{ .Values.datacenterName }}-service
+	return c.CassandraService[len(c.ClusterName)+1:len(c.CassandraService) - len("-service")]
+}
+
 // ReaperSpec defines the desired state of Reaper
 type ReaperSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
