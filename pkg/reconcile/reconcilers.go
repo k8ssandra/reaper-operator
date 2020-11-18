@@ -193,6 +193,9 @@ func (r *defaultReconciler) checkForCassandraDatacenterReadiness(ctx context.Con
 	fetchStatus := func() error {
 		cassdcKey := types.NamespacedName{Namespace: reaper.Namespace, Name: cassandra.DatacenterName()}
 		err := r.Client.Get(ctx, cassdcKey, cassdc)
+		if runtime.IsNotRegisteredError(err) {
+			return nil
+		}
 		if err != nil {
 			req.Logger.Error(err, "failed to fetch CassandraDatacenter")
 			return err

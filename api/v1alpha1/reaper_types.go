@@ -77,9 +77,14 @@ type CassandraBackend struct {
 }
 
 func (c *CassandraBackend) DatacenterName() string {
+	startPos := len(c.ClusterName) + 1
+	endPos := len(c.CassandraService) - len("-service")
+	if startPos < 0 || endPos < 0 || startPos > len(c.CassandraService) || endPos > len(c.CassandraService) || startPos > endPos {
+		return c.CassandraService
+	}
 	// This depends on the k8cassandra's helm deployment
-	//cassandraService: {{ .Values.clusterName }}-{{ .Values.datacenterName }}-service
-	return c.CassandraService[len(c.ClusterName)+1:len(c.CassandraService) - len("-service")]
+	//	cassandraService: {{ .Values.clusterName }}-{{ .Values.datacenterName }}-service
+	return c.CassandraService[startPos:endPos]
 }
 
 // ReaperSpec defines the desired state of Reaper
