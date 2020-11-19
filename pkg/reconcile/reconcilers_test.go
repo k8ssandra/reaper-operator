@@ -41,7 +41,7 @@ func TestNewService(t *testing.T) {
 func TestNewSchemaJob(t *testing.T) {
 	reaper := newReaperWithCassandraBackend()
 
-	job := newSchemaJob(reaper)
+	job := newSchemaJob(reaper, "target-datacenter-service")
 
 	assert.Equal(t, getSchemaJobName(reaper), job.Name)
 	assert.Equal(t, reaper.Namespace, job.Namespace)
@@ -61,7 +61,7 @@ func TestNewSchemaJob(t *testing.T) {
 		},
 		{
 			Name:  "CONTACT_POINTS",
-			Value: reaper.Spec.ServerConfig.CassandraBackend.CassandraService,
+			Value: "target-datacenter-service",
 		},
 		{
 			Name:  "REPLICATION",
@@ -76,7 +76,7 @@ func TestNewDeployment(t *testing.T) {
 	reaper.Spec.Image = image
 
 	labels := createLabels(reaper)
-	deployment := newDeployment(reaper)
+	deployment := newDeployment(reaper, "target-datacenter-service")
 
 	assert.Equal(t, reaper.Namespace, deployment.Namespace)
 	assert.Equal(t, reaper.Name, deployment.Name)
@@ -115,7 +115,7 @@ func TestNewDeployment(t *testing.T) {
 		},
 		{
 			Name:  "REAPER_CASS_CONTACT_POINTS",
-			Value: "[" + reaper.Spec.ServerConfig.CassandraBackend.CassandraService + "]",
+			Value: "[target-datacenter-service]",
 		},
 		{
 			Name:  "REAPER_AUTH_ENABLED",
@@ -140,8 +140,7 @@ func TestNewDeployment(t *testing.T) {
 func newReaperWithCassandraBackend() *api.Reaper {
 	namespace := "service-test"
 	reaperName := "test-reaper"
-	clusterName := "cassandra"
-	cassandraService := "cassandra-svc"
+	dcName := "dc1"
 
 	return &api.Reaper{
 		ObjectMeta: metav1.ObjectMeta{
@@ -152,9 +151,10 @@ func newReaperWithCassandraBackend() *api.Reaper {
 			ServerConfig: api.ServerConfig{
 				StorageType: api.StorageTypeCassandra,
 				CassandraBackend: &api.CassandraBackend{
-					ClusterName:      clusterName,
-					CassandraService: cassandraService,
-					Keyspace:         api.DefaultKeyspace,
+					CassandraDatacenter: api.CassandraDatacenterRef{
+						Name: dcName,
+					},
+					Keyspace: api.DefaultKeyspace,
 					Replication: api.ReplicationConfig{
 						NetworkTopologyStrategy: &map[string]int32{
 							"DC1": 3,

@@ -72,8 +72,9 @@ var _ = Describe("Deploy Reaper with Cassandra backend", func() {
 						JmxUserSecretName: "reaper-jmx",
 						StorageType:       api.StorageTypeCassandra,
 						CassandraBackend: &api.CassandraBackend{
-							ClusterName:      cassdc.Spec.ClusterName,
-							CassandraService: cassdc.GetDatacenterServiceName(),
+							CassandraDatacenter: api.CassandraDatacenterRef{
+								Name: cassdc.Name,
+							},
 						},
 					},
 				},

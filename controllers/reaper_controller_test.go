@@ -20,9 +20,8 @@ import (
 )
 
 const (
-	ReaperName           = "test-reaper"
-	CassandraClusterName = "test-cluster"
-	CassandraServiceName = "test-cluster-svc"
+	ReaperName              = "test-reaper"
+	CassandraDatacenterName = "test-dc"
 
 	timeout  = time.Second * 10
 	interval = time.Millisecond * 250
@@ -254,8 +253,9 @@ func createReaper(namespace string) *api.Reaper {
 			ServerConfig: api.ServerConfig{
 				StorageType: api.StorageTypeCassandra,
 				CassandraBackend: &api.CassandraBackend{
-					ClusterName:      CassandraClusterName,
-					CassandraService: CassandraServiceName,
+					CassandraDatacenter: api.CassandraDatacenterRef{
+						Name: CassandraDatacenterName,
+					},
 				},
 			},
 		},

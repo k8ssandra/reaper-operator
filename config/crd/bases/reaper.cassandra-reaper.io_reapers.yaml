@@ -51,12 +51,16 @@ spec:
                         username:
                           type: string
                       type: object
-                    cassandraService:
-                      description: The headless service that provides endpoints for
-                        the StorageTypeCassandra pods
-                      type: string
-                    clusterName:
-                      type: string
+                    cassandraDatacenter:
+                      properties:
+                        name:
+                          type: string
+                        namespace:
+                          description: If empty we could default the Reaper namespace.
+                          type: string
+                      required:
+                      - name
+                      type: object
                     keyspace:
                       description: Defaults to reaper
                       type: string
@@ -77,8 +81,7 @@ spec:
                           type: integer
                       type: object
                   required:
-                  - cassandraService
-                  - clusterName
+                  - cassandraDatacenter
                   - replication
                   type: object
                 jmxUserSecretName:
