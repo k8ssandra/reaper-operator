@@ -193,25 +193,16 @@ func (r *defaultReconciler) ReconcileSchema(ctx context.Context, req ReaperReque
 func (r *defaultReconciler) checkForCassandraDatacenterReadiness(ctx context.Context, req ReaperRequest) (bool, error) {
 	reaper := req.Reaper
 	cassdc, err := r.cassandraDatacenter(ctx, reaper)
-	//if meta.IsNoMatchError(err) {
-	//	return true, nil
-	//}
-	//
 	if err != nil {
 		req.Logger.Error(err, "failed to fetch CassandraDatacenter")
 		return false, err
 	}
 
-	if value, found := cassdc.Annotations["reaper.cassandra-reaper.io/instance"]; found {
-		if value == reaper.Name {
-			if isCassdcReady(cassdc) {
-				return true, nil
-			}
-			return false, nil
-		}
+	if isCassdcReady(cassdc) {
+		return true, nil
 	}
 
-	return true, nil
+	return false, nil
 }
 
 func (r *defaultReconciler) cassandraDatacenter(ctx context.Context, reaper *api.Reaper) (*cassdcapi.CassandraDatacenter, error) {
