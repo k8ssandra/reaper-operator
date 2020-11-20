@@ -12,6 +12,7 @@ import (
 type StatusManager struct {
 	client.Client
 }
+
 // Sets .status.ready to true and patch the status.
 func (s *StatusManager) SetReady(ctx context.Context, reaper *api.Reaper) error {
 	return s.updateReady(ctx, reaper, true)

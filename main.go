@@ -31,8 +31,8 @@ import (
 	"github.com/thelastpickle/reaper-operator/pkg/config"
 	"github.com/thelastpickle/reaper-operator/pkg/reconcile"
 
-	reaperv1alpha1 "github.com/thelastpickle/reaper-operator/api/v1alpha1"
 	cassdcv1beta1 "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	reaperv1alpha1 "github.com/thelastpickle/reaper-operator/api/v1alpha1"
 	"github.com/thelastpickle/reaper-operator/controllers"
 	// +kubebuilder:scaffold:imports
 )
