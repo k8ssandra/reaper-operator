@@ -119,6 +119,7 @@ func (r *CassandraDatacenterReconciler) Reconcile(req ctrl.Request) (ctrl.Result
 		// Include the namespace in case Reaper is deployed in a different namespace than
 		// the CassandraDatacenter.
 		reaperSvc := reaper.Name + "-reaper-service" + "." + reaper.Namespace
+
 		restClient, err := reapergo.NewReaperClient(fmt.Sprintf("http://%s:8080", reaperSvc))
 		if err != nil {
 			r.Log.Error(err, "failed to create reaper rest client", "reaperService", reaperSvc)
@@ -153,6 +154,9 @@ func (r *CassandraDatacenterReconciler) Reconcile(req ctrl.Request) (ctrl.Result
 				return ctrl.Result{RequeueAfter: shortDelay}, err
 			}
 		}
+
+		r.Log.Error(err, "failed to get cluster", "reaper", reaperKey)
+		return ctrl.Result{RequeueAfter: shortDelay}, err
 	}
 
 	// The CassandraDatacenter does not have the annotation which means it is not using
