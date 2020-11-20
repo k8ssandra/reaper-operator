@@ -28,8 +28,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	api "github.com/thelastpickle/reaper-operator/api/v1alpha1"
-	"github.com/thelastpickle/reaper-operator/pkg/reconcile"
+	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
+	"github.com/k8ssandra/reaper-operator/pkg/reconcile"
 	appsv1 "k8s.io/api/apps/v1"
 )
 

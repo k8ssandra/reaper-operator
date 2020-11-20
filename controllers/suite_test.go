@@ -24,8 +24,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
-	"github.com/thelastpickle/reaper-operator/pkg/config"
-	"github.com/thelastpickle/reaper-operator/pkg/reconcile"
+	"github.com/k8ssandra/reaper-operator/pkg/config"
+	"github.com/k8ssandra/reaper-operator/pkg/reconcile"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,7 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	cassdcv1beta1 "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
-	api "github.com/thelastpickle/reaper-operator/api/v1alpha1"
+	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	// +kubebuilder:scaffold:imports
 )

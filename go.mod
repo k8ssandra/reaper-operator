@@ -1,4 +1,4 @@
-module github.com/thelastpickle/reaper-operator
+module github.com/k8ssandra/reaper-operator
 
 go 1.13
 

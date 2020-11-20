@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	api "github.com/thelastpickle/reaper-operator/api/v1alpha1"
+	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
 )
 
 func ReplicationToString(r api.ReplicationConfig) string {

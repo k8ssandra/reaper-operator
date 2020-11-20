@@ -13,7 +13,7 @@ BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
 endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
-ORG?=thelastpickle
+ORG?=k8ssandra
 PROJECT=reaper-operator
 REG=docker.io
 
