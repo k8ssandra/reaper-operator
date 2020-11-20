@@ -28,12 +28,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"github.com/thelastpickle/reaper-operator/pkg/config"
-	"github.com/thelastpickle/reaper-operator/pkg/reconcile"
+	"github.com/k8ssandra/reaper-operator/pkg/config"
+	"github.com/k8ssandra/reaper-operator/pkg/reconcile"
 
 	cassdcv1beta1 "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
-	reaperv1alpha1 "github.com/thelastpickle/reaper-operator/api/v1alpha1"
-	"github.com/thelastpickle/reaper-operator/controllers"
+	reaperv1alpha1 "github.com/k8ssandra/reaper-operator/api/v1alpha1"
+	"github.com/k8ssandra/reaper-operator/controllers"
 	// +kubebuilder:scaffold:imports
 )
 

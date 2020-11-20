@@ -4,9 +4,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	api "github.com/thelastpickle/reaper-operator/api/v1alpha1"
-	"github.com/thelastpickle/reaper-operator/pkg/config"
-	mlabels "github.com/thelastpickle/reaper-operator/pkg/labels"
+	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
+	"github.com/k8ssandra/reaper-operator/pkg/config"
+	mlabels "github.com/k8ssandra/reaper-operator/pkg/labels"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"

@@ -5,7 +5,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/thelastpickle/reaper-operator/test/framework"
+	"github.com/k8ssandra/reaper-operator/test/framework"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 )
 

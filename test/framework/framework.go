@@ -21,7 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	cassdcv1beta1 "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
-	api "github.com/thelastpickle/reaper-operator/api/v1alpha1"
+	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"

@@ -32,8 +32,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	cassdcv1beta1 "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
-	reapergo "github.com/jsanda/reaper-client-go/reaper"
-	api "github.com/thelastpickle/reaper-operator/api/v1alpha1"
+	reapergo "github.com/k8ssandra/reaper-client-go/reaper"
+	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
 )
 
 // CassandraDatacenterReconciler reconciles a CassandraDatacenter object

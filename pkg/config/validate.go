@@ -3,7 +3,7 @@ package config
 import (
 	"errors"
 
-	api "github.com/thelastpickle/reaper-operator/api/v1alpha1"
+	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
 )
 
 type ValidationError error
