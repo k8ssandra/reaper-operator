@@ -194,6 +194,10 @@ func (r *defaultReconciler) checkForCassandraDatacenterReadiness(ctx context.Con
 	reaper := req.Reaper
 	cassdc, err := r.cassandraDatacenter(ctx, reaper)
 	if err != nil {
+		if errors.IsNotFound(err) {
+			// We're unable to track the progress - let the process try
+			return true, nil
+		}
 		req.Logger.Error(err, "failed to fetch CassandraDatacenter")
 		return false, err
 	}
@@ -202,7 +206,8 @@ func (r *defaultReconciler) checkForCassandraDatacenterReadiness(ctx context.Con
 		return true, nil
 	}
 
-	return false, nil
+	return true, nil
+	//return false, nil
 }
 
 func (r *defaultReconciler) cassandraDatacenter(ctx context.Context, reaper *api.Reaper) (*cassdcapi.CassandraDatacenter, error) {
@@ -215,11 +220,12 @@ func (r *defaultReconciler) cassandraDatacenter(ctx context.Context, reaper *api
 	}
 
 	cassdcKey := types.NamespacedName{Namespace: targetDc.Namespace, Name: targetDc.Name}
-	_ = r.Client.Get(ctx, cassdcKey, cassdc)
-	return cassdc, nil
+	err := r.Client.Get(ctx, cassdcKey, cassdc)
+	return cassdc, err
 }
 
 func isCassdcReady(cassdc *cassdcapi.CassandraDatacenter) bool {
+	fmt.Printf("cassdcStatus: %v\n", cassdc)
 	if cassdc.Status.CassandraOperatorProgress != cassdcapi.ProgressReady {
 		return false
 	}

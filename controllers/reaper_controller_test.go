@@ -17,6 +17,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	cassdcapi "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 )
 
 const (
@@ -41,6 +43,49 @@ var _ = Describe("Reaper controller", func() {
 		Expect(k8sClient.Create(context.Background(), testNamespace)).Should(Succeed())
 		i = i + 1
 
+		testDc := &cassdcapi.CassandraDatacenter{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      CassandraDatacenterName,
+				Namespace: ReaperNamespace,
+			},
+			Spec: cassdcapi.CassandraDatacenterSpec{
+				ClusterName:   "test-dc",
+				ServerType:    "cassandra",
+				ServerVersion: "3.11.7",
+				Size:          3,
+			},
+			Status: cassdcapi.CassandraDatacenterStatus{
+				CassandraOperatorProgress: cassdcapi.ProgressReady,
+				Conditions: []cassdcapi.DatacenterCondition{
+					{
+						Status: corev1.ConditionTrue,
+						Type:   cassdcapi.DatacenterReady,
+					},
+				},
+			},
+		}
+		Expect(k8sClient.Create(context.Background(), testDc)).Should(Succeed())
+		k8sClient.Update(context.Background(), testDc)
+	})
+
+	Specify("patch CassandraDatacenterStatus", func() {
+		By("patch status field")
+
+		cassdc := &cassdcapi.CassandraDatacenter{}
+		cassdcKey := types.NamespacedName{Namespace: ReaperNamespace, Name: CassandraDatacenterName}
+
+		Eventually(func() bool {
+			err := k8sClient.Get(context.Background(), cassdcKey, cassdc)
+			if err != nil {
+				return false
+			}
+			return true
+		}, timeout, interval).Should(BeTrue())
+
+		patchCassdc := client.MergeFrom(cassdc.DeepCopy())
+		cassdc.Status.CassandraOperatorProgress = cassdcapi.ProgressReady
+
+		Expect(k8sClient.Status().Patch(context.Background(), cassdc, patchCassdc)).Should(Succeed())
 	})
 
 	Specify("create a new Reaper instance", func() {
