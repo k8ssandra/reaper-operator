@@ -70,7 +70,7 @@ var _ = Describe("Deploy Reaper with Cassandra backend", func() {
 				Spec: api.ReaperSpec{
 					ServerConfig: api.ServerConfig{
 						JmxUserSecretName: "reaper-jmx",
-						StorageType: api.StorageTypeCassandra,
+						StorageType:       api.StorageTypeCassandra,
 						CassandraBackend: &api.CassandraBackend{
 							ClusterName:      cassdc.Spec.ClusterName,
 							CassandraService: cassdc.GetDatacenterServiceName(),
@@ -84,15 +84,14 @@ var _ = Describe("Deploy Reaper with Cassandra backend", func() {
 
 			By("wait for reaper to become ready")
 			reaperKey := types.NamespacedName{Namespace: reaper.Namespace, Name: reaper.Name}
-			err = framework.WaitForReaperReady(reaperKey, 10 *time.Second, 3*time.Minute)
+			err = framework.WaitForReaperReady(reaperKey, 10*time.Second, 3*time.Minute)
 			Expect(err).ToNot(HaveOccurred(), "failed waiting for reaper to become ready")
 
 			By("wait for the cluster to get registered with reaper")
-			err = framework.WaitForReaper(reaperKey, 10 * time.Second, 3 * time.Minute, func(reaper *api.Reaper) bool {
+			err = framework.WaitForReaper(reaperKey, 10*time.Second, 3*time.Minute, func(reaper *api.Reaper) bool {
 				return len(reaper.Status.Clusters) == 1 && reaper.Status.Clusters[0] == cassdc.Spec.ClusterName
 			})
 			Expect(err).ToNot(HaveOccurred(), "failing waiting for cluster to get registered")
 		})
 	})
 })
-
