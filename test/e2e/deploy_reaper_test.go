@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
 	"github.com/k8ssandra/reaper-operator/test/framework"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 

@@ -21,11 +21,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/k8ssandra/reaper-operator/pkg/config"
+	"github.com/k8ssandra/reaper-operator/pkg/reconcile"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
-	"github.com/k8ssandra/reaper-operator/pkg/config"
-	"github.com/k8ssandra/reaper-operator/pkg/reconcile"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"

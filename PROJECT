@@ -1,7 +1,7 @@
 domain: cassandra-reaper.io
 layout: go.kubebuilder.io/v2
 projectName: reaper-operator
-repo: github.com/thelastpickle/reaper-operator
+repo: github.com/k8ssandra/reaper-operator
 resources:
 - group: reaper
   kind: Reaper
