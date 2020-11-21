@@ -6,7 +6,7 @@ require (
 	github.com/Azure/go-autorest v12.2.0+incompatible // indirect
 	github.com/datastax/cass-operator v1.4.1
 	github.com/go-logr/logr v0.1.0
-	github.com/jsanda/reaper-client-go v0.2.1-0.20201029201014-86b331710113
+	github.com/k8ssandra/reaper-client-go v0.3.0
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
 	github.com/stretchr/testify v1.6.1

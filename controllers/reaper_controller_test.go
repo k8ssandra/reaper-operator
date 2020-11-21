@@ -5,11 +5,11 @@ import (
 	"strconv"
 	"time"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
 	mlabels "github.com/k8ssandra/reaper-operator/pkg/labels"
 	"github.com/k8ssandra/reaper-operator/pkg/reconcile"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	v1batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"

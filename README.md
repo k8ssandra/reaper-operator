@@ -1,8 +1,6 @@
 # Cassandra Reaper Operator
 A Kubernetes operator for [Cassandra Reaper](http://cassandra-reaper.io/)
 
-**Build Status**  [![CircleCI](https://circleci.com/gh/thelastpickle/reaper-operator/tree/master.svg?style=svg)](https://circleci.com/gh/thelastpickle/reaper-operator/tree/master)
-
 **Project status: alpha**
 
 ## Features
