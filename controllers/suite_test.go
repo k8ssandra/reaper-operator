@@ -101,8 +101,9 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).ToNot(HaveOccurred())
 
 	err = (&CassandraDatacenterReconciler{
-		Client: k8sManager.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("CassandraDatacenter"),
+		Client:        k8sManager.GetClient(),
+		Log:           ctrl.Log.WithName("controllers").WithName("CassandraDatacenter"),
+		ReaperManager: &TestReaperManager{},
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 

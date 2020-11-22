@@ -34,13 +34,15 @@ import (
 	cassdcv1beta1 "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	reapergo "github.com/k8ssandra/reaper-client-go/reaper"
 	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
+	manager "github.com/k8ssandra/reaper-operator/pkg/reaper"
 )
 
 // CassandraDatacenterReconciler reconciles a CassandraDatacenter object
 type CassandraDatacenterReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log           logr.Logger
+	Scheme        *runtime.Scheme
+	ReaperManager manager.ReaperManager
 }
 
 const (
@@ -116,17 +118,13 @@ func (r *CassandraDatacenterReconciler) Reconcile(req ctrl.Request) (ctrl.Result
 			return ctrl.Result{RequeueAfter: shortDelay}, nil
 		}
 
-		// Include the namespace in case Reaper is deployed in a different namespace than
-		// the CassandraDatacenter.
-		reaperSvc := reaper.Name + "-reaper-service" + "." + reaper.Namespace
-
-		restClient, err := reapergo.NewReaperClient(fmt.Sprintf("http://%s:8080", reaperSvc))
+		err = r.ReaperManager.Connect(reaper)
 		if err != nil {
-			r.Log.Error(err, "failed to create reaper rest client", "reaperService", reaperSvc)
+			r.Log.Error(err, "failed to create reaper manager")
 			return ctrl.Result{RequeueAfter: shortDelay}, err
 		}
 
-		_, err = restClient.GetCluster(ctx, cassdc.Spec.ClusterName)
+		_, err = r.ReaperManager.VerifyClusterIsConfigured(ctx, cassdc)
 
 		if err == nil {
 			// The only thing left to do is to make sure that the cluster is listed in
@@ -142,7 +140,7 @@ func (r *CassandraDatacenterReconciler) Reconcile(req ctrl.Request) (ctrl.Result
 
 		if err == reapergo.CassandraClusterNotFound {
 			r.Log.Info("registering cluster with reaper", "reaper", reaperKey)
-			if err = restClient.AddCluster(ctx, cassdc.Spec.ClusterName, cassdc.GetDatacenterServiceName()); err == nil {
+			if err = r.ReaperManager.AddClusterToReaper(ctx, cassdc); err == nil {
 				if err = statusManager.AddClusterToStatus(ctx, reaper, cassdc); err == nil {
 					return ctrl.Result{RequeueAfter: statusCheckDelay}, nil
 				} else {

@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	cassdcapi "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -67,3 +68,18 @@ var _ = Describe("Verify functionality of CassandraDatacenterReconciler", func()
 		verifyReaperReady(types.NamespacedName{Namespace: ControllerTestNamespace, Name: ReaperName})
 	})
 })
+
+type TestReaperManager struct {
+}
+
+func (r *TestReaperManager) Connect(reaper *api.Reaper) error {
+	return nil
+}
+
+func (r *TestReaperManager) AddClusterToReaper(ctx context.Context, cassdc *cassdcapi.CassandraDatacenter) error {
+	return nil
+}
+
+func (r *TestReaperManager) VerifyClusterIsConfigured(ctx context.Context, cassdc *cassdcapi.CassandraDatacenter) (bool, error) {
+	return true, nil
+}
