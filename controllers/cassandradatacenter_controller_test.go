@@ -76,7 +76,8 @@ var _ = Describe("CassandraDatacenter controller testing", func() {
 		patch := client.MergeFrom(reaper.DeepCopy())
 		reaper.Status.Ready = true
 		k8sClient.Status().Patch(context.Background(), reaper, patch)
-		verifyReaperReady(types.NamespacedName{Namespace: ControllerTestNamespace, Name: ReaperName})
+		key := types.NamespacedName{Namespace: reaper.Namespace, Name: ReaperName}
+		verifyReaperReady(key)
 
 		By("verifying reaper is not targeting the CassandraDatacenter")
 		Consistently(func() bool {
@@ -84,7 +85,6 @@ var _ = Describe("CassandraDatacenter controller testing", func() {
 				return false
 			}
 
-			key := types.NamespacedName{Namespace: reaper.Namespace, Name: ReaperName}
 			fetchedReaper := &api.Reaper{}
 			if err := k8sClient.Get(context.Background(), key, fetchedReaper); err != nil {
 				return false
@@ -120,6 +120,7 @@ var _ = Describe("CassandraDatacenter controller testing", func() {
 		}, timeout, interval).Should(BeTrue())
 
 		By("updating annotation to target working reaper instance")
+		reaperManager.failMode = true
 		testDcPatch = client.MergeFrom(testDc.DeepCopy())
 		testDc.Annotations = map[string]string{
 			"reaper.cassandra-reaper.io/instance": reaper.Name,
@@ -133,7 +134,6 @@ var _ = Describe("CassandraDatacenter controller testing", func() {
 		}, timeout, interval).Should(BeTrue())
 
 		By("verifying reaper is now targeting the CassandraDatacenter, but fails")
-		reaperManager.failMode = true
 		Consistently(func() bool {
 			key := types.NamespacedName{Namespace: reaper.Namespace, Name: ReaperName}
 			fetchedReaper := &api.Reaper{}
@@ -170,11 +170,23 @@ var _ = Describe("CassandraDatacenter controller testing", func() {
 		}, timeout, interval).Should(BeTrue())
 
 		By("ensuring cluster status is re-added even if removed")
-		// Remove cluster status from reaper
-		patchClusters := client.MergeFrom(reaper.DeepCopy())
-		reaper.Status.Clusters = make([]string, 0)
-		k8sClient.Status().Patch(context.Background(), reaper, patchClusters)
+		currentReaper := &api.Reaper{}
+		Expect(k8sClient.Get(context.Background(), key, currentReaper)).Should(Succeed())
+		patchClusters := client.MergeFrom(currentReaper.DeepCopy())
+		currentReaper.Status.Clusters = make([]string, 0)
+		Expect(k8sClient.Status().Patch(context.Background(), currentReaper, patchClusters)).Should(Succeed())
 
+		Eventually(func() bool {
+			key := types.NamespacedName{Namespace: reaper.Namespace, Name: ReaperName}
+			fetchedReaper := &api.Reaper{}
+			if err := k8sClient.Get(context.Background(), key, fetchedReaper); err == nil {
+				if len(fetchedReaper.Status.Clusters) == 0 {
+					return true
+				}
+			}
+
+			return false
+		}, timeout, interval).Should(BeTrue())
 		// Add unnecessary stuff to CassandraDatacenter to trigger reconcile
 		testDcPatch = client.MergeFrom(testDc.DeepCopy())
 		testDc.Annotations["useless/update"] = "true"
