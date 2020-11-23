@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"strings"
 	"time"
 
@@ -32,10 +33,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	cassdcv1beta1 "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
-	reapergo "github.com/k8ssandra/reaper-client-go/reaper"
 	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
 	manager "github.com/k8ssandra/reaper-operator/pkg/reaper"
 )
+
+var _ reconcile.Reconciler = &CassandraDatacenterReconciler{}
 
 // CassandraDatacenterReconciler reconciles a CassandraDatacenter object
 type CassandraDatacenterReconciler struct {
@@ -124,9 +126,9 @@ func (r *CassandraDatacenterReconciler) Reconcile(req ctrl.Request) (ctrl.Result
 			return ctrl.Result{RequeueAfter: shortDelay}, err
 		}
 
-		_, err = r.ReaperManager.VerifyClusterIsConfigured(ctx, cassdc)
+		found, err := r.ReaperManager.VerifyClusterIsConfigured(ctx, cassdc)
 
-		if err == nil {
+		if found {
 			// The only thing left to do is to make sure that the cluster is listed in
 			// Reaper's status. We still requeue the request to periodically check that
 			// the cluster has not be removed from Reaper.
@@ -138,7 +140,7 @@ func (r *CassandraDatacenterReconciler) Reconcile(req ctrl.Request) (ctrl.Result
 			}
 		}
 
-		if err == reapergo.CassandraClusterNotFound {
+		if !found {
 			r.Log.Info("registering cluster with reaper", "reaper", reaperKey)
 			if err = r.ReaperManager.AddClusterToReaper(ctx, cassdc); err == nil {
 				if err = statusManager.AddClusterToStatus(ctx, reaper, cassdc); err == nil {
