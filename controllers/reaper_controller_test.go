@@ -58,7 +58,6 @@ var _ = Describe("Reaper controller", func() {
 			Status: cassdcapi.CassandraDatacenterStatus{},
 		}
 		Expect(k8sClient.Create(context.Background(), testDc)).Should(Succeed())
-		k8sClient.Update(context.Background(), testDc)
 
 		patchCassdc := client.MergeFrom(testDc.DeepCopy())
 		testDc.Status.CassandraOperatorProgress = cassdcapi.ProgressReady

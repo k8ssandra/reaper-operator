@@ -224,7 +224,6 @@ func (r *defaultReconciler) cassandraDatacenter(ctx context.Context, reaper *api
 }
 
 func isCassdcReady(cassdc *cassdcapi.CassandraDatacenter) bool {
-	fmt.Printf("cassdcStatus: %v\n", cassdc)
 	if cassdc.Status.CassandraOperatorProgress != cassdcapi.ProgressReady {
 		return false
 	}
