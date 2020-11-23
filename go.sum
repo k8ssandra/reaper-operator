@@ -580,6 +580,8 @@ github.com/joeshaw/multierror v0.0.0-20140124173710-69b34d4ec901/go.mod h1:Z86h9
 github.com/joho/godotenv v1.3.0/go.mod h1:7hK45KPybAkOC6peb+G5yklZfMxEjkZhHbwpqxOKXbg=
 github.com/jonboulle/clockwork v0.1.0/go.mod h1:Ii8DK3G1RaLaWxj9trq07+26W01tbo22gdxWY5EU2bo=
 github.com/jpillora/backoff v1.0.0/go.mod h1:J/6gKK9jxlEcS3zixgDgUAsiuZ7yrSoa/FX5e0EB2j4=
+github.com/jsanda/cass-operator v1.0.1-0.20201111154347-91205f4d8f1e h1:H3aWukUHRLgcduiU3xOLQnGYHofMWM8M6y/BsdVjQeI=
+github.com/jsanda/cass-operator v1.0.1-0.20201111154347-91205f4d8f1e/go.mod h1:4FruKM7wFQMawYvZMlup+6uoDWwIEsLPoF9oDh6pLlU=
 github.com/jsanda/reaper-client-go v0.2.0 h1:buULKt+SrRmnewTdUgEh19bsrVraQ68aMu62XTNUN0w=
 github.com/jsanda/reaper-client-go v0.2.0/go.mod h1:UjDpcFwKRDFoFZx2ronQ2p6uOP08hrClFGauQOeJzd4=
 github.com/jsanda/reaper-client-go v0.2.1-0.20201028215315-d21f37ea9dfe h1:jG4L5zyZ4WId1Q4WfBJ/Vhv1X31MWxzq44V3eYCEQ4E=

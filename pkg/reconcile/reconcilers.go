@@ -206,8 +206,7 @@ func (r *defaultReconciler) checkForCassandraDatacenterReadiness(ctx context.Con
 		return true, nil
 	}
 
-	return true, nil
-	//return false, nil
+	return false, nil
 }
 
 func (r *defaultReconciler) cassandraDatacenter(ctx context.Context, reaper *api.Reaper) (*cassdcapi.CassandraDatacenter, error) {

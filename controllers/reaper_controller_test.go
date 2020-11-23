@@ -43,6 +43,7 @@ var _ = Describe("Reaper controller", func() {
 		Expect(k8sClient.Create(context.Background(), testNamespace)).Should(Succeed())
 		i = i + 1
 
+		cassdcKey := types.NamespacedName{Name: CassandraDatacenterName, Namespace: ReaperNamespace}
 		testDc := &cassdcapi.CassandraDatacenter{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      CassandraDatacenterName,
@@ -54,38 +55,29 @@ var _ = Describe("Reaper controller", func() {
 				ServerVersion: "3.11.7",
 				Size:          3,
 			},
-			Status: cassdcapi.CassandraDatacenterStatus{
-				CassandraOperatorProgress: cassdcapi.ProgressReady,
-				Conditions: []cassdcapi.DatacenterCondition{
-					{
-						Status: corev1.ConditionTrue,
-						Type:   cassdcapi.DatacenterReady,
-					},
-				},
-			},
+			Status: cassdcapi.CassandraDatacenterStatus{},
 		}
 		Expect(k8sClient.Create(context.Background(), testDc)).Should(Succeed())
 		k8sClient.Update(context.Background(), testDc)
-	})
 
-	Specify("patch CassandraDatacenterStatus", func() {
-		By("patch status field")
+		patchCassdc := client.MergeFrom(testDc.DeepCopy())
+		testDc.Status.CassandraOperatorProgress = cassdcapi.ProgressReady
+		testDc.Status.Conditions = []cassdcapi.DatacenterCondition{
+			{
+				Status: corev1.ConditionTrue,
+				Type:   cassdcapi.DatacenterReady,
+			},
+		}
 
 		cassdc := &cassdcapi.CassandraDatacenter{}
-		cassdcKey := types.NamespacedName{Namespace: ReaperNamespace, Name: CassandraDatacenterName}
-
+		Expect(k8sClient.Status().Patch(context.Background(), testDc, patchCassdc)).Should(Succeed())
 		Eventually(func() bool {
 			err := k8sClient.Get(context.Background(), cassdcKey, cassdc)
 			if err != nil {
 				return false
 			}
-			return true
+			return cassdc.Status.CassandraOperatorProgress == cassdcapi.ProgressReady
 		}, timeout, interval).Should(BeTrue())
-
-		patchCassdc := client.MergeFrom(cassdc.DeepCopy())
-		cassdc.Status.CassandraOperatorProgress = cassdcapi.ProgressReady
-
-		Expect(k8sClient.Status().Patch(context.Background(), cassdc, patchCassdc)).Should(Succeed())
 	})
 
 	Specify("create a new Reaper instance", func() {
