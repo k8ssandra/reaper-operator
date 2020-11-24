@@ -55,15 +55,6 @@ var _ = Describe("CassandraDatacenter controller testing", func() {
 				ServerVersion: "3.11.7",
 				Size:          3,
 			},
-			Status: cassdcapi.CassandraDatacenterStatus{
-				CassandraOperatorProgress: cassdcapi.ProgressReady,
-				Conditions: []cassdcapi.DatacenterCondition{
-					{
-						Status: corev1.ConditionTrue,
-						Type:   cassdcapi.DatacenterReady,
-					},
-				},
-			},
 		}
 		Expect(k8sClient.Create(context.Background(), testDc)).Should(Succeed())
 		Eventually(func() bool {
