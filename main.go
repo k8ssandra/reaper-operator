@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/k8ssandra/reaper-operator/pkg/config"
+	reapermanager "github.com/k8ssandra/reaper-operator/pkg/reaper"
 	"github.com/k8ssandra/reaper-operator/pkg/reconcile"
 
 	cassdcv1beta1 "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
@@ -95,9 +96,10 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controllers.CassandraDatacenterReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("CassandraDatacenter"),
-		Scheme: mgr.GetScheme(),
+		Client:        mgr.GetClient(),
+		Log:           ctrl.Log.WithName("controllers").WithName("CassandraDatacenter"),
+		Scheme:        mgr.GetScheme(),
+		ReaperManager: &reapermanager.RestReaperManager{},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CassandraDatacenter")
 		os.Exit(1)
