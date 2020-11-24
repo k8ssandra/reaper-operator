@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	cassdcapi "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/go-logr/logr"
 	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
 	"github.com/k8ssandra/reaper-operator/pkg/config"
@@ -156,8 +157,19 @@ func (r *defaultReconciler) ReconcileSchema(ctx context.Context, req ReaperReque
 		return nil, nil
 	}
 
+	// Check that Cassandra is ready before creating the schema job if running under k8ssandra
+	ready, err := r.checkForCassandraDatacenterReadiness(ctx, req)
+	if err != nil {
+		req.Logger.Error(err, "failed to check for CassandraDatacenter readiness")
+		return &ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
+	}
+
+	if !ready {
+		return &ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
+	}
+
 	schemaJob := &v1batch.Job{}
-	err := r.Client.Get(ctx, key, schemaJob)
+	err = r.Client.Get(ctx, key, schemaJob)
 	if err != nil && errors.IsNotFound(err) {
 		return r.createSchemaJob(ctx, schemaJob, req)
 	} else if !jobFinished(schemaJob) {
@@ -178,9 +190,56 @@ func (r *defaultReconciler) ReconcileSchema(ctx context.Context, req ReaperReque
 	}
 }
 
+func (r *defaultReconciler) checkForCassandraDatacenterReadiness(ctx context.Context, req ReaperRequest) (bool, error) {
+	reaper := req.Reaper
+	cassdc, err := r.cassandraDatacenter(ctx, reaper)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// We're unable to track the progress - let the process try
+			return true, nil
+		}
+		req.Logger.Error(err, "failed to fetch CassandraDatacenter")
+		return false, err
+	}
+
+	if isCassdcReady(cassdc) {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func (r *defaultReconciler) cassandraDatacenter(ctx context.Context, reaper *api.Reaper) (*cassdcapi.CassandraDatacenter, error) {
+	cassandra := *reaper.Spec.ServerConfig.CassandraBackend
+	cassdc := &cassdcapi.CassandraDatacenter{}
+
+	targetDc := cassandra.CassandraDatacenter
+	if targetDc.Namespace == "" {
+		targetDc.Namespace = reaper.Namespace
+	}
+
+	cassdcKey := types.NamespacedName{Namespace: targetDc.Namespace, Name: targetDc.Name}
+	err := r.Client.Get(ctx, cassdcKey, cassdc)
+	return cassdc, err
+}
+
+func isCassdcReady(cassdc *cassdcapi.CassandraDatacenter) bool {
+	if cassdc.Status.CassandraOperatorProgress != cassdcapi.ProgressReady {
+		return false
+	}
+	status := cassdc.GetConditionStatus(cassdcapi.DatacenterReady)
+	return status == corev1.ConditionTrue
+}
+
 func (r *defaultReconciler) createSchemaJob(ctx context.Context, schemaJob *v1batch.Job, req ReaperRequest) (*ctrl.Result, error) {
 	reaper := req.Reaper
-	schemaJob = newSchemaJob(reaper)
+	cassdc, err := r.cassandraDatacenter(ctx, reaper)
+	if err != nil {
+		req.Logger.Error(err, "failed to fetch target CassandraDatacenter")
+		return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
+	}
+
+	schemaJob = newSchemaJob(reaper, cassdc.GetDatacenterServiceName())
 	key := types.NamespacedName{Namespace: schemaJob.Namespace, Name: schemaJob.Name}
 
 	req.Logger.Info("creating schema job", "job", key)
@@ -202,7 +261,7 @@ func getSchemaJobName(r *api.Reaper) string {
 	return fmt.Sprintf("%s-schema", r.Name)
 }
 
-func newSchemaJob(reaper *api.Reaper) *v1batch.Job {
+func newSchemaJob(reaper *api.Reaper, cassandraService string) *v1batch.Job {
 	cassandra := *reaper.Spec.ServerConfig.CassandraBackend
 	return &v1batch.Job{
 		TypeMeta: metav1.TypeMeta{
@@ -230,7 +289,7 @@ func newSchemaJob(reaper *api.Reaper) *v1batch.Job {
 								},
 								{
 									Name:  "CONTACT_POINTS",
-									Value: cassandra.CassandraService,
+									Value: cassandraService,
 								},
 								{
 									Name:  "REPLICATION",
@@ -344,7 +403,13 @@ func (r *defaultReconciler) ReconcileDeployment(ctx context.Context, req ReaperR
 
 func (r *defaultReconciler) buildNewDeployment(req ReaperRequest) (*appsv1.Deployment, error) {
 	reaper := req.Reaper
-	deployment := newDeployment(reaper)
+	cassdc, err := r.cassandraDatacenter(context.Background(), reaper)
+	if err != nil {
+		req.Logger.Error(err, "failed to fetch target CassandraDatacenter")
+		return nil, err
+	}
+
+	deployment := newDeployment(reaper, cassdc.GetDatacenterServiceName())
 	key := types.NamespacedName{Namespace: deployment.Namespace, Name: deployment.Name}
 
 	if len(reaper.Spec.ServerConfig.JmxUserSecretName) > 0 {
@@ -374,7 +439,7 @@ func addJmxAuthEnvVars(deployment *appsv1.Deployment, usernameEnvVar, passwordEn
 	deployment.Spec.Template.Spec.Containers[0].Env = envVars
 }
 
-func newDeployment(reaper *api.Reaper) *appsv1.Deployment {
+func newDeployment(reaper *api.Reaper, cassDcService string) *appsv1.Deployment {
 	labels := createLabels(reaper)
 
 	selector := metav1.LabelSelector{
@@ -416,7 +481,7 @@ func newDeployment(reaper *api.Reaper) *appsv1.Deployment {
 			},
 			{
 				Name:  "REAPER_CASS_CONTACT_POINTS",
-				Value: fmt.Sprintf("[%s]", reaper.Spec.ServerConfig.CassandraBackend.CassandraService),
+				Value: fmt.Sprintf("[%s]", cassDcService),
 			},
 			{
 				Name:  "REAPER_AUTH_ENABLED",

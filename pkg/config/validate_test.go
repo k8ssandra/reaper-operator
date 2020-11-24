@@ -38,35 +38,7 @@ func TestValidate(t *testing.T) {
 					},
 				},
 			},
-			expected: ClusterNameRequired,
-		},
-		{
-			name: "CassandraBackendNoClusterName",
-			reaper: &api.Reaper{
-				Spec: api.ReaperSpec{
-					ServerConfig: api.ServerConfig{
-						StorageType: api.StorageTypeCassandra,
-						CassandraBackend: &api.CassandraBackend{
-							CassandraService: "localhost",
-						},
-					},
-				},
-			},
-			expected: ClusterNameRequired,
-		},
-		{
-			name: "CassandraBackendNoContactPoints",
-			reaper: &api.Reaper{
-				Spec: api.ReaperSpec{
-					ServerConfig: api.ServerConfig{
-						StorageType: api.StorageTypeCassandra,
-						CassandraBackend: &api.CassandraBackend{
-							ClusterName: "test",
-						},
-					},
-				},
-			},
-			expected: ContactPointsRequired,
+			expected: DatacenterRequired,
 		},
 	}
 	for _, tt := range tests {
@@ -100,7 +72,9 @@ func TestSetDefaultsWithCassandraBackend(t *testing.T) {
 			ServerConfig: api.ServerConfig{
 				StorageType: api.StorageTypeCassandra,
 				CassandraBackend: &api.CassandraBackend{
-					ClusterName: "test",
+					CassandraDatacenter: api.CassandraDatacenterRef{
+						Name: "test",
+					},
 				},
 			},
 		},

@@ -17,12 +17,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	cassdcapi "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 )
 
 const (
-	ReaperName           = "test-reaper"
-	CassandraClusterName = "test-cluster"
-	CassandraServiceName = "test-cluster-svc"
+	ReaperName              = "test-reaper"
+	CassandraDatacenterName = "test-dc"
 
 	timeout  = time.Second * 10
 	interval = time.Millisecond * 250
@@ -42,6 +43,40 @@ var _ = Describe("Reaper controller", func() {
 		Expect(k8sClient.Create(context.Background(), testNamespace)).Should(Succeed())
 		i = i + 1
 
+		cassdcKey := types.NamespacedName{Name: CassandraDatacenterName, Namespace: ReaperNamespace}
+		testDc := &cassdcapi.CassandraDatacenter{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      CassandraDatacenterName,
+				Namespace: ReaperNamespace,
+			},
+			Spec: cassdcapi.CassandraDatacenterSpec{
+				ClusterName:   "test-dc",
+				ServerType:    "cassandra",
+				ServerVersion: "3.11.7",
+				Size:          3,
+			},
+			Status: cassdcapi.CassandraDatacenterStatus{},
+		}
+		Expect(k8sClient.Create(context.Background(), testDc)).Should(Succeed())
+
+		patchCassdc := client.MergeFrom(testDc.DeepCopy())
+		testDc.Status.CassandraOperatorProgress = cassdcapi.ProgressReady
+		testDc.Status.Conditions = []cassdcapi.DatacenterCondition{
+			{
+				Status: corev1.ConditionTrue,
+				Type:   cassdcapi.DatacenterReady,
+			},
+		}
+
+		cassdc := &cassdcapi.CassandraDatacenter{}
+		Expect(k8sClient.Status().Patch(context.Background(), testDc, patchCassdc)).Should(Succeed())
+		Eventually(func() bool {
+			err := k8sClient.Get(context.Background(), cassdcKey, cassdc)
+			if err != nil {
+				return false
+			}
+			return cassdc.Status.CassandraOperatorProgress == cassdcapi.ProgressReady
+		}, timeout, interval).Should(BeTrue())
 	})
 
 	Specify("create a new Reaper instance", func() {
@@ -254,8 +289,9 @@ func createReaper(namespace string) *api.Reaper {
 			ServerConfig: api.ServerConfig{
 				StorageType: api.StorageTypeCassandra,
 				CassandraBackend: &api.CassandraBackend{
-					ClusterName:      CassandraClusterName,
-					CassandraService: CassandraServiceName,
+					CassandraDatacenter: api.CassandraDatacenterRef{
+						Name: CassandraDatacenterName,
+					},
 				},
 			},
 		},

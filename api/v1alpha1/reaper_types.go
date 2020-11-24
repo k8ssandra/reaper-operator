@@ -62,11 +62,15 @@ type AuthProvider struct {
 	Password string `json:"password,omitempty" yaml:"password,omitempty"`
 }
 
-type CassandraBackend struct {
-	ClusterName string `json:"clusterName" yaml:"clusterName"`
+type CassandraDatacenterRef struct {
+	Name string `json:"name"`
 
-	// The headless service that provides endpoints for the StorageTypeCassandra pods
-	CassandraService string `json:"cassandraService" yaml:"contactPoints"`
+	// If empty we could default the Reaper namespace.
+	Namespace string `json:"namespace,omitempty"`
+}
+
+type CassandraBackend struct {
+	CassandraDatacenter CassandraDatacenterRef `json:"cassandraDatacenter"`
 
 	// Defaults to reaper
 	Keyspace string `json:"keyspace,omitempty" yaml:"keyspace,omitempty"`

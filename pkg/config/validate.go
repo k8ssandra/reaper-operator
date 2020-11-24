@@ -9,8 +9,7 @@ import (
 type ValidationError error
 
 var (
-	ClusterNameRequired   ValidationError = errors.New("CassandraBackend.ClusterName is required")
-	ContactPointsRequired ValidationError = errors.New("CassandraBackend.ContactPoints is required")
+	DatacenterRequired ValidationError = errors.New("CassandraBackend.CassandraDatacenterRef is required")
 )
 
 type Validator interface {
@@ -33,12 +32,8 @@ func (v *validator) Validate(reaper *api.Reaper) error {
 	}
 
 	if cfg.StorageType == api.StorageTypeCassandra {
-		if cfg.CassandraBackend == nil || cfg.CassandraBackend.ClusterName == "" {
-			return ClusterNameRequired
-		}
-
-		if len(cfg.CassandraBackend.CassandraService) == 0 {
-			return ContactPointsRequired
+		if cfg.CassandraBackend == nil || len(cfg.CassandraBackend.CassandraDatacenter.Name) == 0 {
+			return DatacenterRequired
 		}
 	}
 
