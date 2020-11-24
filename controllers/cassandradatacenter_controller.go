@@ -127,6 +127,10 @@ func (r *CassandraDatacenterReconciler) Reconcile(req ctrl.Request) (ctrl.Result
 		}
 
 		found, err := r.ReaperManager.VerifyClusterIsConfigured(ctx, cassdc)
+		if err != nil {
+			r.Log.Error(err, "failed to get cluster", "reaper", reaperKey)
+			return ctrl.Result{RequeueAfter: shortDelay}, err
+		}
 
 		if found {
 			// The only thing left to do is to make sure that the cluster is listed in
@@ -139,24 +143,18 @@ func (r *CassandraDatacenterReconciler) Reconcile(req ctrl.Request) (ctrl.Result
 				return ctrl.Result{RequeueAfter: shortDelay}, err
 			}
 		}
-
-		if !found {
-			r.Log.Info("registering cluster with reaper", "reaper", reaperKey)
-			if err = r.ReaperManager.AddClusterToReaper(ctx, cassdc); err == nil {
-				if err = statusManager.AddClusterToStatus(ctx, reaper, cassdc); err == nil {
-					return ctrl.Result{RequeueAfter: statusCheckDelay}, nil
-				} else {
-					r.Log.Error(err, "failed to add cluster in reaper status", "reaper", reaperKey)
-					return ctrl.Result{RequeueAfter: shortDelay}, err
-				}
+		r.Log.Info("registering cluster with reaper", "reaper", reaperKey)
+		if err = r.ReaperManager.AddClusterToReaper(ctx, cassdc); err == nil {
+			if err = statusManager.AddClusterToStatus(ctx, reaper, cassdc); err == nil {
+				return ctrl.Result{RequeueAfter: statusCheckDelay}, nil
 			} else {
-				r.Log.Error(err, "failed to register cluster with reaper", "reaper", reaperKey)
+				r.Log.Error(err, "failed to add cluster in reaper status", "reaper", reaperKey)
 				return ctrl.Result{RequeueAfter: shortDelay}, err
 			}
+		} else {
+			r.Log.Error(err, "failed to register cluster with reaper", "reaper", reaperKey)
+			return ctrl.Result{RequeueAfter: shortDelay}, err
 		}
-
-		r.Log.Error(err, "failed to get cluster", "reaper", reaperKey)
-		return ctrl.Result{RequeueAfter: shortDelay}, err
 	}
 
 	// The CassandraDatacenter does not have the annotation which means it is not using
