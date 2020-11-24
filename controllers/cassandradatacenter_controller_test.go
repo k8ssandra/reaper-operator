@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	CassandraDatacenterName = "dc1"
-	ControllerTestNamespace = "dc-test"
+	CassandraControllerDatacenterName = "dc1"
+	ControllerTestNamespace           = "dc-test"
 )
 
 var _ = Describe("CassandraDatacenter controller testing", func() {
@@ -39,7 +39,7 @@ var _ = Describe("CassandraDatacenter controller testing", func() {
 		Expect(k8sClient.Create(context.Background(), reaper)).Should(Succeed())
 
 		cassdcKey := types.NamespacedName{
-			Name:      CassandraDatacenterName,
+			Name:      CassandraControllerDatacenterName,
 			Namespace: ControllerTestNamespace,
 		}
 
