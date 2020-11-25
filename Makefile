@@ -86,6 +86,7 @@ init-test-overlays:
 PHONY: e2e-test
 e2e-test:
 	@echo Running e2e tests
+	cd test/config/deploy_reaper_test && $(KUSTOMIZE) edit set image controller=${REV_IMAGE} && cd -
 	go test -timeout 1800s ./test/e2e/... -ginkgo.v -ginkgo.progress -test.v
 
 # Generate code
