@@ -490,6 +490,15 @@ func newDeployment(reaper *api.Reaper, cassDcService string) *appsv1.Deployment 
 		}
 	}
 
+	if reaper.Spec.ServerConfig.AutoScheduling != nil {
+		if reaper.Spec.ServerConfig.AutoScheduling.Enabled {
+			envVars = append(envVars, corev1.EnvVar{
+				Name:  "REAPER_AUTO_SCHEDULING_ENABLED",
+				Value: "true",
+			})
+		}
+	}
+
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: reaper.Namespace,

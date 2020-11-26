@@ -276,6 +276,59 @@ var _ = Describe("Reaper controller", func() {
 
 		verifyReaperReady(types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName})
 	})
+
+	Specify("autoscheduling is enabled", func() {
+		By("create the Reaper object")
+		reaper := createReaper(ReaperNamespace)
+		reaper.Spec.ServerConfig.AutoScheduling = &api.AutoScheduler{
+			Enabled: true,
+		}
+		Expect(k8sClient.Create(context.Background(), reaper)).Should(Succeed())
+
+		// Remove unnecessary parts, verify that the deployment has envVar set for autoscheduling
+		By("check that the schema job is created")
+		jobKey := types.NamespacedName{Namespace: reaper.Namespace, Name: reaper.Name + "-schema"}
+		job := &v1batch.Job{}
+
+		Eventually(func() bool {
+			err := k8sClient.Get(context.Background(), jobKey, job)
+			if err != nil {
+				return false
+			}
+			return true
+		}, timeout, interval).Should(BeTrue(), "schema job creation check failed")
+
+		// We need to mock the job completion in order for the deployment to get created
+		jobPatch := client.MergeFrom(job.DeepCopy())
+		job.Status.Conditions = append(job.Status.Conditions, v1batch.JobCondition{
+			Type:   v1batch.JobComplete,
+			Status: corev1.ConditionTrue,
+		})
+		Expect(k8sClient.Status().Patch(context.Background(), job, jobPatch)).Should(Succeed())
+
+		By("check that the deployment is created")
+		deploymentKey := types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName}
+		deployment := &appsv1.Deployment{}
+
+		Eventually(func() bool {
+			err := k8sClient.Get(context.Background(), deploymentKey, deployment)
+			if err != nil {
+				return false
+			}
+			return true
+		}, timeout, interval).Should(BeTrue(), "deployment creation check failed")
+
+		Expect(len(deployment.Spec.Template.Spec.Containers)).Should(Equal(1))
+
+		autoSchedulingEnabled := false
+
+		for _, env := range deployment.Spec.Template.Spec.Containers[0].Env {
+			if env.Name == "REAPER_AUTO_SCHEDULING_ENABLED" && env.Value == "true" {
+				autoSchedulingEnabled = true
+			}
+		}
+		Expect(autoSchedulingEnabled).Should(BeTrue())
+	})
 })
 
 // Creates a new Reaper object with a Cassandra backend

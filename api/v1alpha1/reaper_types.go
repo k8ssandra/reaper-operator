@@ -43,6 +43,14 @@ type ServerConfig struct {
 	// Defines the username and password that Reaper will use to authenticate JMX connections to Cassandra
 	// clusters. These credentials need to be stored on each Cassandra node.
 	JmxUserSecretName string `json:"jmxUserSecretName,omitempty"`
+
+	// If the autoscheduling should be enabled
+	AutoScheduling *AutoScheduler `json:"autoScheduling,omitempty"`
+}
+
+// AutoScheduler includes options to configure the autoscheduling of repairs for new clusters
+type AutoScheduler struct {
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 // Specifies the replication strategy for a keyspace

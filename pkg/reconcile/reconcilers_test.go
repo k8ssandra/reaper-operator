@@ -74,6 +74,7 @@ func TestNewDeployment(t *testing.T) {
 	image := "test/reaper:latest"
 	reaper := newReaperWithCassandraBackend()
 	reaper.Spec.Image = image
+	reaper.Spec.ServerConfig.AutoScheduling = &api.AutoScheduler{Enabled: true}
 
 	labels := createLabels(reaper)
 	deployment := newDeployment(reaper, "target-datacenter-service")
@@ -120,6 +121,10 @@ func TestNewDeployment(t *testing.T) {
 		{
 			Name:  "REAPER_AUTH_ENABLED",
 			Value: "false",
+		},
+		{
+			Name: "REAPER_AUTO_SCHEDULING_ENABLED",
+			Value: "true",
 		},
 	})
 
