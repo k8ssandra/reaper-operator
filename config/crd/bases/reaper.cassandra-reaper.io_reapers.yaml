@@ -40,6 +40,12 @@ spec:
               type: string
             serverConfig:
               properties:
+                autoScheduling:
+                  description: If the autoscheduling should be enabled
+                  properties:
+                    enabled:
+                      type: boolean
+                  type: object
                 cassandraBackend:
                   properties:
                     authProvider:
