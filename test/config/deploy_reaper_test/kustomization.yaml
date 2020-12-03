@@ -1,16 +1,2 @@
-namespace: deploy-reaper-test
-
 resources:
-- ../../../config/crd
-- ../../../config/rbac
-- ../../../config/manager
-- ../cass-operator
-- ../cassdc
-
-images:
-- name: controller
-  newName: docker.io/k8ssandra/reaper-operator
-  newTag: latest
-
-patchesStrategicMerge:
-- reaper-operator-patch.yaml
+- base
