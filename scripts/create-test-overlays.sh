@@ -13,6 +13,13 @@ else
   registry=$REGISTRY
 fi
 
+if [[ -z "$ORG" ]]; then
+  echo "The ORG environment variable must be set"
+  exit 1
+fi
+
+org=$ORG
+
 if [[ -z "$TAG" ]]; then
   tag="latest"
 else
@@ -27,6 +34,6 @@ resources:
 
 images:
   - name: controller
-    newName: $registry/$overlay/reaper-operator
+    newName: $registry/$org/reaper-operator
     newTag: $tag
 EOT
