@@ -84,5 +84,5 @@ tags
 # GoLand
 .idea/*
 
-#test/config/**/fork/
+# forks for running tests with custom images
 test/config/deploy_reaper_test/overlays/forks/

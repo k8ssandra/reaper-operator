@@ -79,6 +79,10 @@ fmt:
 vet:
 	go vet ./...
 
+PHONY: init-test-overlays
+init-test-overlays:
+	./scripts/create-test-overlays.sh
+
 PHONY: e2e-test
 e2e-test:
 	@echo Running e2e tests
