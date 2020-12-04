@@ -15,7 +15,7 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
 ORG?=k8ssandra
 PROJECT=reaper-operator
-REG=docker.io
+REG?=docker.io
 
 BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
 REV=$(shell git rev-parse --short=12 HEAD)
@@ -78,6 +78,10 @@ fmt:
 # Run go vet against code
 vet:
 	go vet ./...
+
+PHONY: init-test-overlays
+init-test-overlays:
+	./scripts/create-test-overlays.sh
 
 PHONY: e2e-test
 e2e-test:
