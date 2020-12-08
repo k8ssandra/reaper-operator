@@ -123,7 +123,7 @@ func TestNewDeployment(t *testing.T) {
 			Value: "false",
 		},
 		{
-			Name: "REAPER_AUTO_SCHEDULING_ENABLED",
+			Name:  "REAPER_AUTO_SCHEDULING_ENABLED",
 			Value: "true",
 		},
 	})
