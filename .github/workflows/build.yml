@@ -29,6 +29,10 @@ jobs:
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           make test
+
+      - name: DEBUG
+        run: echo "GITHUB.REF = ${{ github.ref }}"
+
       - name: Login to Docker Hub
         if: github.ref == 'refs/heads/build-image'
         run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login docker.io --username "${{ secrets.DOCKER_USERNAME }}" --password-stdin
