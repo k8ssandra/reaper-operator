@@ -2,7 +2,10 @@ package e2e
 
 import (
 	"context"
+	"fmt"
 	"time"
+
+	reapergo "github.com/k8ssandra/reaper-client-go/reaper"
 
 	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
 	"github.com/k8ssandra/reaper-operator/test/framework"
@@ -76,6 +79,9 @@ var _ = Describe("Deploy Reaper with Cassandra backend", func() {
 								Name: cassdc.Name,
 							},
 						},
+						AutoScheduling: &api.AutoScheduler{
+							Enabled: true,
+						},
 					},
 				},
 			}
@@ -93,6 +99,14 @@ var _ = Describe("Deploy Reaper with Cassandra backend", func() {
 				return len(reaper.Status.Clusters) == 1 && reaper.Status.Clusters[0] == cassdc.Spec.ClusterName
 			})
 			Expect(err).ToNot(HaveOccurred(), "failing waiting for cluster to get registered")
+
+			By("verify from reaper that the cluster has scheduling")
+			reaperSvc := reaper.Name + "-reaper-service" + "." + reaper.Namespace
+			reaperClient, err := reapergo.NewReaperClient(fmt.Sprintf("http://%s:8080", reaperSvc))
+			Expect(err).To(BeNil())
+			schedules, err := reaperClient.RepairSchedulesPerCluster(context.Background(), cassdc.Spec.ClusterName)
+			Expect(err).To(BeNil())
+			Expect(len(schedules) > 0).To(BeTrue())
 		})
 	})
 })
