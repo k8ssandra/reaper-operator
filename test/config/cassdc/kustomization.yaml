@@ -2,7 +2,6 @@ namespace: deploy-reaper-test
 
 resources:
 - cassdc.yaml
-- cassdc-non-reaper.yaml
 
 generatorOptions:
   disableNameSuffixHash: true

@@ -1,0 +1,8 @@
+apiVersion: cassandra.datastax.com/v1beta1
+kind: CassandraDatacenter
+metadata:
+  name: reaper-test
+  annotations:
+    reaper.cassandra-reaper.io/instance: cass-backend
+spec:
+  size: 1

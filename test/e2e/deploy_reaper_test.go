@@ -2,9 +2,9 @@ package e2e
 
 import (
 	"context"
-	"os"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
 	"github.com/k8ssandra/reaper-operator/test/framework"
@@ -31,22 +31,17 @@ const (
 	reaperName = "cass-backend"
 )
 
-var (
-	namespaceBase = "reaper-cass-backend"
-)
-
 var _ = Describe("Deploy Reaper with Cassandra backend", func() {
 	Context("When a Cassandra cluster is deployed", func() {
 		Specify("Reaper is deployed", func() {
-			// Speed up cassandradatacenter_controller status checks
-			os.Setenv("REQUEUE_DELAY_STATUS_CHECK", "1m")
-
 			By("create namespace " + namespace)
 			err := framework.CreateNamespace(namespace)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("deploy cass-operator and reaper-operator")
-			framework.KustomizeAndApply(namespace, "deploy_reaper_test")
+			By("deploy cass-operator, reaper-operator and cassdc")
+			framework.KustomizeAndApply(namespace, "deploy_reaper_test", "k8ssandra")
+			// The first apply fails often for some reason, redo just to avoid flakiness of the test
+			framework.KustomizeAndApply(namespace, "deploy_reaper_test", "k8ssandra")
 			cassdcKey := types.NamespacedName{Namespace: namespace, Name: "reaper-test"}
 
 			By("wait for reaper-operator to be ready")
@@ -79,9 +74,6 @@ var _ = Describe("Deploy Reaper with Cassandra backend", func() {
 			err = framework.WaitForCassOperatorReady(namespace)
 			Expect(err).ToNot(HaveOccurred(), "failed waiting for cass-operator to become ready")
 
-			By("deploy cassdc and cassdc-non-reaper")
-			framework.KustomizeAndApply(namespace, "cassdc")
-
 			By("wait for cassdc to be ready")
 			cassdcRetryInterval := 15 * time.Second
 			cassdcTimeout := 7 * time.Minute
@@ -95,18 +87,13 @@ var _ = Describe("Deploy Reaper with Cassandra backend", func() {
 
 			// This should be ready at the same time as cassdc
 
-			By("wait for cassdc-non-reaper to be ready")
-			cassdc2Key := types.NamespacedName{Namespace: namespace, Name: "reaper-test-std"}
-			err = framework.WaitForCassDcReady(cassdc2Key, cassdcRetryInterval, cassdcTimeout)
-			Expect(err).ToNot(HaveOccurred(), "failed waiting for cassdc-non-reaper to become ready")
-
-			By("wait for the clusters to get registered with reaper")
+			By("wait for the cluster to get registered with reaper")
 			err = framework.WaitForReaper(reaperKey, 10*time.Second, 3*time.Minute, func(reaper *api.Reaper) bool {
-				return len(reaper.Status.Clusters) == 2
+				return len(reaper.Status.Clusters) == 1
 			})
-			Expect(err).ToNot(HaveOccurred(), "failing waiting for clusters to get registered")
+			Expect(err).ToNot(HaveOccurred(), "failing waiting for cluster to get registered")
 
-			// Remove Clusters and see that they've re-added
+			// Remove Cluster and see that it's being readded
 			By("removing cluster status and expecting it to reappear")
 			err = framework.Client.Get(context.Background(), reaperKey, reaper)
 			Expect(err).ToNot(HaveOccurred(), "failed to refresh reaper object")
@@ -121,9 +108,38 @@ var _ = Describe("Deploy Reaper with Cassandra backend", func() {
 			Expect(err).ToNot(HaveOccurred(), "failing waiting for clusters to get removed")
 
 			err = framework.WaitForReaper(reaperKey, 10*time.Second, 3*time.Minute, func(reaper *api.Reaper) bool {
-				return len(reaper.Status.Clusters) == 2
+				return len(reaper.Status.Clusters) == 1
 			})
 			Expect(err).ToNot(HaveOccurred(), "failing waiting for clusters to get re-registered")
 		})
+
+		Specify("More clusters are created", func() {
+			// Since we didn't clean the previous resources, we don't need to redeploy everything
+			By("starting second-cluster")
+			framework.KustomizeAndApply(namespace, "deploy_reaper_test", "second-cluster")
+
+			cassdcKey := types.NamespacedName{Namespace: namespace, Name: "secondary-reaper-test"}
+
+			By("waiting for secondary-reaper-test cluster to be ready")
+			cassdcRetryInterval := 15 * time.Second
+			cassdcTimeout := 7 * time.Minute
+			err := framework.WaitForCassDcReady(cassdcKey, cassdcRetryInterval, cassdcTimeout)
+			Expect(err).ToNot(HaveOccurred(), "failed waiting for cassdc to become ready")
+
+			By("waiting for the second cluster to get registered with reaper")
+			reaperKey := types.NamespacedName{Namespace: namespace, Name: reaperName}
+			err = framework.WaitForReaper(reaperKey, 10*time.Second, 3*time.Minute, func(reaper *api.Reaper) bool {
+				return len(reaper.Status.Clusters) == 2
+			})
+			Expect(err).ToNot(HaveOccurred(), "failing waiting for cluster to get registered")
+		})
 	})
 })
+
+var _ = AfterSuite(func() {
+	// Clean up the deploy-reaper-test namespace after the tests
+	// CassandraDatacenters are deleted first so that cass-operator can remove the finalizers
+	Expect(framework.RemoveCassandraDatacenters(namespace)).Should(Succeed())
+	// Removing the namespace should be enough to remove rest of the resources (CRDs will be left behind..)
+	Expect(framework.RemoveNamespace(namespace)).Should(Succeed())
+}, 60)

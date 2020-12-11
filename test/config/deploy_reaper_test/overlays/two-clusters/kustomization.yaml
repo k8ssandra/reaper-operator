@@ -1,0 +1,3 @@
+resources:
+  - ../first-cluster
+  - ../second-cluster
