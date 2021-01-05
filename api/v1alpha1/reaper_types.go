@@ -26,7 +26,7 @@ import (
 type StorageType string
 
 const (
-	DefaultReaperImage = "thelastpickle/cassandra-reaper:2.0.5"
+	DefaultReaperImage = "thelastpickle/cassandra-reaper:2.1.3"
 
 	StorageTypeMemory    = StorageType("memory")
 	StorageTypeCassandra = StorageType("cassandra")
