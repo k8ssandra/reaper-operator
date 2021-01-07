@@ -329,6 +329,79 @@ var _ = Describe("Reaper controller", func() {
 		}
 		Expect(autoSchedulingEnabled).Should(BeTrue())
 	})
+
+	Specify("cassandra uses authentication", func() {
+		By("creating a secret")
+		secret := corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: ReaperNamespace,
+				Name:      "top-secret-cass",
+			},
+			Data: map[string][]byte{
+				"username": []byte("bond"),
+				"password": []byte("james"),
+			},
+		}
+		Expect(k8sClient.Create(context.Background(), &secret)).Should(Succeed())
+
+		By("create the Reaper object and modify it")
+		reaper := createReaper(ReaperNamespace)
+		reaper.Spec.ServerConfig.CassandraBackend.AuthProvider = api.AuthProvider{
+			Type:      "plainText",
+			SecretRef: "top-secret-cass",
+		}
+		Expect(k8sClient.Create(context.Background(), reaper)).Should(Succeed())
+
+		By("check that the schema job is created")
+		jobKey := types.NamespacedName{Namespace: reaper.Namespace, Name: reaper.Name + "-schema"}
+		job := &v1batch.Job{}
+
+		Eventually(func() bool {
+			err := k8sClient.Get(context.Background(), jobKey, job)
+			if err != nil {
+				return false
+			}
+			return true
+		}, timeout, interval).Should(BeTrue(), "schema job creation check failed")
+
+		By("verify schema job has EnvVars set")
+		Expect(job.Spec.Template.Spec.Containers[0].Env).Should(HaveLen(5))
+		Expect(job.Spec.Template.Spec.Containers[0].Env[3].Name).To(Equal("USERNAME"))
+		Expect(job.Spec.Template.Spec.Containers[0].Env[3].ValueFrom.SecretKeyRef.LocalObjectReference.Name).To(Equal("top-secret-cass"))
+		Expect(job.Spec.Template.Spec.Containers[0].Env[3].ValueFrom.SecretKeyRef.Key).To(Equal("username"))
+		Expect(job.Spec.Template.Spec.Containers[0].Env[4].Name).To(Equal("PASSWORD"))
+		Expect(job.Spec.Template.Spec.Containers[0].Env[4].ValueFrom.SecretKeyRef.LocalObjectReference.Name).To(Equal("top-secret-cass"))
+		Expect(job.Spec.Template.Spec.Containers[0].Env[4].ValueFrom.SecretKeyRef.Key).To(Equal("password"))
+
+		// We need to mock the job completion in order for the deployment to get created
+		jobPatch := client.MergeFrom(job.DeepCopy())
+		job.Status.Conditions = append(job.Status.Conditions, v1batch.JobCondition{
+			Type:   v1batch.JobComplete,
+			Status: corev1.ConditionTrue,
+		})
+		Expect(k8sClient.Status().Patch(context.Background(), job, jobPatch)).Should(Succeed())
+
+		By("check that the deployment is created")
+		deploymentKey := types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName}
+		deployment := &appsv1.Deployment{}
+
+		Eventually(func() bool {
+			err := k8sClient.Get(context.Background(), deploymentKey, deployment)
+			if err != nil {
+				return false
+			}
+			return true
+		}, timeout, interval).Should(BeTrue(), "deployment creation check failed")
+
+		By("verify the deployment has CassAuth EnvVars")
+		envVars := deployment.Spec.Template.Spec.Containers[0].Env
+		Expect(envVars[len(envVars)-2].Name).To(Equal("REAPER_CASS_AUTH_USERNAME"))
+		Expect(envVars[len(envVars)-2].ValueFrom.SecretKeyRef.LocalObjectReference.Name).To(Equal("top-secret-cass"))
+		Expect(envVars[len(envVars)-2].ValueFrom.SecretKeyRef.Key).To(Equal("username"))
+		Expect(envVars[len(envVars)-1].Name).To(Equal("REAPER_CASS_AUTH_PASSWORD"))
+		Expect(envVars[len(envVars)-1].ValueFrom.SecretKeyRef.LocalObjectReference.Name).To(Equal("top-secret-cass"))
+		Expect(envVars[len(envVars)-1].ValueFrom.SecretKeyRef.Key).To(Equal("password"))
+	})
 })
 
 // Creates a new Reaper object with a Cassandra backend
