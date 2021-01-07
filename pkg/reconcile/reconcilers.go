@@ -242,6 +242,24 @@ func (r *defaultReconciler) createSchemaJob(ctx context.Context, schemaJob *v1ba
 	schemaJob = newSchemaJob(reaper, cassdc.GetDatacenterServiceName())
 	key := types.NamespacedName{Namespace: schemaJob.Namespace, Name: schemaJob.Name}
 
+	if len(reaper.Spec.ServerConfig.CassandraBackend.AuthProvider.SecretRef) > 0 {
+		secret, err := r.getSecret(types.NamespacedName{Namespace: reaper.Namespace, Name: reaper.Spec.ServerConfig.CassandraBackend.AuthProvider.SecretRef})
+		if err != nil {
+			req.Logger.Error(err, "failed to get Cassandra authentication secret", "deployment", key)
+			return nil, err
+		}
+
+		if usernameEnvVar, passwordEnvVar, err := r.secretsManager.GetSchemaJobAuthCredentials(secret); err == nil {
+			envVars := schemaJob.Spec.Template.Spec.Containers[0].Env
+			envVars = append(envVars, *usernameEnvVar)
+			envVars = append(envVars, *passwordEnvVar)
+			schemaJob.Spec.Template.Spec.Containers[0].Env = envVars
+		} else {
+			req.Logger.Error(err, "failed to get JMX credentials", "deployment", key)
+			return nil, err
+		}
+	}
+
 	req.Logger.Info("creating schema job", "job", key)
 
 	if err := controllerutil.SetControllerReference(reaper, schemaJob, r.scheme); err != nil {
@@ -420,7 +438,22 @@ func (r *defaultReconciler) buildNewDeployment(req ReaperRequest) (*appsv1.Deplo
 		}
 
 		if usernameEnvVar, passwordEnvVar, err := r.secretsManager.GetJmxAuthCredentials(secret); err == nil {
-			addJmxAuthEnvVars(deployment, usernameEnvVar, passwordEnvVar)
+			addAuthEnvVars(deployment, usernameEnvVar, passwordEnvVar)
+		} else {
+			req.Logger.Error(err, "failed to get JMX credentials", "deployment", key)
+			return nil, err
+		}
+	}
+
+	if len(reaper.Spec.ServerConfig.CassandraBackend.AuthProvider.SecretRef) > 0 {
+		secret, err := r.getSecret(types.NamespacedName{Namespace: reaper.Namespace, Name: reaper.Spec.ServerConfig.CassandraBackend.AuthProvider.SecretRef})
+		if err != nil {
+			req.Logger.Error(err, "failed to get Cassandra authentication secret", "deployment", key)
+			return nil, err
+		}
+
+		if usernameEnvVar, passwordEnvVar, err := r.secretsManager.GetCassandraAuthCredentials(secret); err == nil {
+			addAuthEnvVars(deployment, usernameEnvVar, passwordEnvVar)
 		} else {
 			req.Logger.Error(err, "failed to get JMX credentials", "deployment", key)
 			return nil, err
@@ -432,7 +465,7 @@ func (r *defaultReconciler) buildNewDeployment(req ReaperRequest) (*appsv1.Deplo
 	return deployment, nil
 }
 
-func addJmxAuthEnvVars(deployment *appsv1.Deployment, usernameEnvVar, passwordEnvVar *corev1.EnvVar) {
+func addAuthEnvVars(deployment *appsv1.Deployment, usernameEnvVar, passwordEnvVar *corev1.EnvVar) {
 	envVars := deployment.Spec.Template.Spec.Containers[0].Env
 	envVars = append(envVars, *usernameEnvVar)
 	envVars = append(envVars, *passwordEnvVar)
