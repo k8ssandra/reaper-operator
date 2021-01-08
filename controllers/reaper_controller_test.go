@@ -346,10 +346,7 @@ var _ = Describe("Reaper controller", func() {
 
 		By("create the Reaper object and modify it")
 		reaper := createReaper(ReaperNamespace)
-		reaper.Spec.ServerConfig.CassandraBackend.AuthProvider = api.AuthProvider{
-			Type:      "plainText",
-			SecretRef: "top-secret-cass",
-		}
+		reaper.Spec.ServerConfig.CassandraBackend.CassandraUserSecretName = "top-secret-cass"
 		Expect(k8sClient.Create(context.Background(), reaper)).Should(Succeed())
 
 		By("check that the schema job is created")
