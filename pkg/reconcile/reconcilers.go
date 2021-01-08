@@ -28,6 +28,7 @@ import (
 const (
 	schemaJobImage           = "k8ssandra/create-keyspace:latest"
 	schemaJobImagePullPolicy = corev1.PullIfNotPresent
+	envVarEnableCassAuth     = "REAPER_CASS_AUTH_ENABLED"
 )
 
 // ReaperRequest containers the information necessary to perform reconciliation actions on a Reaper object.
@@ -455,7 +456,11 @@ func (r *defaultReconciler) buildNewDeployment(req ReaperRequest) (*appsv1.Deplo
 		}
 
 		if usernameEnvVar, passwordEnvVar, err := r.secretsManager.GetCassandraAuthCredentials(secret); err == nil {
-			addAuthEnvVars(deployment, usernameEnvVar, passwordEnvVar)
+			enableAuthVar := &corev1.EnvVar{
+				Name:  envVarEnableCassAuth,
+				Value: "true",
+			}
+			addAuthEnvVars(deployment, usernameEnvVar, passwordEnvVar, enableAuthVar)
 		} else {
 			req.Logger.Error(err, "failed to get Cassandra authentication credentials", "deployment", secretkey)
 			return nil, err
@@ -467,10 +472,11 @@ func (r *defaultReconciler) buildNewDeployment(req ReaperRequest) (*appsv1.Deplo
 	return deployment, nil
 }
 
-func addAuthEnvVars(deployment *appsv1.Deployment, usernameEnvVar, passwordEnvVar *corev1.EnvVar) {
+func addAuthEnvVars(deployment *appsv1.Deployment, vars ...*corev1.EnvVar) {
 	envVars := deployment.Spec.Template.Spec.Containers[0].Env
-	envVars = append(envVars, *usernameEnvVar)
-	envVars = append(envVars, *passwordEnvVar)
+	for _, v := range vars {
+		envVars = append(envVars, *v)
+	}
 	deployment.Spec.Template.Spec.Containers[0].Env = envVars
 }
 

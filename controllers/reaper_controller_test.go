@@ -392,12 +392,14 @@ var _ = Describe("Reaper controller", func() {
 
 		By("verify the deployment has CassAuth EnvVars")
 		envVars := deployment.Spec.Template.Spec.Containers[0].Env
-		Expect(envVars[len(envVars)-2].Name).To(Equal("REAPER_CASS_AUTH_USERNAME"))
+		Expect(envVars[len(envVars)-3].Name).To(Equal("REAPER_CASS_AUTH_USERNAME"))
+		Expect(envVars[len(envVars)-3].ValueFrom.SecretKeyRef.LocalObjectReference.Name).To(Equal("top-secret-cass"))
+		Expect(envVars[len(envVars)-3].ValueFrom.SecretKeyRef.Key).To(Equal("username"))
+		Expect(envVars[len(envVars)-2].Name).To(Equal("REAPER_CASS_AUTH_PASSWORD"))
 		Expect(envVars[len(envVars)-2].ValueFrom.SecretKeyRef.LocalObjectReference.Name).To(Equal("top-secret-cass"))
-		Expect(envVars[len(envVars)-2].ValueFrom.SecretKeyRef.Key).To(Equal("username"))
-		Expect(envVars[len(envVars)-1].Name).To(Equal("REAPER_CASS_AUTH_PASSWORD"))
-		Expect(envVars[len(envVars)-1].ValueFrom.SecretKeyRef.LocalObjectReference.Name).To(Equal("top-secret-cass"))
-		Expect(envVars[len(envVars)-1].ValueFrom.SecretKeyRef.Key).To(Equal("password"))
+		Expect(envVars[len(envVars)-2].ValueFrom.SecretKeyRef.Key).To(Equal("password"))
+		Expect(envVars[len(envVars)-1].Name).To(Equal("REAPER_CASS_AUTH_ENABLED"))
+		Expect(envVars[len(envVars)-1].Value).To(Equal("true"))
 	})
 })
 
