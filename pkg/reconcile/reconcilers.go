@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	schemaJobImage           = "jsanda/create_keyspace:latest"
+	schemaJobImage           = "k8ssandra/create-keyspace:latest"
 	schemaJobImagePullPolicy = corev1.PullIfNotPresent
 )
 
