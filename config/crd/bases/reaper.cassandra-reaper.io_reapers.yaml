@@ -48,15 +48,6 @@ spec:
                   type: object
                 cassandraBackend:
                   properties:
-                    authProvider:
-                      properties:
-                        password:
-                          type: string
-                        type:
-                          type: string
-                        username:
-                          type: string
-                      type: object
                     cassandraDatacenter:
                       properties:
                         name:
@@ -67,6 +58,8 @@ spec:
                       required:
                       - name
                       type: object
+                    cassandraUserSecretName:
+                      type: string
                     keyspace:
                       description: Defaults to reaper
                       type: string

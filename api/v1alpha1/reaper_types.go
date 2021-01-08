@@ -62,14 +62,6 @@ type ReplicationConfig struct {
 	NetworkTopologyStrategy *map[string]int32 `json:"networkTopologyStrategy,omitempty"`
 }
 
-type AuthProvider struct {
-	Type string `json:"type,omitempty" yaml:"type,omitempty"`
-
-	Username string `json:"username,omitempty" yaml:"username,omitempty"`
-
-	Password string `json:"password,omitempty" yaml:"password,omitempty"`
-}
-
 type CassandraDatacenterRef struct {
 	Name string `json:"name"`
 
@@ -85,7 +77,7 @@ type CassandraBackend struct {
 
 	Replication ReplicationConfig `json:"replication" yaml:"-"`
 
-	AuthProvider AuthProvider `json:"authProvider,omitempty" yaml:"authProvider,omitempty"`
+	CassandraUserSecretName string `json:"cassandraUserSecretName,omitempty" yaml:"cassandraUserSecretName,omitempty"`
 }
 
 // ReaperSpec defines the desired state of Reaper

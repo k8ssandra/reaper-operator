@@ -90,15 +90,6 @@ func TestSetDefaultsWithCassandraBackend(t *testing.T) {
 		t.Errorf("Keyspace (%s) is not the expectedAuthProvider value (%s)", (*cfg.CassandraBackend).Keyspace, api.DefaultKeyspace)
 	}
 
-	expectedAuthProvider := api.AuthProvider{
-		Type:     "plainText",
-		Username: "cassandra",
-		Password: "cassandra",
-	}
-	if (*cfg.CassandraBackend).AuthProvider != expectedAuthProvider {
-		t.Errorf("AuthProvider (%+v) is not the expectedAuthProvider value (%+v)", (*cfg.CassandraBackend).AuthProvider, expectedAuthProvider)
-	}
-
 	if *cfg.CassandraBackend.Replication.SimpleStrategy != 1 {
 		t.Errorf("SimpleStrategy (%+v) is not the expected value (%+v)", *cfg.CassandraBackend.Replication.SimpleStrategy, 1)
 	}

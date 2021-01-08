@@ -61,15 +61,6 @@ func (v *validator) SetDefaults(reaper *api.Reaper) bool {
 			updated = true
 		}
 
-		if cassandra.AuthProvider == (api.AuthProvider{}) {
-			cassandra.AuthProvider = api.AuthProvider{
-				Type:     "plainText",
-				Username: "cassandra",
-				Password: "cassandra",
-			}
-			updated = true
-		}
-
 		if cassandra.Replication == (api.ReplicationConfig{}) {
 			cassandra.Replication = api.ReplicationConfig{
 				SimpleStrategy: int32Ptr(1),
