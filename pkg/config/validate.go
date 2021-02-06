@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
 )
 
 type ValidationError error
@@ -51,7 +50,7 @@ func (v *validator) SetDefaults(reaper *api.Reaper) bool {
 	}
 
 	if reaper.Spec.ImagePullPolicy == "" {
-		reaper.Spec.ImagePullPolicy = string(corev1.PullIfNotPresent)
+		reaper.Spec.ImagePullPolicy = string(api.DefaultImagePullPolicy)
 		updated = true
 	}
 

@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -27,7 +28,7 @@ type StorageType string
 
 const (
 	DefaultReaperImage     = "thelastpickle/cassandra-reaper:2.1.3"
-	DefaultImagePullPolicy = "ifNotPresent"
+	DefaultImagePullPolicy = corev1.PullIfNotPresent
 
 	StorageTypeMemory    = StorageType("memory")
 	StorageTypeCassandra = StorageType("cassandra")
