@@ -49,6 +49,11 @@ func (v *validator) SetDefaults(reaper *api.Reaper) bool {
 		updated = true
 	}
 
+	if reaper.Spec.ImagePullPolicy == "" {
+		reaper.Spec.ImagePullPolicy = string(api.DefaultImagePullPolicy)
+		updated = true
+	}
+
 	if cfg.StorageType == "" {
 		cfg.StorageType = api.DefaultStorageType
 		updated = true
