@@ -38,6 +38,8 @@ spec:
           properties:
             image:
               type: string
+            imagePullPolicy:
+              type: string
             serverConfig:
               properties:
                 autoScheduling:

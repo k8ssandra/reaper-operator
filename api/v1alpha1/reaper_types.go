@@ -26,7 +26,8 @@ import (
 type StorageType string
 
 const (
-	DefaultReaperImage = "thelastpickle/cassandra-reaper:2.1.3"
+	DefaultReaperImage     = "thelastpickle/cassandra-reaper:2.1.3"
+	DefaultImagePullPolicy = "ifNotPresent"
 
 	StorageTypeMemory    = StorageType("memory")
 	StorageTypeCassandra = StorageType("cassandra")
@@ -86,6 +87,8 @@ type ReaperSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	Image string `json:"image,omitempty"`
+
+	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
 
 	ServerConfig ServerConfig `json:"serverConfig,omitempty" yaml:"serverConfig,omitempty"`
 }

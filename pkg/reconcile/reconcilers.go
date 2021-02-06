@@ -556,7 +556,7 @@ func newDeployment(reaper *api.Reaper, cassDcService string) *appsv1.Deployment 
 					Containers: []corev1.Container{
 						{
 							Name:            "reaper",
-							ImagePullPolicy: corev1.PullIfNotPresent,
+							ImagePullPolicy: corev1.PullPolicy(reaper.Spec.ImagePullPolicy),
 							Image:           reaper.Spec.Image,
 							Ports: []corev1.ContainerPort{
 								{

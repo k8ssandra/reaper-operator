@@ -74,6 +74,7 @@ func TestNewDeployment(t *testing.T) {
 	image := "test/reaper:latest"
 	reaper := newReaperWithCassandraBackend()
 	reaper.Spec.Image = image
+	reaper.Spec.ImagePullPolicy = "Always"
 	reaper.Spec.ServerConfig.AutoScheduling = &api.AutoScheduler{Enabled: true}
 
 	labels := createLabels(reaper)
@@ -105,6 +106,7 @@ func TestNewDeployment(t *testing.T) {
 
 	container := podSpec.Containers[0]
 	assert.Equal(t, image, container.Image)
+	assert.Equal(t, corev1.PullAlways, container.ImagePullPolicy)
 	assert.ElementsMatch(t, container.Env, []corev1.EnvVar{
 		{
 			Name:  "REAPER_STORAGE_TYPE",

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func TestValidate(t *testing.T) {
@@ -82,6 +83,14 @@ func TestSetDefaultsWithCassandraBackend(t *testing.T) {
 
 	if updated := validator.SetDefaults(reaper); !updated {
 		t.Errorf("Expected ServerConfig to get updated")
+	}
+
+	if reaper.Spec.Image != api.DefaultReaperImage {
+		t.Errorf("Image (%s) is not the expected default value (%s)", reaper.Spec.Image, api.DefaultReaperImage)
+	}
+
+	if reaper.Spec.ImagePullPolicy != string(corev1.PullIfNotPresent) {
+		t.Errorf("Image (%s) is not the expected default value (%s)", reaper.Spec.Image, corev1.PullIfNotPresent)
 	}
 
 	cfg := reaper.Spec.ServerConfig
