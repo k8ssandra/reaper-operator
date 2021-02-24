@@ -27,7 +27,7 @@ import (
 type StorageType string
 
 const (
-	DefaultReaperImage     = "thelastpickle/cassandra-reaper:2.2.0"
+	DefaultReaperImage     = "thelastpickle/cassandra-reaper:2.2.1"
 	DefaultImagePullPolicy = corev1.PullIfNotPresent
 
 	StorageTypeMemory    = StorageType("memory")
