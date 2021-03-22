@@ -1,3 +1,5 @@
+namespace: deploy-reaper-test
+
 resources:
 - cassdc.yaml
 

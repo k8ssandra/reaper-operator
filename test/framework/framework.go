@@ -65,22 +65,25 @@ func Init() {
 	initialized = true
 }
 
-// Runs kustomize build followed kubectl apply. dir specifies the name of a test directory.
+// KustomizeAndApply runs kustomize build followed kubectl apply. dir specifies the name of a test directory.
 // By default this function will run kustomize build on dir/overlays/k8ssandra. This will
 // result in using upstream operator images. If you are testing against a fork, then set
 // the TEST_OVERLAY environment variable to specify the fork overlay to use. When
 // TEST_OVERLAY is set this function will run kustomize build on
 // dir/overlays/forks/TEST_OVERLAY which will allow you to use a custom operator image.
-func KustomizeAndApply(namespace, dir string) {
+func KustomizeAndApply(namespace, dir, overlay string) {
 	kustomizeDir := ""
+	if overlay == "" {
+		overlay = defaultOverlay
+	}
 
 	path, err := os.Getwd()
 	Expect(err).ToNot(HaveOccurred())
 
-	if overlay, found := os.LookupEnv("TEST_OVERLAY"); found {
-		kustomizeDir = filepath.Clean(path + "/../config/" + dir + "/overlays/forks/" + overlay)
+	if forkOverlay, found := os.LookupEnv("TEST_OVERLAY"); found && overlay == defaultOverlay {
+		kustomizeDir = filepath.Clean(path + "/../config/" + dir + "/overlays/forks/" + forkOverlay)
 	} else {
-		kustomizeDir = filepath.Clean(path + "/../config/" + dir + "/overlays/" + defaultOverlay)
+		kustomizeDir = filepath.Clean(path + "/../config/" + dir + "/overlays/" + overlay)
 	}
 
 	GinkgoWriter.Write([]byte("RUNNING: kustomize build " + kustomizeDir))
@@ -108,6 +111,7 @@ func ApplyFile(namespace, file string) {
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("kubectl apply failed: %s", err))
 }
 
+// CreateNamespace creates the given namespace or exits if it already exists
 func CreateNamespace(name string) error {
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -123,7 +127,18 @@ func CreateNamespace(name string) error {
 	return fmt.Errorf("failed to create namespace %s: %s", name, err)
 }
 
-// Blocks until .Status.ReadyReplicas == readyReplicas or until timeout is reached. An error is returned
+// RemoveNamespace deletes the given namespace
+func RemoveNamespace(name string) error {
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+	}
+
+	return Client.Delete(context.Background(), namespace)
+}
+
+// WaitForDeploymentReady blocks until .Status.ReadyReplicas == readyReplicas or until timeout is reached. An error is returned
 // if fetching the Deployment fails.
 func WaitForDeploymentReady(key types.NamespacedName, readyReplicas int32, retryInterval, timeout time.Duration) error {
 	return wait.Poll(retryInterval, timeout, func() (bool, error) {
@@ -139,21 +154,21 @@ func WaitForDeploymentReady(key types.NamespacedName, readyReplicas int32, retry
 	})
 }
 
-// Blocks until the cass-operator Deployment is ready. This function assumes that there will be a
+// WaitForCassOperatorReady blocks until the cass-operator Deployment is ready. This function assumes that there will be a
 // single replica in the Deployment.
 func WaitForCassOperatorReady(namespace string) error {
 	key := types.NamespacedName{Namespace: namespace, Name: "cass-operator"}
 	return WaitForDeploymentReady(key, 1, OperatorRetryInterval, OperatorTimeout)
 }
 
-// Blocks until the reaper-operator deployment is ready. This function assumes that there will be
+// WaitForReaperOperatorReady blocks until the reaper-operator deployment is ready. This function assumes that there will be
 // a single replica in the Deployment.
 func WaitForReaperOperatorReady(namespace string) error {
 	key := types.NamespacedName{Namespace: namespace, Name: "reaper-operator"}
 	return WaitForDeploymentReady(key, 1, OperatorRetryInterval, OperatorTimeout)
 }
 
-// Blocks until the CassandraDatacenter is ready as determined by
+// WaitForCassDcReady blocks until the CassandraDatacenter is ready as determined by
 // .Status.CassandraOperatorProgress == ProgressReady or until timeout is reached. An error is returned
 // is fetching the CassandraDatacenter fails.
 func WaitForCassDcReady(key types.NamespacedName, retryInterval, timeout time.Duration) error {
@@ -178,6 +193,12 @@ func GetCassDc(key types.NamespacedName) (*cassdcv1beta1.CassandraDatacenter, er
 	return cassdc, err
 }
 
+// RemoveCassandraDatacenters removes all the cassdcv1beta1.CassandraDatacenter objects
+func RemoveCassandraDatacenters(namespace string) error {
+	cassdc := &cassdcv1beta1.CassandraDatacenter{}
+	return Client.DeleteAllOf(context.Background(), cassdc, client.InNamespace(namespace))
+}
+
 func logCassDcStatus(cassdc *cassdcv1beta1.CassandraDatacenter, start time.Time) {
 	if d, err := yaml.Marshal(cassdc.Status); err == nil {
 		duration := time.Now().Sub(start)
@@ -190,16 +211,8 @@ func logCassDcStatus(cassdc *cassdcv1beta1.CassandraDatacenter, start time.Time)
 }
 
 func WaitForReaperReady(key types.NamespacedName, retryInterval, timeout time.Duration) error {
-	return wait.Poll(retryInterval, timeout, func() (bool, error) {
-		reaper := &api.Reaper{}
-		err := Client.Get(context.Background(), key, reaper)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				return false, nil
-			}
-			return true, err
-		}
-		return reaper.Status.Ready, nil
+	return WaitForReaper(key, retryInterval, timeout, func(reaper *api.Reaper) bool {
+		return reaper.Status.Ready
 	})
 }
 
@@ -258,7 +271,7 @@ func getNodePort(service *corev1.Service, portName string) (string, error) {
 	return "", fmt.Errorf("failed to find nodeport %s", portName)
 }
 
-// Returns s with a date suffix of -yyMMddHHmmss
+// WithDateSuffix returns s with a date suffix of -yyMMddHHmmss
 func WithDateSuffix(s string) string {
 	return s + "-" + time.Now().Format("060102150405")
 }

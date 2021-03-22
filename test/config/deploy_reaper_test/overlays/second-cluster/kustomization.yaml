@@ -1,0 +1,6 @@
+resources:
+  - ../../../cassdc
+namePrefix: secondary-
+
+patchesStrategicMerge:
+- cassdc-size-patch.yaml
