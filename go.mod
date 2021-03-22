@@ -3,7 +3,7 @@ module github.com/k8ssandra/reaper-operator
 go 1.15
 
 require (
-	github.com/datastax/cass-operator v1.5.1-0.20210112050706-a45fd80b40e0
+	github.com/datastax/cass-operator v1.6.0
 	github.com/go-logr/logr v0.1.0
 	github.com/k8ssandra/reaper-client-go v0.3.0
 	github.com/onsi/ginkgo v1.12.1
