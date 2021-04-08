@@ -45,7 +45,7 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var cfg *rest.Config
-var k8sClient client.Client
+var testClient client.Client
 var testEnv *envtest.Environment
 var reaperManager *TestReaperManager
 
@@ -115,8 +115,9 @@ var _ = BeforeSuite(func(done Done) {
 		Expect(err).ToNot(HaveOccurred())
 	}()
 
-	k8sClient = k8sManager.GetClient()
-	Expect(k8sClient).ToNot(BeNil())
+	testClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	Expect(err).To(BeNil())
+	Expect(testClient).ToNot(BeNil())
 
 	close(done)
 }, 60)

@@ -34,9 +34,9 @@ var _ = Describe("CassandraDatacenter controller testing", func() {
 				Name: ControllerTestNamespace,
 			},
 		}
-		Expect(k8sClient.Create(context.Background(), testNamespace)).Should(Succeed())
+		Expect(testClient.Create(context.Background(), testNamespace)).Should(Succeed())
 		reaper := createReaper(ControllerTestNamespace)
-		Expect(k8sClient.Create(context.Background(), reaper)).Should(Succeed())
+		Expect(testClient.Create(context.Background(), reaper)).Should(Succeed())
 
 		cassdcKey := types.NamespacedName{
 			Name:      CassandraControllerDatacenterName,
@@ -56,17 +56,17 @@ var _ = Describe("CassandraDatacenter controller testing", func() {
 				Size:          3,
 			},
 		}
-		Expect(k8sClient.Create(context.Background(), testDc)).Should(Succeed())
+		Expect(testClient.Create(context.Background(), testDc)).Should(Succeed())
 		Eventually(func() bool {
 			result := &cassdcapi.CassandraDatacenter{}
-			_ = k8sClient.Get(context.Background(), cassdcKey, result)
+			_ = testClient.Get(context.Background(), cassdcKey, result)
 			return result.Spec.Size == testDc.Spec.Size
 		}, timeout, interval).Should(BeTrue())
 
 		By("making Reaper ready")
 		patch := client.MergeFrom(reaper.DeepCopy())
 		reaper.Status.Ready = true
-		k8sClient.Status().Patch(context.Background(), reaper, patch)
+		testClient.Status().Patch(context.Background(), reaper, patch)
 		key := types.NamespacedName{Namespace: reaper.Namespace, Name: ReaperName}
 		verifyReaperReady(key)
 
@@ -77,7 +77,7 @@ var _ = Describe("CassandraDatacenter controller testing", func() {
 			}
 
 			fetchedReaper := &api.Reaper{}
-			if err := k8sClient.Get(context.Background(), key, fetchedReaper); err != nil {
+			if err := testClient.Get(context.Background(), key, fetchedReaper); err != nil {
 				return false
 			}
 			return len(fetchedReaper.Status.Clusters) == 0
@@ -88,10 +88,10 @@ var _ = Describe("CassandraDatacenter controller testing", func() {
 		testDc.Annotations = map[string]string{
 			"reaper.cassandra-reaper.io/instance": "notHere",
 		}
-		Expect(k8sClient.Patch(context.Background(), testDc, testDcPatch)).Should(Succeed())
+		Expect(testClient.Patch(context.Background(), testDc, testDcPatch)).Should(Succeed())
 		Eventually(func() bool {
 			result := &cassdcapi.CassandraDatacenter{}
-			_ = k8sClient.Get(context.Background(), cassdcKey, result)
+			_ = testClient.Get(context.Background(), cassdcKey, result)
 			v, _ := result.Annotations["reaper.cassandra-reaper.io/instance"]
 			return v == "notHere"
 		}).Should(BeTrue())
@@ -104,7 +104,7 @@ var _ = Describe("CassandraDatacenter controller testing", func() {
 
 			key := types.NamespacedName{Namespace: reaper.Namespace, Name: ReaperName}
 			fetchedReaper := &api.Reaper{}
-			if err := k8sClient.Get(context.Background(), key, fetchedReaper); err != nil {
+			if err := testClient.Get(context.Background(), key, fetchedReaper); err != nil {
 				return false
 			}
 			return len(fetchedReaper.Status.Clusters) == 0
@@ -116,10 +116,10 @@ var _ = Describe("CassandraDatacenter controller testing", func() {
 		testDc.Annotations = map[string]string{
 			"reaper.cassandra-reaper.io/instance": reaper.Name,
 		}
-		Expect(k8sClient.Patch(context.Background(), testDc, testDcPatch)).Should(Succeed())
+		Expect(testClient.Patch(context.Background(), testDc, testDcPatch)).Should(Succeed())
 		Eventually(func() bool {
 			result := &cassdcapi.CassandraDatacenter{}
-			_ = k8sClient.Get(context.Background(), cassdcKey, result)
+			_ = testClient.Get(context.Background(), cassdcKey, result)
 			v, _ := result.Annotations["reaper.cassandra-reaper.io/instance"]
 			return v == reaper.Name
 		}, timeout, interval).Should(BeTrue())
@@ -128,7 +128,7 @@ var _ = Describe("CassandraDatacenter controller testing", func() {
 		Consistently(func() bool {
 			key := types.NamespacedName{Namespace: reaper.Namespace, Name: ReaperName}
 			fetchedReaper := &api.Reaper{}
-			if err := k8sClient.Get(context.Background(), key, fetchedReaper); err != nil {
+			if err := testClient.Get(context.Background(), key, fetchedReaper); err != nil {
 				return false
 			}
 			if len(fetchedReaper.Status.Clusters) == 0 && len(reaperManager.ClustersManaged) == 0 {
@@ -143,7 +143,7 @@ var _ = Describe("CassandraDatacenter controller testing", func() {
 		Eventually(func() bool {
 			key := types.NamespacedName{Namespace: reaper.Namespace, Name: ReaperName}
 			fetchedReaper := &api.Reaper{}
-			if err := k8sClient.Get(context.Background(), key, fetchedReaper); err != nil {
+			if err := testClient.Get(context.Background(), key, fetchedReaper); err != nil {
 				return false
 			}
 			for _, v := range fetchedReaper.Status.Clusters {
@@ -162,15 +162,15 @@ var _ = Describe("CassandraDatacenter controller testing", func() {
 
 		By("ensuring cluster status is re-added even if removed")
 		currentReaper := &api.Reaper{}
-		Expect(k8sClient.Get(context.Background(), key, currentReaper)).Should(Succeed())
+		Expect(testClient.Get(context.Background(), key, currentReaper)).Should(Succeed())
 		patchClusters := client.MergeFrom(currentReaper.DeepCopy())
 		currentReaper.Status.Clusters = make([]string, 0)
-		Expect(k8sClient.Status().Patch(context.Background(), currentReaper, patchClusters)).Should(Succeed())
+		Expect(testClient.Status().Patch(context.Background(), currentReaper, patchClusters)).Should(Succeed())
 
 		Eventually(func() bool {
 			key := types.NamespacedName{Namespace: reaper.Namespace, Name: ReaperName}
 			fetchedReaper := &api.Reaper{}
-			if err := k8sClient.Get(context.Background(), key, fetchedReaper); err == nil {
+			if err := testClient.Get(context.Background(), key, fetchedReaper); err == nil {
 				if len(fetchedReaper.Status.Clusters) == 0 {
 					return true
 				}
@@ -181,13 +181,13 @@ var _ = Describe("CassandraDatacenter controller testing", func() {
 		// Add unnecessary stuff to CassandraDatacenter to trigger reconcile
 		testDcPatch = client.MergeFrom(testDc.DeepCopy())
 		testDc.Annotations["useless/update"] = "true"
-		Expect(k8sClient.Patch(context.Background(), testDc, testDcPatch)).Should(Succeed())
+		Expect(testClient.Patch(context.Background(), testDc, testDcPatch)).Should(Succeed())
 
 		// Wait for the cluster to be re-added
 		Eventually(func() bool {
 			key := types.NamespacedName{Namespace: reaper.Namespace, Name: ReaperName}
 			fetchedReaper := &api.Reaper{}
-			if err := k8sClient.Get(context.Background(), key, fetchedReaper); err != nil {
+			if err := testClient.Get(context.Background(), key, fetchedReaper); err != nil {
 				return false
 			}
 			for _, v := range fetchedReaper.Status.Clusters {
