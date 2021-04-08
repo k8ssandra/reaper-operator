@@ -40,7 +40,7 @@ var _ = Describe("Reaper controller", func() {
 				Name: ReaperNamespace,
 			},
 		}
-		Expect(k8sClient.Create(context.Background(), testNamespace)).Should(Succeed())
+		Expect(testClient.Create(context.Background(), testNamespace)).Should(Succeed())
 		i = i + 1
 
 		cassdcKey := types.NamespacedName{Name: CassandraDatacenterName, Namespace: ReaperNamespace}
@@ -57,7 +57,7 @@ var _ = Describe("Reaper controller", func() {
 			},
 			Status: cassdcapi.CassandraDatacenterStatus{},
 		}
-		Expect(k8sClient.Create(context.Background(), testDc)).Should(Succeed())
+		Expect(testClient.Create(context.Background(), testDc)).Should(Succeed())
 
 		patchCassdc := client.MergeFrom(testDc.DeepCopy())
 		testDc.Status.CassandraOperatorProgress = cassdcapi.ProgressReady
@@ -69,9 +69,9 @@ var _ = Describe("Reaper controller", func() {
 		}
 
 		cassdc := &cassdcapi.CassandraDatacenter{}
-		Expect(k8sClient.Status().Patch(context.Background(), testDc, patchCassdc)).Should(Succeed())
+		Expect(testClient.Status().Patch(context.Background(), testDc, patchCassdc)).Should(Succeed())
 		Eventually(func() bool {
-			err := k8sClient.Get(context.Background(), cassdcKey, cassdc)
+			err := testClient.Get(context.Background(), cassdcKey, cassdc)
 			if err != nil {
 				return false
 			}
@@ -82,14 +82,14 @@ var _ = Describe("Reaper controller", func() {
 	Specify("create a new Reaper instance", func() {
 		By("create the Reaper object")
 		reaper := createReaper(ReaperNamespace)
-		Expect(k8sClient.Create(context.Background(), reaper)).Should(Succeed())
+		Expect(testClient.Create(context.Background(), reaper)).Should(Succeed())
 
 		By("check that the service is created")
 		serviceKey := types.NamespacedName{Namespace: ReaperNamespace, Name: reconcile.GetServiceName(reaper.Name)}
 		service := &corev1.Service{}
 
 		Eventually(func() bool {
-			err := k8sClient.Get(context.Background(), serviceKey, service)
+			err := testClient.Get(context.Background(), serviceKey, service)
 			if err != nil {
 				return false
 			}
@@ -104,7 +104,7 @@ var _ = Describe("Reaper controller", func() {
 		job := &v1batch.Job{}
 
 		Eventually(func() bool {
-			err := k8sClient.Get(context.Background(), jobKey, job)
+			err := testClient.Get(context.Background(), jobKey, job)
 			if err != nil {
 				return false
 			}
@@ -117,7 +117,7 @@ var _ = Describe("Reaper controller", func() {
 			Type:   v1batch.JobComplete,
 			Status: corev1.ConditionTrue,
 		})
-		Expect(k8sClient.Status().Patch(context.Background(), job, jobPatch)).Should(Succeed())
+		Expect(testClient.Status().Patch(context.Background(), job, jobPatch)).Should(Succeed())
 
 		Expect(len(job.OwnerReferences)).Should(Equal(1))
 		Expect(job.OwnerReferences[0].UID).Should(Equal(reaper.GetUID()))
@@ -127,7 +127,7 @@ var _ = Describe("Reaper controller", func() {
 		deployment := &appsv1.Deployment{}
 
 		Eventually(func() bool {
-			err := k8sClient.Get(context.Background(), deploymentKey, deployment)
+			err := testClient.Get(context.Background(), deploymentKey, deployment)
 			if err != nil {
 				return false
 			}
@@ -140,7 +140,8 @@ var _ = Describe("Reaper controller", func() {
 		By("update deployment to be ready")
 		patchDeploymentStatus(deployment, 1, 1)
 
-		verifyReaperReady(types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName})
+		reaperKey := types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName}
+		verifyReaperReady(reaperKey)
 
 		// Now simulate the Reaper app entering a state in which its readiness probe fails. This
 		// should cause the deployment to have its status updated. The Reaper object's .Status.Ready
@@ -148,16 +149,7 @@ var _ = Describe("Reaper controller", func() {
 		By("update deployment to be not ready")
 		patchDeploymentStatus(deployment, 1, 0)
 
-		reaperKey := types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName}
-		updatedReaper := &api.Reaper{}
-		Eventually(func() bool {
-			err := k8sClient.Get(context.Background(), reaperKey, updatedReaper)
-			if err != nil {
-				return false
-			}
-			ctrl.Log.WithName("test").Info("after update", "updatedReaper", updatedReaper)
-			return updatedReaper.Status.Ready == false
-		}, timeout, interval).Should(BeTrue(), "reaper status should have been updated")
+		verifyReaperNotReady(reaperKey)
 	})
 
 	Specify("create a new Reaper instance when objects exist", func() {
@@ -185,7 +177,7 @@ var _ = Describe("Reaper controller", func() {
 				},
 			},
 		}
-		Expect(k8sClient.Create(context.Background(), service)).Should(Succeed())
+		Expect(testClient.Create(context.Background(), service)).Should(Succeed())
 
 		By("create the schema job")
 		jobKey := types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName + "-schema"}
@@ -211,7 +203,7 @@ var _ = Describe("Reaper controller", func() {
 				},
 			},
 		}
-		Expect(k8sClient.Create(context.Background(), job)).Should(Succeed())
+		Expect(testClient.Create(context.Background(), job)).Should(Succeed())
 
 		// We need to mock the job completion in order for the deployment to get created
 		jobPatch := client.MergeFrom(job.DeepCopy())
@@ -219,7 +211,7 @@ var _ = Describe("Reaper controller", func() {
 			Type:   v1batch.JobComplete,
 			Status: corev1.ConditionTrue,
 		})
-		Expect(k8sClient.Status().Patch(context.Background(), job, jobPatch)).Should(Succeed())
+		Expect(testClient.Status().Patch(context.Background(), job, jobPatch)).Should(Succeed())
 
 		By("create the deployment")
 		// We can use a fake deployment here with only the required properties set. Since the deployment
@@ -264,7 +256,7 @@ var _ = Describe("Reaper controller", func() {
 				},
 			},
 		}
-		Expect(k8sClient.Create(context.Background(), deployment)).Should(Succeed())
+		Expect(testClient.Create(context.Background(), deployment)).Should(Succeed())
 
 		// We need to mock the deployment being ready in order for Reaper status to be updated
 		By("update deployment to be ready")
@@ -272,7 +264,7 @@ var _ = Describe("Reaper controller", func() {
 
 		By("create the Reaper object")
 		reaper := createReaper(ReaperNamespace)
-		Expect(k8sClient.Create(context.Background(), reaper)).Should(Succeed())
+		Expect(testClient.Create(context.Background(), reaper)).Should(Succeed())
 
 		verifyReaperReady(types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName})
 	})
@@ -283,7 +275,7 @@ var _ = Describe("Reaper controller", func() {
 		reaper.Spec.ServerConfig.AutoScheduling = &api.AutoScheduler{
 			Enabled: true,
 		}
-		Expect(k8sClient.Create(context.Background(), reaper)).Should(Succeed())
+		Expect(testClient.Create(context.Background(), reaper)).Should(Succeed())
 
 		// Remove unnecessary parts, verify that the deployment has envVar set for autoscheduling
 		By("check that the schema job is created")
@@ -291,7 +283,7 @@ var _ = Describe("Reaper controller", func() {
 		job := &v1batch.Job{}
 
 		Eventually(func() bool {
-			err := k8sClient.Get(context.Background(), jobKey, job)
+			err := testClient.Get(context.Background(), jobKey, job)
 			if err != nil {
 				return false
 			}
@@ -304,14 +296,14 @@ var _ = Describe("Reaper controller", func() {
 			Type:   v1batch.JobComplete,
 			Status: corev1.ConditionTrue,
 		})
-		Expect(k8sClient.Status().Patch(context.Background(), job, jobPatch)).Should(Succeed())
+		Expect(testClient.Status().Patch(context.Background(), job, jobPatch)).Should(Succeed())
 
 		By("check that the deployment is created")
 		deploymentKey := types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName}
 		deployment := &appsv1.Deployment{}
 
 		Eventually(func() bool {
-			err := k8sClient.Get(context.Background(), deploymentKey, deployment)
+			err := testClient.Get(context.Background(), deploymentKey, deployment)
 			if err != nil {
 				return false
 			}
@@ -342,19 +334,19 @@ var _ = Describe("Reaper controller", func() {
 				"password": []byte("james"),
 			},
 		}
-		Expect(k8sClient.Create(context.Background(), &secret)).Should(Succeed())
+		Expect(testClient.Create(context.Background(), &secret)).Should(Succeed())
 
 		By("create the Reaper object and modify it")
 		reaper := createReaper(ReaperNamespace)
 		reaper.Spec.ServerConfig.CassandraBackend.CassandraUserSecretName = "top-secret-cass"
-		Expect(k8sClient.Create(context.Background(), reaper)).Should(Succeed())
+		Expect(testClient.Create(context.Background(), reaper)).Should(Succeed())
 
 		By("check that the schema job is created")
 		jobKey := types.NamespacedName{Namespace: reaper.Namespace, Name: reaper.Name + "-schema"}
 		job := &v1batch.Job{}
 
 		Eventually(func() bool {
-			err := k8sClient.Get(context.Background(), jobKey, job)
+			err := testClient.Get(context.Background(), jobKey, job)
 			if err != nil {
 				return false
 			}
@@ -376,14 +368,14 @@ var _ = Describe("Reaper controller", func() {
 			Type:   v1batch.JobComplete,
 			Status: corev1.ConditionTrue,
 		})
-		Expect(k8sClient.Status().Patch(context.Background(), job, jobPatch)).Should(Succeed())
+		Expect(testClient.Status().Patch(context.Background(), job, jobPatch)).Should(Succeed())
 
 		By("check that the deployment is created")
 		deploymentKey := types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName}
 		deployment := &appsv1.Deployment{}
 
 		Eventually(func() bool {
-			err := k8sClient.Get(context.Background(), deploymentKey, deployment)
+			err := testClient.Get(context.Background(), deploymentKey, deployment)
 			if err != nil {
 				return false
 			}
@@ -423,21 +415,54 @@ func createReaper(namespace string) *api.Reaper {
 	}
 }
 
+type ReaperConditionFunc func(reaper *api.Reaper) bool
+
 func verifyReaperReady(key types.NamespacedName) {
 	By("check that the reaper is ready")
+	waitForReaperCondition(key, func(reaper *api.Reaper) bool {
+		return reaper.Status.Ready
+	})
+	//Eventually(func() bool {
+	//	updatedReaper := &api.Reaper{}
+	//	if err := testClient.Get(context.Background(), key, updatedReaper); err != nil {
+	//		return false
+	//	}
+	//	ctrl.Log.WithName("test").Info("after update", "updatedReaper", updatedReaper)
+	//	return updatedReaper.Status.Ready
+	//}, timeout, interval).Should(BeTrue())
+}
+
+func verifyReaperNotReady(key types.NamespacedName) {
+	By("check that the reaper is not ready")
+	waitForReaperCondition(key, func(reaper *api.Reaper) bool {
+		return !reaper.Status.Ready
+	})
+	//Eventually(func() bool {
+	//	updatedReaper := &api.Reaper{}
+	//	err := testClient.Get(context.Background(), key, updatedReaper)
+	//	if err != nil {
+	//		return false
+	//	}
+	//	ctrl.Log.WithName("test").Info("after update", "updatedReaper", updatedReaper)
+	//	return updatedReaper.Status.Ready == false
+	//}, timeout, interval).Should(BeTrue(), "reaper status should have been updated")
+}
+
+func waitForReaperCondition(key types.NamespacedName, condition ReaperConditionFunc) {
 	Eventually(func() bool {
 		updatedReaper := &api.Reaper{}
-		if err := k8sClient.Get(context.Background(), key, updatedReaper); err != nil {
+		err := testClient.Get(context.Background(), key, updatedReaper)
+		if err != nil {
 			return false
 		}
 		ctrl.Log.WithName("test").Info("after update", "updatedReaper", updatedReaper)
-		return updatedReaper.Status.Ready
-	}, timeout, interval).Should(BeTrue())
+		return condition(updatedReaper)
+	}, timeout, interval).Should(BeTrue(), "reaper status should have been updated")
 }
 
 func patchDeploymentStatus(deployment *appsv1.Deployment, replicas, readyReplicas int32) {
 	deploymentPatch := client.MergeFrom(deployment.DeepCopy())
 	deployment.Status.Replicas = replicas
 	deployment.Status.ReadyReplicas = readyReplicas
-	Expect(k8sClient.Status().Patch(context.Background(), deployment, deploymentPatch)).Should(Succeed())
+	Expect(testClient.Status().Patch(context.Background(), deployment, deploymentPatch)).Should(Succeed())
 }
