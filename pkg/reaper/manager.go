@@ -3,7 +3,7 @@ package reaper
 import (
 	"context"
 	"fmt"
-	"github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/k8ssandra/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/k8ssandra/reaper-client-go/reaper"
 	reapergo "github.com/k8ssandra/reaper-client-go/reaper"
 	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
