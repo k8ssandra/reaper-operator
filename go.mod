@@ -3,8 +3,8 @@ module github.com/k8ssandra/reaper-operator
 go 1.15
 
 require (
-	github.com/k8ssandra/cass-operator v1.6.1-0.20210505125256-b42477725237
 	github.com/go-logr/logr v0.1.0
+	github.com/k8ssandra/cass-operator v1.6.1-0.20210505125256-b42477725237
 	github.com/k8ssandra/reaper-client-go v0.3.0
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1

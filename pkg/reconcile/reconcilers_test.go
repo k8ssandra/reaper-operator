@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
-	"github.com/k8ssandra/reaper-operator/pkg/config"
 	mlabels "github.com/k8ssandra/reaper-operator/pkg/labels"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -38,6 +37,7 @@ func TestNewService(t *testing.T) {
 	assert.Equal(t, port, service.Spec.Ports[0])
 }
 
+/*
 func TestNewSchemaJob(t *testing.T) {
 	reaper := newReaperWithCassandraBackend()
 
@@ -69,6 +69,7 @@ func TestNewSchemaJob(t *testing.T) {
 		},
 	})
 }
+*/
 
 func TestNewDeployment(t *testing.T) {
 	image := "test/reaper:latest"
