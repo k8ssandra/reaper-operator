@@ -149,10 +149,6 @@ func newService(key types.NamespacedName, reaper *api.Reaper) *corev1.Service {
 
 func (r *defaultReconciler) ReconcileSchema(ctx context.Context, req ReaperRequest) (*ctrl.Result, error) {
 	reaper := req.Reaper
-	// key := types.NamespacedName{Namespace: reaper.Namespace, Name: getSchemaJobName(reaper)}
-
-	// req.Logger.Info("reconciling schema", "job", key)
-
 	if reaper.Spec.ServerConfig.StorageType == api.StorageTypeMemory {
 		// No need to run schema job when using in-memory backend
 		return nil, nil
@@ -169,31 +165,6 @@ func (r *defaultReconciler) ReconcileSchema(ctx context.Context, req ReaperReque
 		return &ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 	}
 
-	// Instead of creating a SchemaJob, call the CassandraDatacenter service and make an httphelper request
-	// "k8ssandra-dc1-service"
-
-	/*
-		schemaJob := &v1batch.Job{}
-		err = r.Client.Get(ctx, key, schemaJob)
-		if err != nil && errors.IsNotFound(err) {
-			return r.createSchemaJob(ctx, schemaJob, req)
-		} else if !jobFinished(schemaJob) {
-			req.Logger.Info("schema job not finished", "job", key)
-			return &ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
-		} else if jobFailed(schemaJob) {
-			req.Logger.Info("schema job failed. deleting it so can be recreated to try again.", "job", key)
-			if err = r.Delete(ctx, schemaJob); err == nil {
-				return &ctrl.Result{RequeueAfter: 10 * time.Second}, nil
-			} else {
-				req.Logger.Error(err, "failed to delete schema job", "job", key)
-				return &ctrl.Result{RequeueAfter: 5 * time.Second}, err
-			}
-		} else {
-			// the job completed successfully
-			req.Logger.Info("schema job completed successfully", "job", key)
-			return nil, nil
-		}
-	*/
 	return r.createSchema(ctx, req)
 }
 
@@ -238,53 +209,6 @@ func isCassdcReady(cassdc *cassdcapi.CassandraDatacenter) bool {
 	return status == corev1.ConditionTrue
 }
 
-/*
-func (r *defaultReconciler) createSchemaJob(ctx context.Context, schemaJob *v1batch.Job, req ReaperRequest) (*ctrl.Result, error) {
-	reaper := req.Reaper
-	cassdc, err := r.cassandraDatacenter(ctx, reaper)
-	if err != nil {
-		req.Logger.Error(err, "failed to fetch target CassandraDatacenter")
-		return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
-	}
-
-	schemaJob = newSchemaJob(reaper, cassdc.GetDatacenterServiceName())
-	key := types.NamespacedName{Namespace: schemaJob.Namespace, Name: schemaJob.Name}
-
-	if len(reaper.Spec.ServerConfig.CassandraBackend.CassandraUserSecretName) > 0 {
-		secretkey := types.NamespacedName{Namespace: reaper.Namespace, Name: reaper.Spec.ServerConfig.CassandraBackend.CassandraUserSecretName}
-		secret, err := r.getSecret(secretkey)
-		if err != nil {
-			req.Logger.Error(err, "failed to get Cassandra authentication secret", "job", secretkey)
-			return nil, err
-		}
-
-		if usernameEnvVar, passwordEnvVar, err := r.secretsManager.GetSchemaJobAuthCredentials(secret); err == nil {
-			envVars := schemaJob.Spec.Template.Spec.Containers[0].Env
-			envVars = append(envVars, *usernameEnvVar)
-			envVars = append(envVars, *passwordEnvVar)
-			schemaJob.Spec.Template.Spec.Containers[0].Env = envVars
-		} else {
-			req.Logger.Error(err, "failed to get Cassandra authentication credentials", "job", secretkey)
-			return nil, err
-		}
-	}
-
-	req.Logger.Info("creating schema job", "job", key)
-
-	if err := controllerutil.SetControllerReference(reaper, schemaJob, r.scheme); err != nil {
-		req.Logger.Error(err, "failed to set owner on schema job", "job", key)
-		return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
-	}
-	req.Logger.Info("creating schema job", "job", key)
-	if err := r.Client.Create(ctx, schemaJob); err != nil {
-		req.Logger.Error(err, "failed to create schema job", "job", key)
-		return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
-	} else {
-		return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
-	}
-}
-*/
-
 func (r *defaultReconciler) createSchema(ctx context.Context, req ReaperRequest) (*ctrl.Result, error) {
 	reaper := req.Reaper
 	cassdc, err := r.cassandraDatacenter(ctx, reaper)
@@ -328,77 +252,10 @@ func (r *defaultReconciler) createSchema(ctx context.Context, req ReaperRequest)
 	err = nodeMgmtClient.CreateKeyspace(&pods[0], cassandra.Keyspace, replicationConfig)
 	if err != nil {
 		req.Logger.Error(err, "failed to create keyspace")
-		// return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
+		return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 	}
-	return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
+	return nil, nil
 }
-
-/*
-func getSchemaJobName(r *api.Reaper) string {
-	return fmt.Sprintf("%s-schema", r.Name)
-}
-
-func newSchemaJob(reaper *api.Reaper, cassandraService string) *v1batch.Job {
-	cassandra := *reaper.Spec.ServerConfig.CassandraBackend
-	return &v1batch.Job{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Job",
-			APIVersion: "batch/v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: reaper.Namespace,
-			Name:      getSchemaJobName(reaper),
-			Labels:    createLabels(reaper),
-		},
-		Spec: v1batch.JobSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					RestartPolicy: corev1.RestartPolicyOnFailure,
-					Containers: []corev1.Container{
-						{
-							Name:            getSchemaJobName(reaper),
-							Image:           schemaJobImage,
-							ImagePullPolicy: schemaJobImagePullPolicy,
-							Env: []corev1.EnvVar{
-								{
-									Name:  "KEYSPACE",
-									Value: cassandra.Keyspace,
-								},
-								{
-									Name:  "CONTACT_POINTS",
-									Value: cassandraService,
-								},
-								{
-									Name:  "REPLICATION",
-									Value: config.ReplicationToString(cassandra.Replication),
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func jobFinished(job *v1batch.Job) bool {
-	for _, c := range job.Status.Conditions {
-		if (c.Type == v1batch.JobComplete || c.Type == v1batch.JobFailed) && c.Status == corev1.ConditionTrue {
-			return true
-		}
-	}
-	return false
-}
-
-func jobFailed(job *v1batch.Job) bool {
-	for _, cond := range job.Status.Conditions {
-		if cond.Type == v1batch.JobFailed && cond.Status == corev1.ConditionTrue {
-			return true
-		}
-	}
-	return false
-}
-*/
 
 func (r *defaultReconciler) ReconcileDeployment(ctx context.Context, req ReaperRequest) (*ctrl.Result, error) {
 	reaper := req.Reaper

@@ -17,6 +17,9 @@ limitations under the License.
 package controllers
 
 import (
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"testing"
 	"time"
@@ -48,6 +51,7 @@ var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
 var reaperManager *TestReaperManager
+var managementMockServer *httptest.Server
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -60,6 +64,19 @@ func TestAPIs(t *testing.T) {
 var _ = BeforeSuite(func(done Done) {
 	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
 
+	By("creating a fake mgtt-api-http")
+	var err error
+	// The client in cass-operator has hardcoded port of 8080, so we need to run our mgtt-api listener in that port
+	mgttapiListener, err := net.Listen("tcp", "127.0.0.1:8080")
+	Expect(err).To(BeNil())
+
+	managementMockServer = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+	}))
+	managementMockServer.Listener.Close()
+	managementMockServer.Listener = mgttapiListener
+	managementMockServer.Start()
+
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
@@ -68,10 +85,11 @@ var _ = BeforeSuite(func(done Done) {
 		},
 	}
 
-	var err error
 	cfg, err = testEnv.Start()
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cfg).ToNot(BeNil())
+
+	// time.Sleep(20 * time.Second)
 
 	err = clientgoscheme.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
@@ -86,6 +104,8 @@ var _ = BeforeSuite(func(done Done) {
 
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme: scheme.Scheme,
+		// Disable metrics-server, since we need port 8080
+		MetricsBindAddress: "0",
 	})
 	Expect(err).ToNot(HaveOccurred())
 
@@ -123,6 +143,7 @@ var _ = BeforeSuite(func(done Done) {
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
+	managementMockServer.Close()
 	gexec.KillAndWait(5 * time.Second)
 	err := testEnv.Stop()
 	Expect(err).ToNot(HaveOccurred())
