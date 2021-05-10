@@ -51,7 +51,7 @@ var _ = Describe("Deploy Reaper with Cassandra backend", func() {
 			By("wait for cassdc to be ready")
 			cassdcKey := types.NamespacedName{Namespace: namespace, Name: "reaper-test"}
 			cassdcRetryInterval := 15 * time.Second
-			cassdcTimeout := 7 * time.Minute
+			cassdcTimeout := 10 * time.Minute
 			err = framework.WaitForCassDcReady(cassdcKey, cassdcRetryInterval, cassdcTimeout)
 			Expect(err).ToNot(HaveOccurred(), "failed waiting for cassdc to become ready")
 
