@@ -39,7 +39,7 @@ jobs:
           version: v0.10.0
           node_image: kindest/node:v1.20.2
           cluster_name: kind
-          config: test/config/kind/kind_config_1_worker.yaml
+          config: test/config/kind/kind_config_3_workers.yaml
       - name: Run e2e-test
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
