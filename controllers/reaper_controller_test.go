@@ -147,33 +147,6 @@ var _ = Describe("Reaper controller", func() {
 		Expect(len(service.OwnerReferences)).Should(Equal(1))
 		Expect(service.OwnerReferences[0].UID).Should(Equal(reaper.UID))
 
-		By("check that the schema is created")
-		// TODO Replace with fakeClient knowing we did call the schema creation
-		// 		And add a serviceName for the test-dc..
-		/*
-			jobKey := types.NamespacedName{Namespace: reaper.Namespace, Name: reaper.Name + "-schema"}
-			job := &v1batch.Job{}
-
-			Eventually(func() bool {
-				err := k8sClient.Get(context.Background(), jobKey, job)
-				if err != nil {
-					return false
-				}
-				return true
-			}, timeout, interval).Should(BeTrue(), "schema job creation check failed")
-
-			// We need to mock the job completion in order for the deployment to get created
-			jobPatch := client.MergeFrom(job.DeepCopy())
-			job.Status.Conditions = append(job.Status.Conditions, v1batch.JobCondition{
-				Type:   v1batch.JobComplete,
-				Status: corev1.ConditionTrue,
-			})
-			Expect(k8sClient.Status().Patch(context.Background(), job, jobPatch)).Should(Succeed())
-
-			Expect(len(job.OwnerReferences)).Should(Equal(1))
-			Expect(job.OwnerReferences[0].UID).Should(Equal(reaper.GetUID()))
-		*/
-
 		By("check that the deployment is created")
 		deploymentKey := types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName}
 		deployment := &appsv1.Deployment{}
@@ -234,43 +207,6 @@ var _ = Describe("Reaper controller", func() {
 			},
 		}
 		Expect(k8sClient.Create(context.Background(), service)).Should(Succeed())
-
-		By("create the schema job")
-		// TODO Replace this part also
-		/*
-			jobKey := types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName + "-schema"}
-			// We can use a fake job here with only the required properties set. Since the job already
-			// exists, the reconciler will just check its status. There are unit tests to verify that
-			// the job is created as expected.
-			job := &v1batch.Job{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: jobKey.Namespace,
-					Name:      jobKey.Name,
-				},
-				Spec: v1batch.JobSpec{
-					Template: corev1.PodTemplateSpec{
-						Spec: corev1.PodSpec{
-							RestartPolicy: corev1.RestartPolicyOnFailure,
-							Containers: []corev1.Container{
-								{
-									Name:  "fake-schema-job",
-									Image: "fake-schema-job:test",
-								},
-							},
-						},
-					},
-				},
-			}
-			Expect(k8sClient.Create(context.Background(), job)).Should(Succeed())
-
-			// We need to mock the job completion in order for the deployment to get created
-			jobPatch := client.MergeFrom(job.DeepCopy())
-			job.Status.Conditions = append(job.Status.Conditions, v1batch.JobCondition{
-				Type:   v1batch.JobComplete,
-				Status: corev1.ConditionTrue,
-			})
-			Expect(k8sClient.Status().Patch(context.Background(), job, jobPatch)).Should(Succeed())
-		*/
 
 		By("create the deployment")
 		// We can use a fake deployment here with only the required properties set. Since the deployment
@@ -336,26 +272,6 @@ var _ = Describe("Reaper controller", func() {
 		}
 		Expect(k8sClient.Create(context.Background(), reaper)).Should(Succeed())
 
-		// Remove unnecessary parts, verify that the deployment has envVar set for autoscheduling
-		By("check that the schema is created")
-		// TODO Fix this
-		/*
-			jobKey := types.NamespacedName{Namespace: reaper.Namespace, Name: reaper.Name + "-schema"}
-			job := &v1batch.Job{}
-
-			Eventually(func() bool {
-				err := k8sClient.Get(context.Background(), jobKey, job)
-				return err == nil
-			}, timeout, interval).Should(BeTrue(), "schema job creation check failed")
-
-			// We need to mock the job completion in order for the deployment to get created
-			jobPatch := client.MergeFrom(job.DeepCopy())
-			job.Status.Conditions = append(job.Status.Conditions, v1batch.JobCondition{
-				Type:   v1batch.JobComplete,
-				Status: corev1.ConditionTrue,
-			})
-			Expect(k8sClient.Status().Patch(context.Background(), job, jobPatch)).Should(Succeed())
-		*/
 		By("check that the deployment is created")
 		deploymentKey := types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName}
 		deployment := &appsv1.Deployment{}
@@ -394,35 +310,6 @@ var _ = Describe("Reaper controller", func() {
 		reaper := createReaper(ReaperNamespace)
 		reaper.Spec.ServerConfig.CassandraBackend.CassandraUserSecretName = "top-secret-cass"
 		Expect(k8sClient.Create(context.Background(), reaper)).Should(Succeed())
-
-		By("check that the schema job is created")
-		// TODO Fix this
-		/*
-			jobKey := types.NamespacedName{Namespace: reaper.Namespace, Name: reaper.Name + "-schema"}
-			job := &v1batch.Job{}
-
-			Eventually(func() bool {
-				err := k8sClient.Get(context.Background(), jobKey, job)
-				return err == nil
-			}, timeout, interval).Should(BeTrue(), "schema job creation check failed")
-
-			By("verify schema job has EnvVars set")
-			Expect(job.Spec.Template.Spec.Containers[0].Env).Should(HaveLen(5))
-			Expect(job.Spec.Template.Spec.Containers[0].Env[3].Name).To(Equal("USERNAME"))
-			Expect(job.Spec.Template.Spec.Containers[0].Env[3].ValueFrom.SecretKeyRef.LocalObjectReference.Name).To(Equal("top-secret-cass"))
-			Expect(job.Spec.Template.Spec.Containers[0].Env[3].ValueFrom.SecretKeyRef.Key).To(Equal("username"))
-			Expect(job.Spec.Template.Spec.Containers[0].Env[4].Name).To(Equal("PASSWORD"))
-			Expect(job.Spec.Template.Spec.Containers[0].Env[4].ValueFrom.SecretKeyRef.LocalObjectReference.Name).To(Equal("top-secret-cass"))
-			Expect(job.Spec.Template.Spec.Containers[0].Env[4].ValueFrom.SecretKeyRef.Key).To(Equal("password"))
-
-			// We need to mock the job completion in order for the deployment to get created
-			jobPatch := client.MergeFrom(job.DeepCopy())
-			job.Status.Conditions = append(job.Status.Conditions, v1batch.JobCondition{
-				Type:   v1batch.JobComplete,
-				Status: corev1.ConditionTrue,
-			})
-			Expect(k8sClient.Status().Patch(context.Background(), job, jobPatch)).Should(Succeed())
-		*/
 
 		By("check that the deployment is created")
 		deploymentKey := types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName}
