@@ -16,9 +16,6 @@ import (
 )
 
 const (
-	defaultRetryInterval = 30 * time.Second
-	defaultTimeout       = 3 * time.Minute
-
 	// kustomize currently does not support setting fields dynamically at runtime from the
 	// command line. For now the namespace has to match the namespace declared in the
 	// test/config/test_dir/kustomization.yaml file. See
@@ -29,10 +26,6 @@ const (
 	reaperName = "cass-backend"
 )
 
-var (
-	namespaceBase = "reaper-cass-backend"
-)
-
 var _ = Describe("Deploy Reaper with Cassandra backend", func() {
 	Context("When a Cassandra cluster is deployed", func() {
 		Specify("Reaper is deployed", func() {
@@ -40,8 +33,12 @@ var _ = Describe("Deploy Reaper with Cassandra backend", func() {
 			err := framework.CreateNamespace(namespace)
 			Expect(err).ToNot(HaveOccurred())
 
+			By("deploy CRDs")
+			framework.KustomizeAndApply(namespace, "deploy_crds", false)
+			framework.WaitForCRDs(namespace)
+
 			By("deploy cass-operator and reaper-operator")
-			framework.KustomizeAndApply(namespace, "deploy_reaper_test")
+			framework.KustomizeAndApply(namespace, "deploy_reaper_test", true)
 
 			By("wait for cass-operator to be ready")
 			err = framework.WaitForCassOperatorReady(namespace)

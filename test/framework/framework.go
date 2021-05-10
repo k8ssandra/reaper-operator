@@ -71,16 +71,18 @@ func Init() {
 // the TEST_OVERLAY environment variable to specify the fork overlay to use. When
 // TEST_OVERLAY is set this function will run kustomize build on
 // dir/overlays/forks/TEST_OVERLAY which will allow you to use a custom operator image.
-func KustomizeAndApply(namespace, dir string) {
-	kustomizeDir := ""
-
+func KustomizeAndApply(namespace, dir string, useOverlay bool) {
 	path, err := os.Getwd()
 	Expect(err).ToNot(HaveOccurred())
 
-	if overlay, found := os.LookupEnv("TEST_OVERLAY"); found {
-		kustomizeDir = filepath.Clean(path + "/../config/" + dir + "/overlays/forks/" + overlay)
-	} else {
-		kustomizeDir = filepath.Clean(path + "/../config/" + dir + "/overlays/" + defaultOverlay)
+	kustomizeDir := path + "/../config/" + dir
+
+	if useOverlay {
+		if overlay, found := os.LookupEnv("TEST_OVERLAY"); found {
+			kustomizeDir = filepath.Clean(kustomizeDir + "/overlays/forks/" + overlay)
+		} else {
+			kustomizeDir = filepath.Clean(kustomizeDir + "/overlays/" + defaultOverlay)
+		}
 	}
 
 	GinkgoWriter.Write([]byte("RUNNING: kustomize build " + kustomizeDir))
@@ -96,6 +98,23 @@ func KustomizeAndApply(namespace, dir string) {
 	out, err := kubectl.CombinedOutput()
 	GinkgoWriter.Write(out)
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("kubectl apply failed: %s", err))
+}
+
+func WaitForCRDs(namespace string) {
+	// Wait for Reaper CRD
+	var stdout bytes.Buffer
+	kubectl := exec.Command("kubectl", "-n", namespace, "wait", "--for", "condition=established", "--timeout=60s", "crd/reapers.reaper.cassandra-reaper.io")
+	kubectl.Stdin = &stdout
+	out, err := kubectl.CombinedOutput()
+	GinkgoWriter.Write(out)
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("kubectl wait failed: %s", err))
+
+	// Wait for CassandraDatacenter CRD
+	kubectl = exec.Command("kubectl", "-n", namespace, "wait", "--for", "condition=established", "--timeout=60s", "crd/cassandradatacenters.cassandra.datastax.com")
+	kubectl.Stdin = &stdout
+	out, err = kubectl.CombinedOutput()
+	GinkgoWriter.Write(out)
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("kubectl wait failed: %s", err))
 }
 
 func ApplyFile(namespace, file string) {

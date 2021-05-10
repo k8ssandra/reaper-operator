@@ -8,7 +8,7 @@ spec:
   clusterName: reaper-test
   serverType: cassandra
   serverVersion: 3.11.10
-  serverImage: datastax/cassandra-mgmtapi-3_11_10:v0.1.23
+  serverImage: k8ssandra/cass-management-api:3.11.10-v0.1.25
   dockerImageRunsAsCassandra: true
   managementApiAuth:
     insecure: {}
