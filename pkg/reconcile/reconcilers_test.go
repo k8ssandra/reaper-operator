@@ -38,6 +38,7 @@ func TestNewService(t *testing.T) {
 }
 
 func TestNewDeployment(t *testing.T) {
+	assert := assert.New(t)
 	image := "test/reaper:latest"
 	reaper := newReaperWithCassandraBackend()
 	reaper.Spec.Image = image
@@ -47,13 +48,13 @@ func TestNewDeployment(t *testing.T) {
 	labels := createLabels(reaper)
 	deployment := newDeployment(reaper, "target-datacenter-service")
 
-	assert.Equal(t, reaper.Namespace, deployment.Namespace)
-	assert.Equal(t, reaper.Name, deployment.Name)
-	assert.Equal(t, labels, deployment.Labels)
+	assert.Equal(reaper.Namespace, deployment.Namespace)
+	assert.Equal(reaper.Name, deployment.Name)
+	assert.Equal(labels, deployment.Labels)
 
 	selector := deployment.Spec.Selector
-	assert.Equal(t, 0, len(selector.MatchLabels))
-	assert.ElementsMatch(t, selector.MatchExpressions, []metav1.LabelSelectorRequirement{
+	assert.Equal(0, len(selector.MatchLabels))
+	assert.ElementsMatch(selector.MatchExpressions, []metav1.LabelSelectorRequirement{
 		{
 			Key:      mlabels.ManagedByLabel,
 			Operator: metav1.LabelSelectorOpIn,
@@ -66,15 +67,15 @@ func TestNewDeployment(t *testing.T) {
 		},
 	})
 
-	assert.Equal(t, labels, deployment.Spec.Template.Labels)
+	assert.Equal(labels, deployment.Spec.Template.Labels)
 
 	podSpec := deployment.Spec.Template.Spec
-	assert.Equal(t, 1, len(podSpec.Containers))
+	assert.Equal(1, len(podSpec.Containers))
 
 	container := podSpec.Containers[0]
-	assert.Equal(t, image, container.Image)
-	assert.Equal(t, corev1.PullAlways, container.ImagePullPolicy)
-	assert.ElementsMatch(t, container.Env, []corev1.EnvVar{
+	assert.Equal(image, container.Image)
+	assert.Equal(corev1.PullAlways, container.ImagePullPolicy)
+	assert.ElementsMatch(container.Env, []corev1.EnvVar{
 		{
 			Name:  "REAPER_STORAGE_TYPE",
 			Value: "cassandra",
@@ -97,6 +98,52 @@ func TestNewDeployment(t *testing.T) {
 		},
 	})
 
+	reaper.Spec.ServerConfig.AutoScheduling = &api.AutoScheduler{
+		Enabled:              false,
+		InitialDelay:         "PT10S",
+		PeriodBetweenPolls:   "PT5M",
+		BeforeFirstSchedule:  "PT10M",
+		ScheduleSpreadPeriod: "PT6H",
+		ExcludedClusters:     []string{"a", "b"},
+		ExcludedKeyspace:     []string{"system.powers"},
+	}
+
+	deployment = newDeployment(reaper, "target-datacenter-service")
+	podSpec = deployment.Spec.Template.Spec
+	container = podSpec.Containers[0]
+	assert.Equal(4, len(container.Env))
+
+	reaper.Spec.ServerConfig.AutoScheduling.Enabled = true
+	deployment = newDeployment(reaper, "target-datacenter-service")
+	podSpec = deployment.Spec.Template.Spec
+	container = podSpec.Containers[0]
+	assert.Equal(11, len(container.Env))
+
+	assert.Contains(container.Env, corev1.EnvVar{
+		Name:  "REAPER_AUTO_SCHEDULING_PERIOD_BETWEEN_POLLS",
+		Value: "PT5M",
+	})
+
+	assert.Contains(container.Env, corev1.EnvVar{
+		Name:  "REAPER_AUTO_SCHEDULING_TIME_BEFORE_FIRST_SCHEDULE",
+		Value: "PT10M",
+	})
+
+	assert.Contains(container.Env, corev1.EnvVar{
+		Name:  "REAPER_AUTO_SCHEDULING_INITIAL_DELAY_PERIOD",
+		Value: "PT10S",
+	})
+
+	assert.Contains(container.Env, corev1.EnvVar{
+		Name:  "REAPER_AUTO_SCHEDULING_EXCLUDED_CLUSTERS",
+		Value: "[a, b]",
+	})
+
+	assert.Contains(container.Env, corev1.EnvVar{
+		Name:  "REAPER_AUTO_SCHEDULING_EXCLUDED_KEYSPACES",
+		Value: "[system.powers]",
+	})
+
 	probe := &corev1.Probe{
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
@@ -107,8 +154,8 @@ func TestNewDeployment(t *testing.T) {
 		InitialDelaySeconds: 45,
 		PeriodSeconds:       15,
 	}
-	assert.Equal(t, probe, container.LivenessProbe)
-	assert.Equal(t, probe, container.ReadinessProbe)
+	assert.Equal(probe, container.LivenessProbe)
+	assert.Equal(probe, container.ReadinessProbe)
 }
 
 func TestTolerations(t *testing.T) {
