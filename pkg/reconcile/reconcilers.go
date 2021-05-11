@@ -3,6 +3,7 @@ package reconcile
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -452,6 +453,42 @@ func newDeployment(reaper *api.Reaper, cassDcService string) *appsv1.Deployment 
 				Name:  "REAPER_AUTO_SCHEDULING_ENABLED",
 				Value: "true",
 			})
+			if reaper.Spec.ServerConfig.AutoScheduling.InitialDelay != "" {
+				envVars = append(envVars, corev1.EnvVar{
+					Name:  "REAPER_AUTO_SCHEDULING_INITIAL_DELAY_PERIOD",
+					Value: reaper.Spec.ServerConfig.AutoScheduling.InitialDelay,
+				})
+			}
+			if reaper.Spec.ServerConfig.AutoScheduling.PeriodBetweenPolls != "" {
+				envVars = append(envVars, corev1.EnvVar{
+					Name:  "REAPER_AUTO_SCHEDULING_PERIOD_BETWEEN_POLLS",
+					Value: reaper.Spec.ServerConfig.AutoScheduling.PeriodBetweenPolls,
+				})
+			}
+			if reaper.Spec.ServerConfig.AutoScheduling.BeforeFirstSchedule != "" {
+				envVars = append(envVars, corev1.EnvVar{
+					Name:  "REAPER_AUTO_SCHEDULING_TIME_BEFORE_FIRST_SCHEDULE",
+					Value: reaper.Spec.ServerConfig.AutoScheduling.BeforeFirstSchedule,
+				})
+			}
+			if reaper.Spec.ServerConfig.AutoScheduling.ScheduleSpreadPeriod != "" {
+				envVars = append(envVars, corev1.EnvVar{
+					Name:  "REAPER_AUTO_SCHEDULING_SCHEDULE_SPREAD_PERIOD",
+					Value: reaper.Spec.ServerConfig.AutoScheduling.ScheduleSpreadPeriod,
+				})
+			}
+			if reaper.Spec.ServerConfig.AutoScheduling.ExcludedClusters != nil {
+				envVars = append(envVars, corev1.EnvVar{
+					Name:  "REAPER_AUTO_SCHEDULING_EXCLUDED_CLUSTERS",
+					Value: fmt.Sprintf("[%s]", strings.Join(reaper.Spec.ServerConfig.AutoScheduling.ExcludedClusters, ", ")),
+				})
+			}
+			if reaper.Spec.ServerConfig.AutoScheduling.ExcludedKeyspace != nil {
+				envVars = append(envVars, corev1.EnvVar{
+					Name:  "REAPER_AUTO_SCHEDULING_EXCLUDED_KEYSPACES",
+					Value: fmt.Sprintf("[%s]", strings.Join(reaper.Spec.ServerConfig.AutoScheduling.ExcludedKeyspace, ", ")),
+				})
+			}
 		}
 	}
 

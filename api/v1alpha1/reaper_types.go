@@ -52,7 +52,13 @@ type ServerConfig struct {
 
 // AutoScheduler includes options to configure the autoscheduling of repairs for new clusters
 type AutoScheduler struct {
-	Enabled bool `json:"enabled,omitempty"`
+	Enabled              bool     `json:"enabled,omitempty"`
+	InitialDelay         string   `json:"initialDelayPeriod,omitempty"`
+	PeriodBetweenPolls   string   `json:"periodBetweenPolls,omitempty"`
+	BeforeFirstSchedule  string   `json:"timeBeforeFirstSchedule,omitempty"`
+	ScheduleSpreadPeriod string   `json:"scheduleSpreadPeriod,omitempty"`
+	ExcludedClusters     []string `json:"excludedClusters,omitempty"`
+	ExcludedKeyspace     []string `json:"excludedKeyspaces,omitempty"`
 }
 
 // Specifies the replication strategy for a keyspace
