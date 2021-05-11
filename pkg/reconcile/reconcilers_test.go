@@ -37,40 +37,6 @@ func TestNewService(t *testing.T) {
 	assert.Equal(t, port, service.Spec.Ports[0])
 }
 
-/*
-func TestNewSchemaJob(t *testing.T) {
-	reaper := newReaperWithCassandraBackend()
-
-	job := newSchemaJob(reaper, "target-datacenter-service")
-
-	assert.Equal(t, getSchemaJobName(reaper), job.Name)
-	assert.Equal(t, reaper.Namespace, job.Namespace)
-	assert.Equal(t, createLabels(reaper), job.Labels)
-
-	podSpec := job.Spec.Template.Spec
-	assert.Equal(t, corev1.RestartPolicyOnFailure, podSpec.RestartPolicy)
-	assert.Equal(t, 1, len(podSpec.Containers))
-
-	container := podSpec.Containers[0]
-	assert.Equal(t, schemaJobImage, container.Image)
-	assert.Equal(t, schemaJobImagePullPolicy, container.ImagePullPolicy)
-	assert.ElementsMatch(t, container.Env, []corev1.EnvVar{
-		{
-			Name:  "KEYSPACE",
-			Value: api.DefaultKeyspace,
-		},
-		{
-			Name:  "CONTACT_POINTS",
-			Value: "target-datacenter-service",
-		},
-		{
-			Name:  "REPLICATION",
-			Value: config.ReplicationToString(reaper.Spec.ServerConfig.CassandraBackend.Replication),
-		},
-	})
-}
-*/
-
 func TestNewDeployment(t *testing.T) {
 	image := "test/reaper:latest"
 	reaper := newReaperWithCassandraBackend()

@@ -89,8 +89,6 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cfg).ToNot(BeNil())
 
-	// time.Sleep(20 * time.Second)
-
 	err = clientgoscheme.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
