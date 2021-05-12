@@ -1,4 +1,3 @@
-# Source: cass-operator/templates/customresourcedefinition.yaml
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
@@ -10,8 +9,8 @@ spec:
     listKind: CassandraDatacenterList
     plural: cassandradatacenters
     shortNames:
-      - cassdc
-      - cassdcs
+    - cassdc
+    - cassdcs
     singular: cassandradatacenter
   scope: Namespaced
   subresources:
@@ -40,6 +39,79 @@ spec:
               items:
                 type: string
               type: array
+            additionalServiceConfig:
+              description: AdditionalServiceConfig allows to define additional parameters
+                that are included in the created Services. Note, user can override
+                values set by cass-operator and doing so could break cass-operator
+                functionality. Avoid label "cass-operator" and anything that starts
+                with "cassandra.datastax.com/"
+              properties:
+                additionalSeedService:
+                  description: ServiceConfigAdditions exposes additional options for
+                    each service
+                  properties:
+                    additionalAnnotations:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    additionalLabels:
+                      additionalProperties:
+                        type: string
+                      type: object
+                  type: object
+                allpodsService:
+                  description: ServiceConfigAdditions exposes additional options for
+                    each service
+                  properties:
+                    additionalAnnotations:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    additionalLabels:
+                      additionalProperties:
+                        type: string
+                      type: object
+                  type: object
+                dcService:
+                  description: ServiceConfigAdditions exposes additional options for
+                    each service
+                  properties:
+                    additionalAnnotations:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    additionalLabels:
+                      additionalProperties:
+                        type: string
+                      type: object
+                  type: object
+                nodePortService:
+                  description: ServiceConfigAdditions exposes additional options for
+                    each service
+                  properties:
+                    additionalAnnotations:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    additionalLabels:
+                      additionalProperties:
+                        type: string
+                      type: object
+                  type: object
+                seedService:
+                  description: ServiceConfigAdditions exposes additional options for
+                    each service
+                  properties:
+                    additionalAnnotations:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    additionalLabels:
+                      additionalProperties:
+                        type: string
+                      type: object
+                  type: object
+              type: object
             allowMultipleNodesPerWorker:
               description: Turning this option on allows multiple server pods to be
                 created on a k8s worker node. By default the operator creates just
@@ -72,8 +144,8 @@ spec:
                 limits:
                   additionalProperties:
                     anyOf:
-                      - type: integer
-                      - type: string
+                    - type: integer
+                    - type: string
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     x-kubernetes-int-or-string: true
                   description: 'Limits describes the maximum amount of compute resources
@@ -82,8 +154,8 @@ spec:
                 requests:
                   additionalProperties:
                     anyOf:
-                      - type: integer
-                      - type: string
+                    - type: integer
+                    - type: string
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     x-kubernetes-int-or-string: true
                   description: 'Requests describes the minimum amount of compute resources
@@ -92,6 +164,17 @@ spec:
                     value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
                   type: object
               type: object
+            configSecret:
+              description: "ConfigSecret is the name of a secret that contains configuration
+                for Cassandra. The secret is expected to have a property named config
+                whose value should be a JSON formatted string that should look like
+                this: \n    config: |-      {        \"cassandra-yaml\": {          \"read_request_timeout_in_ms\":
+                10000        },        \"jmv-options\": {          \"max_heap_size\":
+                1024M        }      } \n ConfigSecret is mutually exclusive with Config.
+                ConfigSecret takes precedence and will be used exclusively if both
+                properties are set. The operator sets a watch such that an update
+                to the secret will trigger an update of the StatefulSets."
+              type: string
             disableSystemLoggerSidecar:
               description: Configuration for disabling the simple log tailing sidecar
                 container. Our default is to have it enabled.
@@ -129,8 +212,8 @@ spec:
                     skipSecretValidation:
                       type: boolean
                   required:
-                    - clientSecretName
-                    - serverSecretName
+                  - clientSecretName
+                  - serverSecretName
                   type: object
               type: object
             networking:
@@ -241,8 +324,8 @@ spec:
                                                 type: string
                                               type: array
                                           required:
-                                            - key
-                                            - operator
+                                          - key
+                                          - operator
                                           type: object
                                         type: array
                                       matchFields:
@@ -279,8 +362,8 @@ spec:
                                                 type: string
                                               type: array
                                           required:
-                                            - key
-                                            - operator
+                                          - key
+                                          - operator
                                           type: object
                                         type: array
                                     type: object
@@ -291,8 +374,8 @@ spec:
                                     format: int32
                                     type: integer
                                 required:
-                                  - preference
-                                  - weight
+                                - preference
+                                - weight
                                 type: object
                               type: array
                             requiredDuringSchedulingIgnoredDuringExecution:
@@ -347,8 +430,8 @@ spec:
                                                 type: string
                                               type: array
                                           required:
-                                            - key
-                                            - operator
+                                          - key
+                                          - operator
                                           type: object
                                         type: array
                                       matchFields:
@@ -385,14 +468,14 @@ spec:
                                                 type: string
                                               type: array
                                           required:
-                                            - key
-                                            - operator
+                                          - key
+                                          - operator
                                           type: object
                                         type: array
                                     type: object
                                   type: array
                               required:
-                                - nodeSelectorTerms
+                              - nodeSelectorTerms
                               type: object
                           type: object
                         podAffinity:
@@ -459,8 +542,8 @@ spec:
                                                     type: string
                                                   type: array
                                               required:
-                                                - key
-                                                - operator
+                                              - key
+                                              - operator
                                               type: object
                                             type: array
                                           matchLabels:
@@ -493,7 +576,7 @@ spec:
                                           allowed.
                                         type: string
                                     required:
-                                      - topologyKey
+                                    - topologyKey
                                     type: object
                                   weight:
                                     description: weight associated with matching the
@@ -502,8 +585,8 @@ spec:
                                     format: int32
                                     type: integer
                                 required:
-                                  - podAffinityTerm
-                                  - weight
+                                - podAffinityTerm
+                                - weight
                                 type: object
                               type: array
                             requiredDuringSchedulingIgnoredDuringExecution:
@@ -562,8 +645,8 @@ spec:
                                                 type: string
                                               type: array
                                           required:
-                                            - key
-                                            - operator
+                                          - key
+                                          - operator
                                           type: object
                                         type: array
                                       matchLabels:
@@ -595,7 +678,7 @@ spec:
                                       is not allowed.
                                     type: string
                                 required:
-                                  - topologyKey
+                                - topologyKey
                                 type: object
                               type: array
                           type: object
@@ -663,8 +746,8 @@ spec:
                                                     type: string
                                                   type: array
                                               required:
-                                                - key
-                                                - operator
+                                              - key
+                                              - operator
                                               type: object
                                             type: array
                                           matchLabels:
@@ -697,7 +780,7 @@ spec:
                                           allowed.
                                         type: string
                                     required:
-                                      - topologyKey
+                                    - topologyKey
                                     type: object
                                   weight:
                                     description: weight associated with matching the
@@ -706,8 +789,8 @@ spec:
                                     format: int32
                                     type: integer
                                 required:
-                                  - podAffinityTerm
-                                  - weight
+                                - podAffinityTerm
+                                - weight
                                 type: object
                               type: array
                             requiredDuringSchedulingIgnoredDuringExecution:
@@ -766,8 +849,8 @@ spec:
                                                 type: string
                                               type: array
                                           required:
-                                            - key
-                                            - operator
+                                          - key
+                                          - operator
                                           type: object
                                         type: array
                                       matchLabels:
@@ -799,7 +882,7 @@ spec:
                                       is not allowed.
                                     type: string
                                 required:
-                                  - topologyKey
+                                - topologyKey
                                 type: object
                               type: array
                           type: object
@@ -885,7 +968,7 @@ spec:
                                             or its key must be defined
                                           type: boolean
                                       required:
-                                        - key
+                                      - key
                                       type: object
                                     fieldRef:
                                       description: 'Selects a field of the pod: supports
@@ -902,7 +985,7 @@ spec:
                                             in the specified API version.
                                           type: string
                                       required:
-                                        - fieldPath
+                                      - fieldPath
                                       type: object
                                     resourceFieldRef:
                                       description: 'Selects a resource of the container:
@@ -917,8 +1000,8 @@ spec:
                                           type: string
                                         divisor:
                                           anyOf:
-                                            - type: integer
-                                            - type: string
+                                          - type: integer
+                                          - type: string
                                           description: Specifies the output format
                                             of the exposed resources, defaults to
                                             "1"
@@ -928,7 +1011,7 @@ spec:
                                           description: 'Required: resource to select'
                                           type: string
                                       required:
-                                        - resource
+                                      - resource
                                       type: object
                                     secretKeyRef:
                                       description: Selects a key of a secret in the
@@ -949,11 +1032,11 @@ spec:
                                             or its key must be defined
                                           type: boolean
                                       required:
-                                        - key
+                                      - key
                                       type: object
                                   type: object
                               required:
-                                - name
+                              - name
                               type: object
                             type: array
                           envFrom:
@@ -1070,8 +1153,8 @@ spec:
                                               description: The header field value
                                               type: string
                                           required:
-                                            - name
-                                            - value
+                                          - name
+                                          - value
                                           type: object
                                         type: array
                                       path:
@@ -1079,8 +1162,8 @@ spec:
                                         type: string
                                       port:
                                         anyOf:
-                                          - type: integer
-                                          - type: string
+                                        - type: integer
+                                        - type: string
                                         description: Name or number of the port to
                                           access on the container. Number must be
                                           in the range 1 to 65535. Name must be an
@@ -1091,7 +1174,7 @@ spec:
                                           to the host. Defaults to HTTP.
                                         type: string
                                     required:
-                                      - port
+                                    - port
                                     type: object
                                   tcpSocket:
                                     description: 'TCPSocket specifies an action involving
@@ -1104,15 +1187,15 @@ spec:
                                         type: string
                                       port:
                                         anyOf:
-                                          - type: integer
-                                          - type: string
+                                        - type: integer
+                                        - type: string
                                         description: Number or name of the port to
                                           access on the container. Number must be
                                           in the range 1 to 65535. Name must be an
                                           IANA_SVC_NAME.
                                         x-kubernetes-int-or-string: true
                                     required:
-                                      - port
+                                    - port
                                     type: object
                                 type: object
                               preStop:
@@ -1173,8 +1256,8 @@ spec:
                                               description: The header field value
                                               type: string
                                           required:
-                                            - name
-                                            - value
+                                          - name
+                                          - value
                                           type: object
                                         type: array
                                       path:
@@ -1182,8 +1265,8 @@ spec:
                                         type: string
                                       port:
                                         anyOf:
-                                          - type: integer
-                                          - type: string
+                                        - type: integer
+                                        - type: string
                                         description: Name or number of the port to
                                           access on the container. Number must be
                                           in the range 1 to 65535. Name must be an
@@ -1194,7 +1277,7 @@ spec:
                                           to the host. Defaults to HTTP.
                                         type: string
                                     required:
-                                      - port
+                                    - port
                                     type: object
                                   tcpSocket:
                                     description: 'TCPSocket specifies an action involving
@@ -1207,15 +1290,15 @@ spec:
                                         type: string
                                       port:
                                         anyOf:
-                                          - type: integer
-                                          - type: string
+                                        - type: integer
+                                        - type: string
                                         description: Number or name of the port to
                                           access on the container. Number must be
                                           in the range 1 to 65535. Name must be an
                                           IANA_SVC_NAME.
                                         x-kubernetes-int-or-string: true
                                     required:
-                                      - port
+                                    - port
                                     type: object
                                 type: object
                             type: object
@@ -1271,8 +1354,8 @@ spec:
                                           description: The header field value
                                           type: string
                                       required:
-                                        - name
-                                        - value
+                                      - name
+                                      - value
                                       type: object
                                     type: array
                                   path:
@@ -1280,8 +1363,8 @@ spec:
                                     type: string
                                   port:
                                     anyOf:
-                                      - type: integer
-                                      - type: string
+                                    - type: integer
+                                    - type: string
                                     description: Name or number of the port to access
                                       on the container. Number must be in the range
                                       1 to 65535. Name must be an IANA_SVC_NAME.
@@ -1291,7 +1374,7 @@ spec:
                                       host. Defaults to HTTP.
                                     type: string
                                 required:
-                                  - port
+                                - port
                                 type: object
                               initialDelaySeconds:
                                 description: 'Number of seconds after the container
@@ -1322,14 +1405,14 @@ spec:
                                     type: string
                                   port:
                                     anyOf:
-                                      - type: integer
-                                      - type: string
+                                    - type: integer
+                                    - type: string
                                     description: Number or name of the port to access
                                       on the container. Number must be in the range
                                       1 to 65535. Name must be an IANA_SVC_NAME.
                                     x-kubernetes-int-or-string: true
                                 required:
-                                  - port
+                                - port
                                 type: object
                               timeoutSeconds:
                                 description: 'Number of seconds after which the probe
@@ -1385,7 +1468,7 @@ spec:
                                     or SCTP. Defaults to "TCP".
                                   type: string
                               required:
-                                - containerPort
+                              - containerPort
                               type: object
                             type: array
                           readinessProbe:
@@ -1440,8 +1523,8 @@ spec:
                                           description: The header field value
                                           type: string
                                       required:
-                                        - name
-                                        - value
+                                      - name
+                                      - value
                                       type: object
                                     type: array
                                   path:
@@ -1449,8 +1532,8 @@ spec:
                                     type: string
                                   port:
                                     anyOf:
-                                      - type: integer
-                                      - type: string
+                                    - type: integer
+                                    - type: string
                                     description: Name or number of the port to access
                                       on the container. Number must be in the range
                                       1 to 65535. Name must be an IANA_SVC_NAME.
@@ -1460,7 +1543,7 @@ spec:
                                       host. Defaults to HTTP.
                                     type: string
                                 required:
-                                  - port
+                                - port
                                 type: object
                               initialDelaySeconds:
                                 description: 'Number of seconds after the container
@@ -1491,14 +1574,14 @@ spec:
                                     type: string
                                   port:
                                     anyOf:
-                                      - type: integer
-                                      - type: string
+                                    - type: integer
+                                    - type: string
                                     description: Number or name of the port to access
                                       on the container. Number must be in the range
                                       1 to 65535. Name must be an IANA_SVC_NAME.
                                     x-kubernetes-int-or-string: true
                                 required:
-                                  - port
+                                - port
                                 type: object
                               timeoutSeconds:
                                 description: 'Number of seconds after which the probe
@@ -1514,8 +1597,8 @@ spec:
                               limits:
                                 additionalProperties:
                                   anyOf:
-                                    - type: integer
-                                    - type: string
+                                  - type: integer
+                                  - type: string
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 description: 'Limits describes the maximum amount
@@ -1524,8 +1607,8 @@ spec:
                               requests:
                                 additionalProperties:
                                   anyOf:
-                                    - type: integer
-                                    - type: string
+                                  - type: integer
+                                  - type: string
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 description: 'Requests describes the minimum amount
@@ -1730,8 +1813,8 @@ spec:
                                           description: The header field value
                                           type: string
                                       required:
-                                        - name
-                                        - value
+                                      - name
+                                      - value
                                       type: object
                                     type: array
                                   path:
@@ -1739,8 +1822,8 @@ spec:
                                     type: string
                                   port:
                                     anyOf:
-                                      - type: integer
-                                      - type: string
+                                    - type: integer
+                                    - type: string
                                     description: Name or number of the port to access
                                       on the container. Number must be in the range
                                       1 to 65535. Name must be an IANA_SVC_NAME.
@@ -1750,7 +1833,7 @@ spec:
                                       host. Defaults to HTTP.
                                     type: string
                                 required:
-                                  - port
+                                - port
                                 type: object
                               initialDelaySeconds:
                                 description: 'Number of seconds after the container
@@ -1781,14 +1864,14 @@ spec:
                                     type: string
                                   port:
                                     anyOf:
-                                      - type: integer
-                                      - type: string
+                                    - type: integer
+                                    - type: string
                                     description: Number or name of the port to access
                                       on the container. Number must be in the range
                                       1 to 65535. Name must be an IANA_SVC_NAME.
                                     x-kubernetes-int-or-string: true
                                 required:
-                                  - port
+                                - port
                                 type: object
                               timeoutSeconds:
                                 description: 'Number of seconds after which the probe
@@ -1857,8 +1940,8 @@ spec:
                                     in the pod
                                   type: string
                               required:
-                                - devicePath
-                                - name
+                              - devicePath
+                              - name
                               type: object
                             type: array
                           volumeMounts:
@@ -1901,8 +1984,8 @@ spec:
                                     root). SubPathExpr and SubPath are mutually exclusive.
                                   type: string
                               required:
-                                - mountPath
-                                - name
+                              - mountPath
+                              - name
                               type: object
                             type: array
                           workingDir:
@@ -1912,7 +1995,7 @@ spec:
                               updated.
                             type: string
                         required:
-                          - name
+                        - name
                         type: object
                       type: array
                     dnsConfig:
@@ -2059,7 +2142,7 @@ spec:
                                             or its key must be defined
                                           type: boolean
                                       required:
-                                        - key
+                                      - key
                                       type: object
                                     fieldRef:
                                       description: 'Selects a field of the pod: supports
@@ -2076,7 +2159,7 @@ spec:
                                             in the specified API version.
                                           type: string
                                       required:
-                                        - fieldPath
+                                      - fieldPath
                                       type: object
                                     resourceFieldRef:
                                       description: 'Selects a resource of the container:
@@ -2091,8 +2174,8 @@ spec:
                                           type: string
                                         divisor:
                                           anyOf:
-                                            - type: integer
-                                            - type: string
+                                          - type: integer
+                                          - type: string
                                           description: Specifies the output format
                                             of the exposed resources, defaults to
                                             "1"
@@ -2102,7 +2185,7 @@ spec:
                                           description: 'Required: resource to select'
                                           type: string
                                       required:
-                                        - resource
+                                      - resource
                                       type: object
                                     secretKeyRef:
                                       description: Selects a key of a secret in the
@@ -2123,11 +2206,11 @@ spec:
                                             or its key must be defined
                                           type: boolean
                                       required:
-                                        - key
+                                      - key
                                       type: object
                                   type: object
                               required:
-                                - name
+                              - name
                               type: object
                             type: array
                           envFrom:
@@ -2239,8 +2322,8 @@ spec:
                                               description: The header field value
                                               type: string
                                           required:
-                                            - name
-                                            - value
+                                          - name
+                                          - value
                                           type: object
                                         type: array
                                       path:
@@ -2248,8 +2331,8 @@ spec:
                                         type: string
                                       port:
                                         anyOf:
-                                          - type: integer
-                                          - type: string
+                                        - type: integer
+                                        - type: string
                                         description: Name or number of the port to
                                           access on the container. Number must be
                                           in the range 1 to 65535. Name must be an
@@ -2260,7 +2343,7 @@ spec:
                                           to the host. Defaults to HTTP.
                                         type: string
                                     required:
-                                      - port
+                                    - port
                                     type: object
                                   tcpSocket:
                                     description: 'TCPSocket specifies an action involving
@@ -2273,15 +2356,15 @@ spec:
                                         type: string
                                       port:
                                         anyOf:
-                                          - type: integer
-                                          - type: string
+                                        - type: integer
+                                        - type: string
                                         description: Number or name of the port to
                                           access on the container. Number must be
                                           in the range 1 to 65535. Name must be an
                                           IANA_SVC_NAME.
                                         x-kubernetes-int-or-string: true
                                     required:
-                                      - port
+                                    - port
                                     type: object
                                 type: object
                               preStop:
@@ -2342,8 +2425,8 @@ spec:
                                               description: The header field value
                                               type: string
                                           required:
-                                            - name
-                                            - value
+                                          - name
+                                          - value
                                           type: object
                                         type: array
                                       path:
@@ -2351,8 +2434,8 @@ spec:
                                         type: string
                                       port:
                                         anyOf:
-                                          - type: integer
-                                          - type: string
+                                        - type: integer
+                                        - type: string
                                         description: Name or number of the port to
                                           access on the container. Number must be
                                           in the range 1 to 65535. Name must be an
@@ -2363,7 +2446,7 @@ spec:
                                           to the host. Defaults to HTTP.
                                         type: string
                                     required:
-                                      - port
+                                    - port
                                     type: object
                                   tcpSocket:
                                     description: 'TCPSocket specifies an action involving
@@ -2376,15 +2459,15 @@ spec:
                                         type: string
                                       port:
                                         anyOf:
-                                          - type: integer
-                                          - type: string
+                                        - type: integer
+                                        - type: string
                                         description: Number or name of the port to
                                           access on the container. Number must be
                                           in the range 1 to 65535. Name must be an
                                           IANA_SVC_NAME.
                                         x-kubernetes-int-or-string: true
                                     required:
-                                      - port
+                                    - port
                                     type: object
                                 type: object
                             type: object
@@ -2438,8 +2521,8 @@ spec:
                                           description: The header field value
                                           type: string
                                       required:
-                                        - name
-                                        - value
+                                      - name
+                                      - value
                                       type: object
                                     type: array
                                   path:
@@ -2447,8 +2530,8 @@ spec:
                                     type: string
                                   port:
                                     anyOf:
-                                      - type: integer
-                                      - type: string
+                                    - type: integer
+                                    - type: string
                                     description: Name or number of the port to access
                                       on the container. Number must be in the range
                                       1 to 65535. Name must be an IANA_SVC_NAME.
@@ -2458,7 +2541,7 @@ spec:
                                       host. Defaults to HTTP.
                                     type: string
                                 required:
-                                  - port
+                                - port
                                 type: object
                               initialDelaySeconds:
                                 description: 'Number of seconds after the container
@@ -2489,14 +2572,14 @@ spec:
                                     type: string
                                   port:
                                     anyOf:
-                                      - type: integer
-                                      - type: string
+                                    - type: integer
+                                    - type: string
                                     description: Number or name of the port to access
                                       on the container. Number must be in the range
                                       1 to 65535. Name must be an IANA_SVC_NAME.
                                     x-kubernetes-int-or-string: true
                                 required:
-                                  - port
+                                - port
                                 type: object
                               timeoutSeconds:
                                 description: 'Number of seconds after which the probe
@@ -2545,7 +2628,7 @@ spec:
                                     or SCTP. Defaults to "TCP".
                                   type: string
                               required:
-                                - containerPort
+                              - containerPort
                               type: object
                             type: array
                           readinessProbe:
@@ -2598,8 +2681,8 @@ spec:
                                           description: The header field value
                                           type: string
                                       required:
-                                        - name
-                                        - value
+                                      - name
+                                      - value
                                       type: object
                                     type: array
                                   path:
@@ -2607,8 +2690,8 @@ spec:
                                     type: string
                                   port:
                                     anyOf:
-                                      - type: integer
-                                      - type: string
+                                    - type: integer
+                                    - type: string
                                     description: Name or number of the port to access
                                       on the container. Number must be in the range
                                       1 to 65535. Name must be an IANA_SVC_NAME.
@@ -2618,7 +2701,7 @@ spec:
                                       host. Defaults to HTTP.
                                     type: string
                                 required:
-                                  - port
+                                - port
                                 type: object
                               initialDelaySeconds:
                                 description: 'Number of seconds after the container
@@ -2649,14 +2732,14 @@ spec:
                                     type: string
                                   port:
                                     anyOf:
-                                      - type: integer
-                                      - type: string
+                                    - type: integer
+                                    - type: string
                                     description: Number or name of the port to access
                                       on the container. Number must be in the range
                                       1 to 65535. Name must be an IANA_SVC_NAME.
                                     x-kubernetes-int-or-string: true
                                 required:
-                                  - port
+                                - port
                                 type: object
                               timeoutSeconds:
                                 description: 'Number of seconds after which the probe
@@ -2673,8 +2756,8 @@ spec:
                               limits:
                                 additionalProperties:
                                   anyOf:
-                                    - type: integer
-                                    - type: string
+                                  - type: integer
+                                  - type: string
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 description: 'Limits describes the maximum amount
@@ -2683,8 +2766,8 @@ spec:
                               requests:
                                 additionalProperties:
                                   anyOf:
-                                    - type: integer
-                                    - type: string
+                                  - type: integer
+                                  - type: string
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 description: 'Requests describes the minimum amount
@@ -2879,8 +2962,8 @@ spec:
                                           description: The header field value
                                           type: string
                                       required:
-                                        - name
-                                        - value
+                                      - name
+                                      - value
                                       type: object
                                     type: array
                                   path:
@@ -2888,8 +2971,8 @@ spec:
                                     type: string
                                   port:
                                     anyOf:
-                                      - type: integer
-                                      - type: string
+                                    - type: integer
+                                    - type: string
                                     description: Name or number of the port to access
                                       on the container. Number must be in the range
                                       1 to 65535. Name must be an IANA_SVC_NAME.
@@ -2899,7 +2982,7 @@ spec:
                                       host. Defaults to HTTP.
                                     type: string
                                 required:
-                                  - port
+                                - port
                                 type: object
                               initialDelaySeconds:
                                 description: 'Number of seconds after the container
@@ -2930,14 +3013,14 @@ spec:
                                     type: string
                                   port:
                                     anyOf:
-                                      - type: integer
-                                      - type: string
+                                    - type: integer
+                                    - type: string
                                     description: Number or name of the port to access
                                       on the container. Number must be in the range
                                       1 to 65535. Name must be an IANA_SVC_NAME.
                                     x-kubernetes-int-or-string: true
                                 required:
-                                  - port
+                                - port
                                 type: object
                               timeoutSeconds:
                                 description: 'Number of seconds after which the probe
@@ -3014,8 +3097,8 @@ spec:
                                     in the pod
                                   type: string
                               required:
-                                - devicePath
-                                - name
+                              - devicePath
+                              - name
                               type: object
                             type: array
                           volumeMounts:
@@ -3058,8 +3141,8 @@ spec:
                                     root). SubPathExpr and SubPath are mutually exclusive.
                                   type: string
                               required:
-                                - mountPath
-                                - name
+                              - mountPath
+                              - name
                               type: object
                             type: array
                           workingDir:
@@ -3069,7 +3152,7 @@ spec:
                               updated.
                             type: string
                         required:
-                          - name
+                        - name
                         type: object
                       type: array
                     hostAliases:
@@ -3213,7 +3296,7 @@ spec:
                                             or its key must be defined
                                           type: boolean
                                       required:
-                                        - key
+                                      - key
                                       type: object
                                     fieldRef:
                                       description: 'Selects a field of the pod: supports
@@ -3230,7 +3313,7 @@ spec:
                                             in the specified API version.
                                           type: string
                                       required:
-                                        - fieldPath
+                                      - fieldPath
                                       type: object
                                     resourceFieldRef:
                                       description: 'Selects a resource of the container:
@@ -3245,8 +3328,8 @@ spec:
                                           type: string
                                         divisor:
                                           anyOf:
-                                            - type: integer
-                                            - type: string
+                                          - type: integer
+                                          - type: string
                                           description: Specifies the output format
                                             of the exposed resources, defaults to
                                             "1"
@@ -3256,7 +3339,7 @@ spec:
                                           description: 'Required: resource to select'
                                           type: string
                                       required:
-                                        - resource
+                                      - resource
                                       type: object
                                     secretKeyRef:
                                       description: Selects a key of a secret in the
@@ -3277,11 +3360,11 @@ spec:
                                             or its key must be defined
                                           type: boolean
                                       required:
-                                        - key
+                                      - key
                                       type: object
                                   type: object
                               required:
-                                - name
+                              - name
                               type: object
                             type: array
                           envFrom:
@@ -3398,8 +3481,8 @@ spec:
                                               description: The header field value
                                               type: string
                                           required:
-                                            - name
-                                            - value
+                                          - name
+                                          - value
                                           type: object
                                         type: array
                                       path:
@@ -3407,8 +3490,8 @@ spec:
                                         type: string
                                       port:
                                         anyOf:
-                                          - type: integer
-                                          - type: string
+                                        - type: integer
+                                        - type: string
                                         description: Name or number of the port to
                                           access on the container. Number must be
                                           in the range 1 to 65535. Name must be an
@@ -3419,7 +3502,7 @@ spec:
                                           to the host. Defaults to HTTP.
                                         type: string
                                     required:
-                                      - port
+                                    - port
                                     type: object
                                   tcpSocket:
                                     description: 'TCPSocket specifies an action involving
@@ -3432,15 +3515,15 @@ spec:
                                         type: string
                                       port:
                                         anyOf:
-                                          - type: integer
-                                          - type: string
+                                        - type: integer
+                                        - type: string
                                         description: Number or name of the port to
                                           access on the container. Number must be
                                           in the range 1 to 65535. Name must be an
                                           IANA_SVC_NAME.
                                         x-kubernetes-int-or-string: true
                                     required:
-                                      - port
+                                    - port
                                     type: object
                                 type: object
                               preStop:
@@ -3501,8 +3584,8 @@ spec:
                                               description: The header field value
                                               type: string
                                           required:
-                                            - name
-                                            - value
+                                          - name
+                                          - value
                                           type: object
                                         type: array
                                       path:
@@ -3510,8 +3593,8 @@ spec:
                                         type: string
                                       port:
                                         anyOf:
-                                          - type: integer
-                                          - type: string
+                                        - type: integer
+                                        - type: string
                                         description: Name or number of the port to
                                           access on the container. Number must be
                                           in the range 1 to 65535. Name must be an
@@ -3522,7 +3605,7 @@ spec:
                                           to the host. Defaults to HTTP.
                                         type: string
                                     required:
-                                      - port
+                                    - port
                                     type: object
                                   tcpSocket:
                                     description: 'TCPSocket specifies an action involving
@@ -3535,15 +3618,15 @@ spec:
                                         type: string
                                       port:
                                         anyOf:
-                                          - type: integer
-                                          - type: string
+                                        - type: integer
+                                        - type: string
                                         description: Number or name of the port to
                                           access on the container. Number must be
                                           in the range 1 to 65535. Name must be an
                                           IANA_SVC_NAME.
                                         x-kubernetes-int-or-string: true
                                     required:
-                                      - port
+                                    - port
                                     type: object
                                 type: object
                             type: object
@@ -3599,8 +3682,8 @@ spec:
                                           description: The header field value
                                           type: string
                                       required:
-                                        - name
-                                        - value
+                                      - name
+                                      - value
                                       type: object
                                     type: array
                                   path:
@@ -3608,8 +3691,8 @@ spec:
                                     type: string
                                   port:
                                     anyOf:
-                                      - type: integer
-                                      - type: string
+                                    - type: integer
+                                    - type: string
                                     description: Name or number of the port to access
                                       on the container. Number must be in the range
                                       1 to 65535. Name must be an IANA_SVC_NAME.
@@ -3619,7 +3702,7 @@ spec:
                                       host. Defaults to HTTP.
                                     type: string
                                 required:
-                                  - port
+                                - port
                                 type: object
                               initialDelaySeconds:
                                 description: 'Number of seconds after the container
@@ -3650,14 +3733,14 @@ spec:
                                     type: string
                                   port:
                                     anyOf:
-                                      - type: integer
-                                      - type: string
+                                    - type: integer
+                                    - type: string
                                     description: Number or name of the port to access
                                       on the container. Number must be in the range
                                       1 to 65535. Name must be an IANA_SVC_NAME.
                                     x-kubernetes-int-or-string: true
                                 required:
-                                  - port
+                                - port
                                 type: object
                               timeoutSeconds:
                                 description: 'Number of seconds after which the probe
@@ -3713,7 +3796,7 @@ spec:
                                     or SCTP. Defaults to "TCP".
                                   type: string
                               required:
-                                - containerPort
+                              - containerPort
                               type: object
                             type: array
                           readinessProbe:
@@ -3768,8 +3851,8 @@ spec:
                                           description: The header field value
                                           type: string
                                       required:
-                                        - name
-                                        - value
+                                      - name
+                                      - value
                                       type: object
                                     type: array
                                   path:
@@ -3777,8 +3860,8 @@ spec:
                                     type: string
                                   port:
                                     anyOf:
-                                      - type: integer
-                                      - type: string
+                                    - type: integer
+                                    - type: string
                                     description: Name or number of the port to access
                                       on the container. Number must be in the range
                                       1 to 65535. Name must be an IANA_SVC_NAME.
@@ -3788,7 +3871,7 @@ spec:
                                       host. Defaults to HTTP.
                                     type: string
                                 required:
-                                  - port
+                                - port
                                 type: object
                               initialDelaySeconds:
                                 description: 'Number of seconds after the container
@@ -3819,14 +3902,14 @@ spec:
                                     type: string
                                   port:
                                     anyOf:
-                                      - type: integer
-                                      - type: string
+                                    - type: integer
+                                    - type: string
                                     description: Number or name of the port to access
                                       on the container. Number must be in the range
                                       1 to 65535. Name must be an IANA_SVC_NAME.
                                     x-kubernetes-int-or-string: true
                                 required:
-                                  - port
+                                - port
                                 type: object
                               timeoutSeconds:
                                 description: 'Number of seconds after which the probe
@@ -3842,8 +3925,8 @@ spec:
                               limits:
                                 additionalProperties:
                                   anyOf:
-                                    - type: integer
-                                    - type: string
+                                  - type: integer
+                                  - type: string
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 description: 'Limits describes the maximum amount
@@ -3852,8 +3935,8 @@ spec:
                               requests:
                                 additionalProperties:
                                   anyOf:
-                                    - type: integer
-                                    - type: string
+                                  - type: integer
+                                  - type: string
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 description: 'Requests describes the minimum amount
@@ -4058,8 +4141,8 @@ spec:
                                           description: The header field value
                                           type: string
                                       required:
-                                        - name
-                                        - value
+                                      - name
+                                      - value
                                       type: object
                                     type: array
                                   path:
@@ -4067,8 +4150,8 @@ spec:
                                     type: string
                                   port:
                                     anyOf:
-                                      - type: integer
-                                      - type: string
+                                    - type: integer
+                                    - type: string
                                     description: Name or number of the port to access
                                       on the container. Number must be in the range
                                       1 to 65535. Name must be an IANA_SVC_NAME.
@@ -4078,7 +4161,7 @@ spec:
                                       host. Defaults to HTTP.
                                     type: string
                                 required:
-                                  - port
+                                - port
                                 type: object
                               initialDelaySeconds:
                                 description: 'Number of seconds after the container
@@ -4109,14 +4192,14 @@ spec:
                                     type: string
                                   port:
                                     anyOf:
-                                      - type: integer
-                                      - type: string
+                                    - type: integer
+                                    - type: string
                                     description: Number or name of the port to access
                                       on the container. Number must be in the range
                                       1 to 65535. Name must be an IANA_SVC_NAME.
                                     x-kubernetes-int-or-string: true
                                 required:
-                                  - port
+                                - port
                                 type: object
                               timeoutSeconds:
                                 description: 'Number of seconds after which the probe
@@ -4185,8 +4268,8 @@ spec:
                                     in the pod
                                   type: string
                               required:
-                                - devicePath
-                                - name
+                              - devicePath
+                              - name
                               type: object
                             type: array
                           volumeMounts:
@@ -4229,8 +4312,8 @@ spec:
                                     root). SubPathExpr and SubPath are mutually exclusive.
                                   type: string
                               required:
-                                - mountPath
-                                - name
+                              - mountPath
+                              - name
                               type: object
                             type: array
                           workingDir:
@@ -4240,7 +4323,7 @@ spec:
                               updated.
                             type: string
                         required:
-                          - name
+                        - name
                         type: object
                       type: array
                     nodeName:
@@ -4260,8 +4343,8 @@ spec:
                     overhead:
                       additionalProperties:
                         anyOf:
-                          - type: integer
-                          - type: string
+                        - type: integer
+                        - type: string
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
                       description: 'Overhead represents the resource overhead associated
@@ -4315,7 +4398,7 @@ spec:
                               pod's condition list with matching type.
                             type: string
                         required:
-                          - conditionType
+                        - conditionType
                         type: object
                       type: array
                     restartPolicy:
@@ -4428,8 +4511,8 @@ spec:
                                 description: Value of a property to set
                                 type: string
                             required:
-                              - name
-                              - value
+                            - name
+                            - value
                             type: object
                           type: array
                         windowsOptions:
@@ -4586,8 +4669,8 @@ spec:
                                         type: string
                                       type: array
                                   required:
-                                    - key
-                                    - operator
+                                  - key
+                                  - operator
                                   type: object
                                 type: array
                               matchLabels:
@@ -4641,9 +4724,9 @@ spec:
                               It''s a required field.'
                             type: string
                         required:
-                          - maxSkew
-                          - topologyKey
-                          - whenUnsatisfiable
+                        - maxSkew
+                        - topologyKey
+                        - whenUnsatisfiable
                         type: object
                       type: array
                     volumes:
@@ -4686,7 +4769,7 @@ spec:
                                   in AWS (Amazon EBS volume). More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockstore'
                                 type: string
                             required:
-                              - volumeID
+                            - volumeID
                             type: object
                           azureDisk:
                             description: AzureDisk represents an Azure Data Disk mount
@@ -4721,8 +4804,8 @@ spec:
                                   here will force the ReadOnly setting in VolumeMounts.
                                 type: boolean
                             required:
-                              - diskName
-                              - diskURI
+                            - diskName
+                            - diskURI
                             type: object
                           azureFile:
                             description: AzureFile represents an Azure File Service
@@ -4740,8 +4823,8 @@ spec:
                                 description: Share Name
                                 type: string
                             required:
-                              - secretName
-                              - shareName
+                            - secretName
+                            - shareName
                             type: object
                           cephfs:
                             description: CephFS represents a Ceph FS mount on the
@@ -4784,7 +4867,7 @@ spec:
                                   default is admin More info: https://examples.k8s.io/volumes/cephfs/README.md#how-to-use-it'
                                 type: string
                             required:
-                              - monitors
+                            - monitors
                             type: object
                           cinder:
                             description: 'Cinder represents a cinder volume attached
@@ -4818,7 +4901,7 @@ spec:
                                   in cinder. More info: https://examples.k8s.io/mysql-cinder-pd/README.md'
                                 type: string
                             required:
-                              - volumeID
+                            - volumeID
                             type: object
                           configMap:
                             description: ConfigMap represents a configMap that should
@@ -4868,8 +4951,8 @@ spec:
                                         not start with the string '..'.
                                       type: string
                                   required:
-                                    - key
-                                    - path
+                                  - key
+                                  - path
                                   type: object
                                 type: array
                               name:
@@ -4926,7 +5009,7 @@ spec:
                                   your driver's documentation for supported values.
                                 type: object
                             required:
-                              - driver
+                            - driver
                             type: object
                           downwardAPI:
                             description: DownwardAPI represents downward API about
@@ -4963,7 +5046,7 @@ spec:
                                             in the specified API version.
                                           type: string
                                       required:
-                                        - fieldPath
+                                      - fieldPath
                                       type: object
                                     mode:
                                       description: 'Optional: mode bits to use on
@@ -4993,8 +5076,8 @@ spec:
                                           type: string
                                         divisor:
                                           anyOf:
-                                            - type: integer
-                                            - type: string
+                                          - type: integer
+                                          - type: string
                                           description: Specifies the output format
                                             of the exposed resources, defaults to
                                             "1"
@@ -5004,10 +5087,10 @@ spec:
                                           description: 'Required: resource to select'
                                           type: string
                                       required:
-                                        - resource
+                                      - resource
                                       type: object
                                   required:
-                                    - path
+                                  - path
                                   type: object
                                 type: array
                             type: object
@@ -5023,8 +5106,8 @@ spec:
                                 type: string
                               sizeLimit:
                                 anyOf:
-                                  - type: integer
-                                  - type: string
+                                - type: integer
+                                - type: string
                                 description: 'Total amount of local storage required
                                   for this EmptyDir volume. The size limit is also
                                   applicable for memory medium. The maximum usage
@@ -5111,7 +5194,7 @@ spec:
                                     type: string
                                 type: object
                             required:
-                              - driver
+                            - driver
                             type: object
                           flocker:
                             description: Flocker represents a Flocker volume attached
@@ -5161,7 +5244,7 @@ spec:
                                   info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk'
                                 type: boolean
                             required:
-                              - pdName
+                            - pdName
                             type: object
                           gitRepo:
                             description: 'GitRepo represents a git repository at a
@@ -5184,7 +5267,7 @@ spec:
                                 description: Commit hash for the specified revision.
                                 type: string
                             required:
-                              - repository
+                            - repository
                             type: object
                           glusterfs:
                             description: 'Glusterfs represents a Glusterfs mount on
@@ -5204,8 +5287,8 @@ spec:
                                   Defaults to false. More info: https://examples.k8s.io/volumes/glusterfs/README.md#create-a-pod'
                                 type: boolean
                             required:
-                              - endpoints
-                              - path
+                            - endpoints
+                            - path
                             type: object
                           hostPath:
                             description: 'HostPath represents a pre-existing file
@@ -5228,7 +5311,7 @@ spec:
                                   "" More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath'
                                 type: string
                             required:
-                              - path
+                            - path
                             type: object
                           iscsi:
                             description: 'ISCSI represents an ISCSI Disk resource
@@ -5296,9 +5379,9 @@ spec:
                                   default (typically TCP ports 860 and 3260).
                                 type: string
                             required:
-                              - iqn
-                              - lun
-                              - targetPortal
+                            - iqn
+                            - lun
+                            - targetPortal
                             type: object
                           name:
                             description: 'Volume''s name. Must be a DNS_LABEL and
@@ -5322,8 +5405,8 @@ spec:
                                   of the NFS server. More info: https://kubernetes.io/docs/concepts/storage/volumes#nfs'
                                 type: string
                             required:
-                              - path
-                              - server
+                            - path
+                            - server
                             type: object
                           persistentVolumeClaim:
                             description: 'PersistentVolumeClaimVolumeSource represents
@@ -5340,7 +5423,7 @@ spec:
                                   Default false.
                                 type: boolean
                             required:
-                              - claimName
+                            - claimName
                             type: object
                           photonPersistentDisk:
                             description: PhotonPersistentDisk represents a PhotonController
@@ -5358,7 +5441,7 @@ spec:
                                   persistent disk
                                 type: string
                             required:
-                              - pdID
+                            - pdID
                             type: object
                           portworxVolume:
                             description: PortworxVolume represents a portworx volume
@@ -5379,7 +5462,7 @@ spec:
                                   volume
                                 type: string
                             required:
-                              - volumeID
+                            - volumeID
                             type: object
                           projected:
                             description: Items for all in one resources secrets, configmaps,
@@ -5443,8 +5526,8 @@ spec:
                                                   not start with the string '..'.
                                                 type: string
                                             required:
-                                              - key
-                                              - path
+                                            - key
+                                            - path
                                             type: object
                                           type: array
                                         name:
@@ -5486,7 +5569,7 @@ spec:
                                                       version.
                                                     type: string
                                                 required:
-                                                  - fieldPath
+                                                - fieldPath
                                                 type: object
                                               mode:
                                                 description: 'Optional: mode bits
@@ -5522,8 +5605,8 @@ spec:
                                                     type: string
                                                   divisor:
                                                     anyOf:
-                                                      - type: integer
-                                                      - type: string
+                                                    - type: integer
+                                                    - type: string
                                                     description: Specifies the output
                                                       format of the exposed resources,
                                                       defaults to "1"
@@ -5534,10 +5617,10 @@ spec:
                                                       to select'
                                                     type: string
                                                 required:
-                                                  - resource
+                                                - resource
                                                 type: object
                                             required:
-                                              - path
+                                            - path
                                             type: object
                                           type: array
                                       type: object
@@ -5584,8 +5667,8 @@ spec:
                                                   not start with the string '..'.
                                                 type: string
                                             required:
-                                              - key
-                                              - path
+                                            - key
+                                            - path
                                             type: object
                                           type: array
                                         name:
@@ -5630,12 +5713,12 @@ spec:
                                             the token into.
                                           type: string
                                       required:
-                                        - path
+                                      - path
                                       type: object
                                   type: object
                                 type: array
                             required:
-                              - sources
+                            - sources
                             type: object
                           quobyte:
                             description: Quobyte represents a Quobyte mount on the
@@ -5671,8 +5754,8 @@ spec:
                                   already created Quobyte volume by name.
                                 type: string
                             required:
-                              - registry
-                              - volume
+                            - registry
+                            - volume
                             type: object
                           rbd:
                             description: 'RBD represents a Rados Block Device mount
@@ -5728,8 +5811,8 @@ spec:
                                   More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it'
                                 type: string
                             required:
-                              - image
-                              - monitors
+                            - image
+                            - monitors
                             type: object
                           scaleIO:
                             description: ScaleIO represents a ScaleIO persistent volume
@@ -5786,9 +5869,9 @@ spec:
                                   volume source.
                                 type: string
                             required:
-                              - gateway
-                              - secretRef
-                              - system
+                            - gateway
+                            - secretRef
+                            - system
                             type: object
                           secret:
                             description: 'Secret represents a secret that should populate
@@ -5838,8 +5921,8 @@ spec:
                                         not start with the string '..'.
                                       type: string
                                   required:
-                                    - key
-                                    - path
+                                  - key
+                                  - path
                                   type: object
                                 type: array
                               optional:
@@ -5916,14 +5999,14 @@ spec:
                                 description: Path that identifies vSphere volume vmdk
                                 type: string
                             required:
-                              - volumePath
+                            - volumePath
                             type: object
                         required:
-                          - name
+                        - name
                         type: object
                       type: array
                   required:
-                    - containers
+                  - containers
                   type: object
               type: object
             racks:
@@ -5948,10 +6031,16 @@ spec:
                       name to pin the rack, using node affinity
                     type: string
                 required:
-                  - name
+                - name
                 type: object
               type: array
             reaper:
+              description: 'Deprecated: Reaper''s sidecar mode has too many problems
+                in Kubernetes for it to usable. In order for it to work reliably,
+                changes in Reaper would be needed. See https://github.com/thelastpickle/cassandra-reaper/issues/956
+                for details. Because those changes were not implemented in Reaper
+                and because Reaper support was instead added through k8ssandra, this
+                field will be removed in the 1.8.0 release.'
               properties:
                 enabled:
                   type: boolean
@@ -5968,8 +6057,8 @@ spec:
                     limits:
                       additionalProperties:
                         anyOf:
-                          - type: integer
-                          - type: string
+                        - type: integer
+                        - type: string
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
                       description: 'Limits describes the maximum amount of compute
@@ -5978,8 +6067,8 @@ spec:
                     requests:
                       additionalProperties:
                         anyOf:
-                          - type: integer
-                          - type: string
+                        - type: integer
+                        - type: string
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
                       description: 'Requests describes the minimum amount of compute
@@ -6000,8 +6089,8 @@ spec:
                 limits:
                   additionalProperties:
                     anyOf:
-                      - type: integer
-                      - type: string
+                    - type: integer
+                    - type: string
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     x-kubernetes-int-or-string: true
                   description: 'Limits describes the maximum amount of compute resources
@@ -6010,8 +6099,8 @@ spec:
                 requests:
                   additionalProperties:
                     anyOf:
-                      - type: integer
-                      - type: string
+                    - type: integer
+                    - type: string
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     x-kubernetes-int-or-string: true
                   description: 'Requests describes the minimum amount of compute resources
@@ -6030,8 +6119,8 @@ spec:
             serverType:
               description: 'Server type: "cassandra" or "dse"'
               enum:
-                - cassandra
-                - dse
+              - cassandra
+              - dse
               type: string
             serverVersion:
               description: Version string for config builder, used to generate Cassandra
@@ -6101,8 +6190,8 @@ spec:
                                 description: Name is the name of resource being referenced
                                 type: string
                             required:
-                              - kind
-                              - name
+                            - kind
+                            - name
                             type: object
                           resources:
                             description: 'Resources represents the minimum resources
@@ -6111,8 +6200,8 @@ spec:
                               limits:
                                 additionalProperties:
                                   anyOf:
-                                    - type: integer
-                                    - type: string
+                                  - type: integer
+                                  - type: string
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 description: 'Limits describes the maximum amount
@@ -6121,8 +6210,8 @@ spec:
                               requests:
                                 additionalProperties:
                                   anyOf:
-                                    - type: integer
-                                    - type: string
+                                  - type: integer
+                                  - type: string
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 description: 'Requests describes the minimum amount
@@ -6164,8 +6253,8 @@ spec:
                                         type: string
                                       type: array
                                   required:
-                                    - key
-                                    - operator
+                                  - key
+                                  - operator
                                   type: object
                                 type: array
                               matchLabels:
@@ -6193,9 +6282,9 @@ spec:
                             type: string
                         type: object
                     required:
-                      - mountPath
-                      - name
-                      - pvcSpec
+                    - mountPath
+                    - name
+                    - pvcSpec
                     type: object
                   type: array
                 cassandraDataVolumeClaimSpec:
@@ -6232,8 +6321,8 @@ spec:
                           description: Name is the name of resource being referenced
                           type: string
                       required:
-                        - kind
-                        - name
+                      - kind
+                      - name
                       type: object
                     resources:
                       description: 'Resources represents the minimum resources the
@@ -6242,8 +6331,8 @@ spec:
                         limits:
                           additionalProperties:
                             anyOf:
-                              - type: integer
-                              - type: string
+                            - type: integer
+                            - type: string
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             x-kubernetes-int-or-string: true
                           description: 'Limits describes the maximum amount of compute
@@ -6252,8 +6341,8 @@ spec:
                         requests:
                           additionalProperties:
                             anyOf:
-                              - type: integer
-                              - type: string
+                            - type: integer
+                            - type: string
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             x-kubernetes-int-or-string: true
                           description: 'Requests describes the minimum amount of compute
@@ -6293,8 +6382,8 @@ spec:
                                   type: string
                                 type: array
                             required:
-                              - key
-                              - operator
+                            - key
+                            - operator
                             type: object
                           type: array
                         matchLabels:
@@ -6336,8 +6425,8 @@ spec:
                 limits:
                   additionalProperties:
                     anyOf:
-                      - type: integer
-                      - type: string
+                    - type: integer
+                    - type: string
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     x-kubernetes-int-or-string: true
                   description: 'Limits describes the maximum amount of compute resources
@@ -6346,8 +6435,8 @@ spec:
                 requests:
                   additionalProperties:
                     anyOf:
-                      - type: integer
-                      - type: string
+                    - type: integer
+                    - type: string
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     x-kubernetes-int-or-string: true
                   description: 'Requests describes the minimum amount of compute resources
@@ -6356,6 +6445,47 @@ spec:
                     value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
                   type: object
               type: object
+            tolerations:
+              description: Tolerations applied to the Cassandra pod. Note that these
+                cannot be overridden with PodTemplateSpec.
+              items:
+                description: The pod this Toleration is attached to tolerates any
+                  taint that matches the triple <key,value,effect> using the matching
+                  operator <operator>.
+                properties:
+                  effect:
+                    description: Effect indicates the taint effect to match. Empty
+                      means match all taint effects. When specified, allowed values
+                      are NoSchedule, PreferNoSchedule and NoExecute.
+                    type: string
+                  key:
+                    description: Key is the taint key that the toleration applies
+                      to. Empty means match all taint keys. If the key is empty, operator
+                      must be Exists; this combination means to match all values and
+                      all keys.
+                    type: string
+                  operator:
+                    description: Operator represents a key's relationship to the value.
+                      Valid operators are Exists and Equal. Defaults to Equal. Exists
+                      is equivalent to wildcard for value, so that a pod can tolerate
+                      all taints of a particular category.
+                    type: string
+                  tolerationSeconds:
+                    description: TolerationSeconds represents the period of time the
+                      toleration (which must be of effect NoExecute, otherwise this
+                      field is ignored) tolerates the taint. By default, it is not
+                      set, which means tolerate the taint forever (do not evict).
+                      Zero and negative values will be treated as 0 (evict immediately)
+                      by the system.
+                    format: int64
+                    type: integer
+                  value:
+                    description: Value is the taint value the toleration matches to.
+                      If the operator is Exists, the value should be empty, otherwise
+                      just a regular string.
+                    type: string
+                type: object
+              type: array
             users:
               description: Cassandra users to bootstrap
               items:
@@ -6365,16 +6495,16 @@ spec:
                   superuser:
                     type: boolean
                 required:
-                  - secretName
-                  - superuser
+                - secretName
+                - superuser
                 type: object
               type: array
           required:
-            - clusterName
-            - serverType
-            - serverVersion
-            - size
-            - storageConfig
+          - clusterName
+          - serverType
+          - serverVersion
+          - size
+          - storageConfig
           type: object
         status:
           description: CassandraDatacenterStatus defines the observed state of CassandraDatacenter
@@ -6397,10 +6527,10 @@ spec:
                   type:
                     type: string
                 required:
-                  - message
-                  - reason
-                  - status
-                  - type
+                - message
+                - reason
+                - status
+                - type
                 type: object
               type: array
             lastRollingRestart:
@@ -6444,6 +6574,6 @@ spec:
       x-kubernetes-preserve-unknown-fields: true
   version: v1beta1
   versions:
-    - name: v1beta1
-      served: true
-      storage: true
+  - name: v1beta1
+    served: true
+    storage: true

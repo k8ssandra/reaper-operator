@@ -32,7 +32,7 @@ import (
 	reapermanager "github.com/k8ssandra/reaper-operator/pkg/reaper"
 	"github.com/k8ssandra/reaper-operator/pkg/reconcile"
 
-	cassdcv1beta1 "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	cassdcv1beta1 "github.com/k8ssandra/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	reaperv1alpha1 "github.com/k8ssandra/reaper-operator/api/v1alpha1"
 	"github.com/k8ssandra/reaper-operator/controllers"
 	// +kubebuilder:scaffold:imports

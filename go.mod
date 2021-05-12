@@ -3,8 +3,8 @@ module github.com/k8ssandra/reaper-operator
 go 1.15
 
 require (
-	github.com/datastax/cass-operator v1.6.0
 	github.com/go-logr/logr v0.1.0
+	github.com/k8ssandra/cass-operator v1.7.0
 	github.com/k8ssandra/reaper-client-go v0.3.0
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
@@ -19,7 +19,6 @@ require (
 
 replace (
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v14.1.0+incompatible
-	github.com/datastax/cass-operator => github.com/datastax/cass-operator v1.5.1-0.20210112050706-a45fd80b40e0
 	k8s.io/api => k8s.io/api v0.18.6
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.18.6
 	k8s.io/apimachinery => k8s.io/apimachinery v0.18.6

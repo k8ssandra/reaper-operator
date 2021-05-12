@@ -26,3 +26,23 @@ func ReplicationToString(r api.ReplicationConfig) string {
 		return fmt.Sprintf("{'class': 'NetworkTopologyStrategy', %s}", strings.Join(dcs, ", "))
 	}
 }
+
+func ReplicationToConfig(dcName string, r api.ReplicationConfig) []map[string]string {
+	replicationConfig := make([]map[string]string, 1)
+	if r.SimpleStrategy != nil {
+		replicationFactor := strconv.FormatInt(int64(*r.SimpleStrategy), 10)
+		replicationConfig = append(replicationConfig, map[string]string{
+			"dc_name":            dcName,
+			"replication_factor": replicationFactor,
+		})
+	} else {
+		for k, v := range *r.NetworkTopologyStrategy {
+			replicationFactor := strconv.FormatInt(int64(v), 10)
+			replicationConfig = append(replicationConfig, map[string]string{
+				"dc_name":            k,
+				"replication_factor": replicationFactor,
+			})
+		}
+	}
+	return replicationConfig
+}

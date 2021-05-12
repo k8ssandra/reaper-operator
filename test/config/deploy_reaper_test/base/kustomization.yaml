@@ -1,7 +1,6 @@
 namespace: deploy-reaper-test
 
 resources:
-- ../../../../config/crd
 - ../../../../config/rbac
 - ../../../../config/manager
 - ../../cass-operator

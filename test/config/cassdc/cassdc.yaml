@@ -8,24 +8,17 @@ spec:
   clusterName: reaper-test
   serverType: cassandra
   serverVersion: 3.11.10
-  serverImage: datastax/cassandra-mgmtapi-3_11_10:v0.1.23
+  serverImage: k8ssandra/cass-management-api:3.11.10-v0.1.25
   dockerImageRunsAsCassandra: true
   managementApiAuth:
     insecure: {}
-  size: 3
+  size: 1
   allowMultipleNodesPerWorker: true
   config:
     jvm-options:
       initial_heap_size: "512m"
       max_heap_size: "512m"
       heap_size_young_generation: "256m"
-  resources:
-    requests:
-      cpu: 1
-      memory: 1200Mi
-    limits:
-      cpu: 1
-      memory: 1200Mi
   podTemplateSpec:
     spec:
       initContainers:
@@ -62,4 +55,4 @@ spec:
         - ReadWriteOnce
       resources:
         requests:
-          storage: 5Gi
+          storage: 1Gi

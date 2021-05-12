@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"time"
 
-	cassdcapi "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/go-logr/logr"
+	cassdcapi "github.com/k8ssandra/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/k8ssandra/cass-operator/operator/pkg/httphelper"
 	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
 	"github.com/k8ssandra/reaper-operator/pkg/config"
 	mlabels "github.com/k8ssandra/reaper-operator/pkg/labels"
 	"github.com/k8ssandra/reaper-operator/pkg/status"
 	"github.com/k8ssandra/reaper-operator/pkg/util"
 	appsv1 "k8s.io/api/apps/v1"
-	v1batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -149,10 +149,6 @@ func newService(key types.NamespacedName, reaper *api.Reaper) *corev1.Service {
 
 func (r *defaultReconciler) ReconcileSchema(ctx context.Context, req ReaperRequest) (*ctrl.Result, error) {
 	reaper := req.Reaper
-	key := types.NamespacedName{Namespace: reaper.Namespace, Name: getSchemaJobName(reaper)}
-
-	req.Logger.Info("reconciling schema", "job", key)
-
 	if reaper.Spec.ServerConfig.StorageType == api.StorageTypeMemory {
 		// No need to run schema job when using in-memory backend
 		return nil, nil
@@ -169,26 +165,7 @@ func (r *defaultReconciler) ReconcileSchema(ctx context.Context, req ReaperReque
 		return &ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 	}
 
-	schemaJob := &v1batch.Job{}
-	err = r.Client.Get(ctx, key, schemaJob)
-	if err != nil && errors.IsNotFound(err) {
-		return r.createSchemaJob(ctx, schemaJob, req)
-	} else if !jobFinished(schemaJob) {
-		req.Logger.Info("schema job not finished", "job", key)
-		return &ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
-	} else if jobFailed(schemaJob) {
-		req.Logger.Info("schema job failed. deleting it so can be recreated to try again.", "job", key)
-		if err = r.Delete(ctx, schemaJob); err == nil {
-			return &ctrl.Result{RequeueAfter: 10 * time.Second}, nil
-		} else {
-			req.Logger.Error(err, "failed to delete schema job", "job", key)
-			return &ctrl.Result{RequeueAfter: 5 * time.Second}, err
-		}
-	} else {
-		// the job completed successfully
-		req.Logger.Info("schema job completed successfully", "job", key)
-		return nil, nil
-	}
+	return r.createSchema(ctx, req)
 }
 
 func (r *defaultReconciler) checkForCassandraDatacenterReadiness(ctx context.Context, req ReaperRequest) (bool, error) {
@@ -232,7 +209,7 @@ func isCassdcReady(cassdc *cassdcapi.CassandraDatacenter) bool {
 	return status == corev1.ConditionTrue
 }
 
-func (r *defaultReconciler) createSchemaJob(ctx context.Context, schemaJob *v1batch.Job, req ReaperRequest) (*ctrl.Result, error) {
+func (r *defaultReconciler) createSchema(ctx context.Context, req ReaperRequest) (*ctrl.Result, error) {
 	reaper := req.Reaper
 	cassdc, err := r.cassandraDatacenter(ctx, reaper)
 	if err != nil {
@@ -240,106 +217,44 @@ func (r *defaultReconciler) createSchemaJob(ctx context.Context, schemaJob *v1ba
 		return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 	}
 
-	schemaJob = newSchemaJob(reaper, cassdc.GetDatacenterServiceName())
-	key := types.NamespacedName{Namespace: schemaJob.Namespace, Name: schemaJob.Name}
-
-	if len(reaper.Spec.ServerConfig.CassandraBackend.CassandraUserSecretName) > 0 {
-		secretkey := types.NamespacedName{Namespace: reaper.Namespace, Name: reaper.Spec.ServerConfig.CassandraBackend.CassandraUserSecretName}
-		secret, err := r.getSecret(secretkey)
-		if err != nil {
-			req.Logger.Error(err, "failed to get Cassandra authentication secret", "job", secretkey)
-			return nil, err
-		}
-
-		if usernameEnvVar, passwordEnvVar, err := r.secretsManager.GetSchemaJobAuthCredentials(secret); err == nil {
-			envVars := schemaJob.Spec.Template.Spec.Containers[0].Env
-			envVars = append(envVars, *usernameEnvVar)
-			envVars = append(envVars, *passwordEnvVar)
-			schemaJob.Spec.Template.Spec.Containers[0].Env = envVars
-		} else {
-			req.Logger.Error(err, "failed to get Cassandra authentication credentials", "job", secretkey)
-			return nil, err
-		}
-	}
-
-	req.Logger.Info("creating schema job", "job", key)
-
-	if err := controllerutil.SetControllerReference(reaper, schemaJob, r.scheme); err != nil {
-		req.Logger.Error(err, "failed to set owner on schema job", "job", key)
+	httpClient, err := httphelper.BuildManagementApiHttpClient(cassdc, r.Client, ctx)
+	if err != nil {
+		req.Logger.Error(err, "error in BuildManagementApiHttpClient")
 		return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 	}
-	req.Logger.Info("creating schema job", "job", key)
-	if err := r.Client.Create(ctx, schemaJob); err != nil {
-		req.Logger.Error(err, "failed to create schema job", "job", key)
-		return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
-	} else {
+
+	protocol, err := httphelper.GetManagementApiProtocol(cassdc)
+	if err != nil {
+		req.Logger.Error(err, "error in GetManagementApiProtocol")
 		return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 	}
-}
 
-func getSchemaJobName(r *api.Reaper) string {
-	return fmt.Sprintf("%s-schema", r.Name)
-}
+	nodeMgmtClient := httphelper.NodeMgmtClient{
+		Client:   httpClient,
+		Log:      req.Logger,
+		Protocol: protocol,
+	}
 
-func newSchemaJob(reaper *api.Reaper, cassandraService string) *v1batch.Job {
 	cassandra := *reaper.Spec.ServerConfig.CassandraBackend
-	return &v1batch.Job{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Job",
-			APIVersion: "batch/v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: reaper.Namespace,
-			Name:      getSchemaJobName(reaper),
-			Labels:    createLabels(reaper),
-		},
-		Spec: v1batch.JobSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					RestartPolicy: corev1.RestartPolicyOnFailure,
-					Containers: []corev1.Container{
-						{
-							Name:            getSchemaJobName(reaper),
-							Image:           schemaJobImage,
-							ImagePullPolicy: schemaJobImagePullPolicy,
-							Env: []corev1.EnvVar{
-								{
-									Name:  "KEYSPACE",
-									Value: cassandra.Keyspace,
-								},
-								{
-									Name:  "CONTACT_POINTS",
-									Value: cassandraService,
-								},
-								{
-									Name:  "REPLICATION",
-									Value: config.ReplicationToString(cassandra.Replication),
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
+	replicationConfig := config.ReplicationToConfig(cassdc.Name, cassandra.Replication)
 
-func jobFinished(job *v1batch.Job) bool {
-	for _, c := range job.Status.Conditions {
-		if (c.Type == v1batch.JobComplete || c.Type == v1batch.JobFailed) && c.Status == corev1.ConditionTrue {
-			return true
-		}
+	pods, err := r.getCassandraDatacenterPods(ctx, cassdc)
+	if err != nil {
+		req.Logger.Error(err, "failed to get CassandraDatacenter pods")
+		return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 	}
-	return false
-}
 
-func jobFailed(job *v1batch.Job) bool {
-	for _, cond := range job.Status.Conditions {
-		if cond.Type == v1batch.JobFailed && cond.Status == corev1.ConditionTrue {
-			return true
-		}
+	if len(pods) < 1 {
+		req.Logger.Error(err, "not enough CassandraDatacenter pods")
+		return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
 	}
-	return false
+
+	err = nodeMgmtClient.CreateKeyspace(&pods[0], cassandra.Keyspace, replicationConfig)
+	if err != nil {
+		req.Logger.Error(err, "failed to create keyspace")
+		return &ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, err
+	}
+	return nil, nil
 }
 
 func (r *defaultReconciler) ReconcileDeployment(ctx context.Context, req ReaperRequest) (*ctrl.Result, error) {
@@ -598,4 +513,34 @@ func (r *defaultReconciler) getSecret(key types.NamespacedName) (*corev1.Secret,
 	err := r.Get(context.Background(), key, secret)
 
 	return secret, err
+}
+
+func (r *defaultReconciler) getCassandraDatacenterPods(ctx context.Context, cassdc *cassdcapi.CassandraDatacenter) ([]corev1.Pod, error) {
+	cassdcSvc := &corev1.Service{}
+	err := r.Get(ctx, types.NamespacedName{Namespace: cassdc.Namespace, Name: cassdc.GetAllPodsServiceName()}, cassdcSvc)
+	if err != nil {
+		return nil, err
+	}
+
+	podList := &corev1.PodList{}
+	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchLabels: cassdcSvc.Spec.Selector})
+	if err != nil {
+		return nil, err
+	}
+
+	listOpts := []client.ListOption{
+		client.MatchingLabelsSelector{
+			Selector: selector,
+		},
+	}
+
+	if err := r.List(context.Background(), podList, listOpts...); err != nil {
+		// r.Log.Error(err, "failed to get pods for cassandradatacenter", "CassandraDatacenter", cassdc.Name)
+		return nil, err
+	}
+
+	pods := make([]corev1.Pod, 0)
+	pods = append(pods, podList.Items...)
+
+	return pods, nil
 }
