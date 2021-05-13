@@ -111,6 +111,32 @@ func TestNewDeployment(t *testing.T) {
 	assert.Equal(t, probe, container.ReadinessProbe)
 }
 
+func TestTolerations(t *testing.T) {
+	image := "test/reaper:latest"
+	tolerations := []corev1.Toleration{
+		{
+			Key:      "key1",
+			Operator: corev1.TolerationOpEqual,
+			Value:    "value1",
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      "key2",
+			Operator: corev1.TolerationOpEqual,
+			Value:    "value2",
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+	}
+
+	reaper := newReaperWithCassandraBackend()
+	reaper.Spec.Image = image
+	reaper.Spec.Tolerations = tolerations
+
+	deployment := newDeployment(reaper, "target-datacenter-service")
+
+	assert.ElementsMatch(t, tolerations, deployment.Spec.Template.Spec.Tolerations)
+}
+
 func newReaperWithCassandraBackend() *api.Reaper {
 	namespace := "service-test"
 	reaperName := "test-reaper"

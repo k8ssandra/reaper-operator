@@ -490,6 +490,7 @@ func newDeployment(reaper *api.Reaper, cassDcService string) *appsv1.Deployment 
 							Env:            envVars,
 						},
 					},
+					Tolerations: reaper.Spec.Tolerations,
 				},
 			},
 		},
