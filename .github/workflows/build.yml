@@ -10,7 +10,7 @@ on:
 
 jobs:
   testing:
-    name: Run tests
+    name: Run unit tests
     runs-on: ubuntu-latest
     env:
       GOPATH: /home/runner/go
@@ -33,7 +33,7 @@ jobs:
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           make test
-  push_docker_image:
+  build_docker_image:
     runs-on: ubuntu-latest
     needs: testing
     name: Build reaper-operator image
@@ -49,29 +49,20 @@ jobs:
           key: ${{ runner.os }}-buildx-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-buildx-
-      - name: Login to DockerHub
-        if: github.ref == 'refs/heads/master'
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
       - name: Set git parsed values
         id: vars
         run: |
-         echo ::set-output name=sha_short::$(git rev-parse --short=8 ${{ github.sha }})
-         echo ::set-output name=tag_name::${GITHUB_REF#refs/tags/}
-      - name: Build and push
+          echo ::set-output name=sha_short::$(git rev-parse --short=8 ${{ github.sha }})
+          echo ::set-output name=tag_name::${GITHUB_REF#refs/tags/}
+      - name: Build image
         id: docker_build
         uses: docker/build-push-action@v2
         with:
-          load: true
-          push: ${{ github.event_name != 'pull_request' }}
+          push: false
           tags: k8ssandra/reaper-operator:${{ steps.vars.outputs.sha_short }}, k8ssandra/reaper-operator:latest
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
-      - name: Export reaper-operator image
-        run: |
-          docker save k8ssandra/reaper-operator:latest --output=/tmp/k8ssandra-reaper-operator.tar
+          outputs: type=docker,dest=/tmp/k8ssandra-reaper-operator.tar
       - name: Upload reaper-operator image
         uses: actions/upload-artifact@v2
         with:
@@ -79,8 +70,8 @@ jobs:
           path: /tmp/k8ssandra-reaper-operator.tar
   run_e2e_test:
     runs-on: ubuntu-latest
-    needs: [testing, push_docker_image]
-    name: Build reaper-operator image
+    needs: [testing, build_docker_image]
+    name: Run e2e tests
     steps:
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
@@ -119,3 +110,24 @@ jobs:
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           make e2e-test
+  push_image:
+    runs-on: ubuntu-latest
+    needs: run_e2e_test
+    name: Push image
+    steps:
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+      - name: Download reaper-operator image
+        uses: actions/download-artifact@v2
+        with:
+          name: reaper-operator
+          path: /tmp
+      - name: Load image
+        run: |
+          docker load --input /tmp/k8ssandra-reaper-operator.tar
+      - name: Push image
+        run: |
+          docker push k8ssandra/reaper-operator:latest
