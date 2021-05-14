@@ -27,9 +27,7 @@ import (
 )
 
 const (
-	schemaJobImage           = "k8ssandra/create-keyspace:latest"
-	schemaJobImagePullPolicy = corev1.PullIfNotPresent
-	envVarEnableCassAuth     = "REAPER_CASS_AUTH_ENABLED"
+	envVarEnableCassAuth = "REAPER_CASS_AUTH_ENABLED"
 )
 
 // ReaperRequest containers the information necessary to perform reconciliation actions on a Reaper object.

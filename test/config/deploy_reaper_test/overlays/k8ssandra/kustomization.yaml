@@ -3,5 +3,5 @@ resources:
 
 images:
 - name: controller
-  newName: docker.io/k8ssandra/reaper-operator
+  newName: k8ssandra/reaper-operator
   newTag: latest

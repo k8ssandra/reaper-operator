@@ -28,7 +28,7 @@ func ReplicationToString(r api.ReplicationConfig) string {
 }
 
 func ReplicationToConfig(dcName string, r api.ReplicationConfig) []map[string]string {
-	replicationConfig := make([]map[string]string, 1)
+	replicationConfig := make([]map[string]string, 0, 1)
 	if r.SimpleStrategy != nil {
 		replicationFactor := strconv.FormatInt(int64(*r.SimpleStrategy), 10)
 		replicationConfig = append(replicationConfig, map[string]string{
