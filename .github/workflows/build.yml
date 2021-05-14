@@ -52,8 +52,8 @@ jobs:
       - name: Set git parsed values
         id: vars
         run: |
-         echo ::set-output name=sha_short::$(git rev-parse --short=8 ${{ github.sha }})
-         echo ::set-output name=tag_name::${GITHUB_REF#refs/tags/}
+          echo ::set-output name=sha_short::$(git rev-parse --short=8 ${{ github.sha }})
+          echo ::set-output name=tag_name::${GITHUB_REF#refs/tags/}
       - name: Build image
         id: docker_build
         uses: docker/build-push-action@v2
@@ -62,3 +62,72 @@ jobs:
           tags: k8ssandra/reaper-operator:${{ steps.vars.outputs.sha_short }}, k8ssandra/reaper-operator:latest
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
+          outputs: type=docker,dest=/tmp/k8ssandra-reaper-operator.tar
+      - name: Upload reaper-operator image
+        uses: actions/upload-artifact@v2
+        with:
+          name: reaper-operator
+          path: /tmp/k8ssandra-reaper-operator.tar
+  run_e2e_test:
+    runs-on: ubuntu-latest
+    needs: [testing, build_docker_image]
+    name: Run e2e tests
+    steps:
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.15
+        id: go
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Create Kind Cluster
+        uses: helm/kind-action@v1.1.0
+        with:
+          version: v0.10.0
+          node_image: kindest/node:v1.20.2
+          cluster_name: kind
+          config: test/config/kind/kind_config_3_workers.yaml
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Download reaper-operator image
+        uses: actions/download-artifact@v2
+        with:
+          name: reaper-operator
+          path: /tmp
+      - name: Load Docker images
+        run: |
+          docker load --input /tmp/k8ssandra-reaper-operator.tar
+      - name: Load image on the nodes of the cluster
+        run: |
+          kind load docker-image --name=kind k8ssandra/reaper-operator:latest
+      - name: Run e2e-test
+        run: |
+          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
+          make e2e-test
+  push_image:
+    runs-on: ubuntu-latest
+    needs: run_e2e_test
+    name: Push image
+    steps:
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+      - name: Download reaper-operator image
+        uses: actions/download-artifact@v2
+        with:
+          name: reaper-operator
+          path: /tmp
+      - name: Load image
+        run: |
+          docker load --input /tmp/k8ssandra-reaper-operator.tar
+      - name: Push image
+        run: |
+          docker push k8ssandra/reaper-operator:latest
