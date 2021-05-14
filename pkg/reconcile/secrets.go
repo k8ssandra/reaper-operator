@@ -7,21 +7,18 @@ import (
 )
 
 const (
-	JmxAuthSecretName            = "reaper-jmx"
-	jmxAuthEnvPasswordName       = "REAPER_JMX_AUTH_PASSWORD"
-	jmxAuthEnvUsernameName       = "REAPER_JMX_AUTH_USERNAME"
-	cassAuthEnvPasswordName      = "REAPER_CASS_AUTH_PASSWORD"
-	cassAuthEnvUsernameName      = "REAPER_CASS_AUTH_USERNAME"
-	schemaJobAuthEnvPasswordName = "PASSWORD"
-	schemaJobAuthEnvUsernameName = "USERNAME"
-	secretUsernameName           = "username"
-	secretPasswordName           = "password"
+	JmxAuthSecretName       = "reaper-jmx"
+	jmxAuthEnvPasswordName  = "REAPER_JMX_AUTH_PASSWORD"
+	jmxAuthEnvUsernameName  = "REAPER_JMX_AUTH_USERNAME"
+	cassAuthEnvPasswordName = "REAPER_CASS_AUTH_PASSWORD"
+	cassAuthEnvUsernameName = "REAPER_CASS_AUTH_USERNAME"
+	secretUsernameName      = "username"
+	secretPasswordName      = "password"
 )
 
 type SecretsManager interface {
 	GetJmxAuthCredentials(secret *corev1.Secret) (*corev1.EnvVar, *corev1.EnvVar, error)
 	GetCassandraAuthCredentials(secret *corev1.Secret) (*corev1.EnvVar, *corev1.EnvVar, error)
-	GetSchemaJobAuthCredentials(secret *corev1.Secret) (*corev1.EnvVar, *corev1.EnvVar, error)
 }
 
 type defaultSecretsManager struct {
@@ -37,10 +34,6 @@ func (s *defaultSecretsManager) GetCassandraAuthCredentials(secret *corev1.Secre
 
 func (s *defaultSecretsManager) GetJmxAuthCredentials(secret *corev1.Secret) (*corev1.EnvVar, *corev1.EnvVar, error) {
 	return s.authCredentials(secret, jmxAuthEnvUsernameName, jmxAuthEnvPasswordName)
-}
-
-func (s *defaultSecretsManager) GetSchemaJobAuthCredentials(secret *corev1.Secret) (*corev1.EnvVar, *corev1.EnvVar, error) {
-	return s.authCredentials(secret, schemaJobAuthEnvUsernameName, schemaJobAuthEnvPasswordName)
 }
 
 func (s *defaultSecretsManager) authCredentials(secret *corev1.Secret, envUsernameParam, envPasswordParam string) (*corev1.EnvVar, *corev1.EnvVar, error) {

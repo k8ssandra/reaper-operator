@@ -101,6 +101,10 @@ func KustomizeAndApply(namespace, dir string, useOverlay bool) {
 }
 
 func WaitForCRDs(namespace string) {
+	// There's a bug in kubectl wait if it's called right after the apply, so we sleep 2 seconds
+	// It causes error: .status.conditions accessor error: <nil> is of the type <nil>, expected []interface{} and the test to die.
+	time.Sleep(2 * time.Second)
+
 	// Wait for Reaper CRD
 	var stdout bytes.Buffer
 	kubectl := exec.Command("kubectl", "-n", namespace, "wait", "--for", "condition=established", "--timeout=60s", "crd/reapers.reaper.cassandra-reaper.io")
