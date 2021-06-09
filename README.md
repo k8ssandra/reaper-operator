@@ -17,3 +17,7 @@ A Kubernetes operator for [Cassandra Reaper](http://cassandra-reaper.io/)
 * [Operator SDK](https://github.com/operator-framework/operator-sdk) = 0.14.0
 
 **Note:** The operator will work with earlier versions of Kubernetes, but the configuration update functionality requires >= 1.15.0.
+
+## Dependencies
+
+For information on the packaged dependencies of Reaper Operator and their licenses, check out our [open source report](https://app.fossa.com/reports/b3a7da33-c12b-4305-925e-ff0da07cdc76).
