@@ -101,6 +101,9 @@ type ReaperSpec struct {
 
 	ServerConfig ServerConfig `json:"serverConfig,omitempty" yaml:"serverConfig,omitempty"`
 
+	// Affinity applied to the Reaper pods
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
+
 	// Tolerations applied to the Reaper pods
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 }
