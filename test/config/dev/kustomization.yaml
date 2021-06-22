@@ -1,0 +1,9 @@
+namespace: reaper-dev
+
+resources:
+- ../cass-operator-crd
+- ../cass-operator
+- ../cassdc
+- ../../../config/crd
+- ../../../config/rbac
+- ../../../config/manager

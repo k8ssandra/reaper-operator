@@ -104,6 +104,9 @@ docker-push:
 	docker push ${REV_IMAGE}
 	docker push ${LATEST_IMAGE}
 
+kind-load-image:
+	kind load docker-image ${LATEST_IMAGE}
+
 # find or download controller-gen
 # download controller-gen if necessary
 controller-gen:
