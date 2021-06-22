@@ -47,7 +47,7 @@ type ReaperReconciler struct {
 // +kubebuilder:rbac:groups=reaper.cassandra-reaper.io,namespace="reaper-operator",resources=reapers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=reaper.cassandra-reaper.io,namespace="reaper-operator",resources=reapers/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups="apps",namespace="reaper-operator",resources=deployments,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups="batch",namespace="reaper-operator",resources=jobs,verbs=get;list;watch;create;delete
+// +kubebuilder:rbac:groups="",namespace="reaper-operator",resources=pods,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",namespace="reaper-operator",resources=services,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="",namespace="reaper-operator",resources=secrets,verbs=get;list;watch
 

@@ -32,6 +32,8 @@ spec:
           spec:
             description: ReaperSpec defines the desired state of Reaper
             properties:
+              ServiceAccountName:
+                type: string
               image:
                 type: string
               imagePullPolicy:

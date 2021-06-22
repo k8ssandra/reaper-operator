@@ -54,6 +54,11 @@ func (v *validator) SetDefaults(reaper *api.Reaper) bool {
 		updated = true
 	}
 
+	if reaper.Spec.ServiceAccountName == "" {
+		reaper.Spec.ServiceAccountName = "default"
+		updated = true
+	}
+
 	if cfg.StorageType == "" {
 		cfg.StorageType = api.DefaultStorageType
 		updated = true

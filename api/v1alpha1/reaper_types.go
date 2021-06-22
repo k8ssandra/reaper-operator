@@ -97,6 +97,8 @@ type ReaperSpec struct {
 
 	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
 
+	ServiceAccountName string `json:"ServiceAccountName,omitempty"`
+
 	ServerConfig ServerConfig `json:"serverConfig,omitempty" yaml:"serverConfig,omitempty"`
 
 	// Tolerations applied to the Reaper pods
