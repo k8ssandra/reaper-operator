@@ -44,6 +44,7 @@ func TestNewDeployment(t *testing.T) {
 	reaper.Spec.Image = image
 	reaper.Spec.ImagePullPolicy = "Always"
 	reaper.Spec.ServerConfig.AutoScheduling = &api.AutoScheduler{Enabled: true}
+	reaper.Spec.ServiceAccountName = "reaper"
 
 	labels := createLabels(reaper)
 	deployment := newDeployment(reaper, "target-datacenter-service")
@@ -51,6 +52,7 @@ func TestNewDeployment(t *testing.T) {
 	assert.Equal(reaper.Namespace, deployment.Namespace)
 	assert.Equal(reaper.Name, deployment.Name)
 	assert.Equal(labels, deployment.Labels)
+	assert.Equal(reaper.Spec.ServiceAccountName, deployment.Spec.Template.Spec.ServiceAccountName)
 
 	selector := deployment.Spec.Selector
 	assert.Equal(0, len(selector.MatchLabels))
