@@ -1,0 +1,5 @@
+resources:
+- ../bases
+
+patchesStrategicMerge:
+- affinity-patch.yaml

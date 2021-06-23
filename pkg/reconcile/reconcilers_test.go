@@ -186,6 +186,35 @@ func TestTolerations(t *testing.T) {
 	assert.ElementsMatch(t, tolerations, deployment.Spec.Template.Spec.Tolerations)
 }
 
+func TestAffinity(t *testing.T) {
+	image := "test/reaper:latest"
+	affiinity := &corev1.Affinity{
+		NodeAffinity: &corev1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+				NodeSelectorTerms: []corev1.NodeSelectorTerm{
+					{
+						MatchExpressions: []corev1.NodeSelectorRequirement{
+							{
+								Key:      "kubernetes.io/e2e-az-name",
+								Operator: corev1.NodeSelectorOpIn,
+								Values:   []string{"e2e-az1", "e2e-az2"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	reaper := newReaperWithCassandraBackend()
+	reaper.Spec.Image = image
+	reaper.Spec.Affinity = affiinity
+
+	deployment := newDeployment(reaper, "target-datacenter-service")
+
+	same := assert.ObjectsAreEqualValues(affiinity, deployment.Spec.Template.Spec.Affinity)
+	assert.True(t, same, "affinity does not match")
+}
+
 func newReaperWithCassandraBackend() *api.Reaper {
 	namespace := "service-test"
 	reaperName := "test-reaper"

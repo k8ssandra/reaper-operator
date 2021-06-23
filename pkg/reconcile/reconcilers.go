@@ -503,6 +503,7 @@ func newDeployment(reaper *api.Reaper, cassDcService string) *appsv1.Deployment 
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
+					Affinity: reaper.Spec.Affinity,
 					Containers: []corev1.Container{
 						{
 							Name:            "reaper",
