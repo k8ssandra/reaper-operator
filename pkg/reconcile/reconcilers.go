@@ -387,10 +387,13 @@ func (r *defaultReconciler) buildNewDeployment(req ReaperRequest) (*appsv1.Deplo
 }
 
 func addAuthEnvVars(deployment *appsv1.Deployment, vars ...*corev1.EnvVar) {
+	initEnvVars := deployment.Spec.Template.Spec.InitContainers[0].Env
 	envVars := deployment.Spec.Template.Spec.Containers[0].Env
 	for _, v := range vars {
+		initEnvVars = append(initEnvVars, *v)
 		envVars = append(envVars, *v)
 	}
+	deployment.Spec.Template.Spec.InitContainers[0].Env = initEnvVars
 	deployment.Spec.Template.Spec.Containers[0].Env = envVars
 }
 
@@ -504,6 +507,15 @@ func newDeployment(reaper *api.Reaper, cassDcService string) *appsv1.Deployment 
 				},
 				Spec: corev1.PodSpec{
 					Affinity: reaper.Spec.Affinity,
+					InitContainers: []corev1.Container{
+						{
+							Name:            "reaper-schema-init",
+							ImagePullPolicy: corev1.PullPolicy(reaper.Spec.ImagePullPolicy),
+							Image:           reaper.Spec.Image,
+							Env:             envVars,
+							Args:            []string{"schema-migration"},
+						},
+					},
 					Containers: []corev1.Container{
 						{
 							Name:            "reaper",
