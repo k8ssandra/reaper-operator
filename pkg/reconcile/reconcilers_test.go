@@ -100,6 +100,36 @@ func TestNewDeployment(t *testing.T) {
 		},
 	})
 
+	assert.Equal(1, len(podSpec.InitContainers))
+
+	initContainer := podSpec.InitContainers[0]
+	assert.Equal(image, initContainer.Image)
+	assert.Equal(corev1.PullAlways, initContainer.ImagePullPolicy)
+	assert.ElementsMatch(initContainer.Env, []corev1.EnvVar{
+		{
+			Name:  "REAPER_STORAGE_TYPE",
+			Value: "cassandra",
+		},
+		{
+			Name:  "REAPER_ENABLE_DYNAMIC_SEED_LIST",
+			Value: "false",
+		},
+		{
+			Name:  "REAPER_CASS_CONTACT_POINTS",
+			Value: "[target-datacenter-service]",
+		},
+		{
+			Name:  "REAPER_AUTH_ENABLED",
+			Value: "false",
+		},
+		{
+			Name:  "REAPER_AUTO_SCHEDULING_ENABLED",
+			Value: "true",
+		},
+	})
+
+	assert.ElementsMatch(initContainer.Args, []string{"schema-migration"})
+
 	reaper.Spec.ServerConfig.AutoScheduling = &api.AutoScheduler{
 		Enabled:              false,
 		InitialDelay:         "PT10S",
