@@ -512,6 +512,8 @@ func newDeployment(reaper *api.Reaper, cassDcService string) *appsv1.Deployment 
 							Name:            "reaper-schema-init",
 							ImagePullPolicy: corev1.PullPolicy(reaper.Spec.ImagePullPolicy),
 							Image:           reaper.Spec.Image,
+							SecurityContext: reaper.Spec.InitContainerConfig.SecurityContext,
+							VolumeMounts:    reaper.Spec.InitContainerConfig.VolumeMounts,
 							Env:             envVars,
 							Args:            []string{"schema-migration"},
 						},
@@ -521,6 +523,8 @@ func newDeployment(reaper *api.Reaper, cassDcService string) *appsv1.Deployment 
 							Name:            "reaper",
 							ImagePullPolicy: corev1.PullPolicy(reaper.Spec.ImagePullPolicy),
 							Image:           reaper.Spec.Image,
+							SecurityContext: reaper.Spec.SecurityContext,
+							VolumeMounts:    reaper.Spec.VolumeMounts,
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          "app",
@@ -540,6 +544,8 @@ func newDeployment(reaper *api.Reaper, cassDcService string) *appsv1.Deployment 
 					},
 					ServiceAccountName: reaper.Spec.ServiceAccountName,
 					Tolerations:        reaper.Spec.Tolerations,
+					SecurityContext:    reaper.Spec.PodSecurityContext,
+					Volumes:            reaper.Spec.Volumes,
 				},
 			},
 		},

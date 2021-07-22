@@ -37,6 +37,15 @@ const (
 	DefaultStorageType = StorageTypeMemory
 )
 
+type InitContainerConfig struct {
+
+	// SecurityContext applied to the Reaper init container
+	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
+
+	// VolumeMounts available to the Reaper init container
+	VolumeMounts []corev1.VolumeMount `json:"volumeMounts,omitempty"`
+}
+
 type ServerConfig struct {
 	StorageType StorageType `json:"storageType,omitempty"`
 
@@ -61,7 +70,7 @@ type AutoScheduler struct {
 	ExcludedKeyspace     []string `json:"excludedKeyspaces,omitempty"`
 }
 
-// Specifies the replication strategy for a keyspace
+// ReplicationConfig Specifies the replication strategy for a keyspace
 type ReplicationConfig struct {
 	// Specifies the replication_factor when SimpleStrategy is used
 	SimpleStrategy *int32 `json:"simpleStrategy,omitempty"`
@@ -106,6 +115,21 @@ type ReaperSpec struct {
 
 	// Tolerations applied to the Reaper pods
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+
+	// InitContainerConfig encapsulates configs applied to the Reaper init container
+	InitContainerConfig InitContainerConfig `json:"initContainerConfig,omitempty" yaml:"initContainerConfig,omitempty"`
+
+	// SecurityContext applied to the Reaper non-init container
+	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
+
+	// PodSecurityContext applied to Reaper pods
+	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
+
+	// VolumeMounts for the Reaper non-init container
+	VolumeMounts []corev1.VolumeMount `json:"volumeMounts,omitempty"`
+
+	// Volumes for the Reaper pods
+	Volumes []corev1.Volume `json:"volumes,omitempty"`
 }
 
 // ReaperStatus defines the observed state of Reaper
