@@ -204,8 +204,8 @@ func isCassdcReady(cassdc *cassdcapi.CassandraDatacenter) bool {
 	if cassdc.Status.CassandraOperatorProgress != cassdcapi.ProgressReady {
 		return false
 	}
-	status := cassdc.GetConditionStatus(cassdcapi.DatacenterReady)
-	return status == corev1.ConditionTrue
+	cassStatus := cassdc.GetConditionStatus(cassdcapi.DatacenterReady)
+	return cassStatus == corev1.ConditionTrue
 }
 
 func (r *defaultReconciler) createSchema(ctx context.Context, req ReaperRequest) (*ctrl.Result, error) {
@@ -512,6 +512,7 @@ func newDeployment(reaper *api.Reaper, cassDcService string) *appsv1.Deployment 
 							Name:            "reaper-schema-init",
 							ImagePullPolicy: corev1.PullPolicy(reaper.Spec.ImagePullPolicy),
 							Image:           reaper.Spec.Image,
+							SecurityContext: reaper.Spec.SchemaInitContainerConfig.SecurityContext,
 							Env:             envVars,
 							Args:            []string{"schema-migration"},
 						},
@@ -521,6 +522,7 @@ func newDeployment(reaper *api.Reaper, cassDcService string) *appsv1.Deployment 
 							Name:            "reaper",
 							ImagePullPolicy: corev1.PullPolicy(reaper.Spec.ImagePullPolicy),
 							Image:           reaper.Spec.Image,
+							SecurityContext: reaper.Spec.SecurityContext,
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          "app",
@@ -540,6 +542,7 @@ func newDeployment(reaper *api.Reaper, cassDcService string) *appsv1.Deployment 
 					},
 					ServiceAccountName: reaper.Spec.ServiceAccountName,
 					Tolerations:        reaper.Spec.Tolerations,
+					SecurityContext:    reaper.Spec.PodSecurityContext,
 				},
 			},
 		},

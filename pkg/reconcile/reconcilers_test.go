@@ -75,6 +75,7 @@ func TestNewDeployment(t *testing.T) {
 	assert.Equal(1, len(podSpec.Containers))
 
 	container := podSpec.Containers[0]
+
 	assert.Equal(image, container.Image)
 	assert.Equal(corev1.PullAlways, container.ImagePullPolicy)
 	assert.ElementsMatch(container.Env, []corev1.EnvVar{
@@ -218,7 +219,7 @@ func TestTolerations(t *testing.T) {
 
 func TestAffinity(t *testing.T) {
 	image := "test/reaper:latest"
-	affiinity := &corev1.Affinity{
+	affinity := &corev1.Affinity{
 		NodeAffinity: &corev1.NodeAffinity{
 			RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
 				NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -237,12 +238,73 @@ func TestAffinity(t *testing.T) {
 	}
 	reaper := newReaperWithCassandraBackend()
 	reaper.Spec.Image = image
-	reaper.Spec.Affinity = affiinity
+	reaper.Spec.Affinity = affinity
 
 	deployment := newDeployment(reaper, "target-datacenter-service")
 
-	same := assert.ObjectsAreEqualValues(affiinity, deployment.Spec.Template.Spec.Affinity)
+	same := assert.ObjectsAreEqualValues(affinity, deployment.Spec.Template.Spec.Affinity)
 	assert.True(t, same, "affinity does not match")
+}
+
+func TestContainerSecurityContext(t *testing.T) {
+	image := "test/reaper:latest"
+	readOnlyRootFilesystemOverride := true
+	securityContext := &corev1.SecurityContext{
+		ReadOnlyRootFilesystem: &readOnlyRootFilesystemOverride,
+	}
+	reaper := newReaperWithCassandraBackend()
+	reaper.Spec.Image = image
+	reaper.Spec.SecurityContext = securityContext
+
+	deployment := newDeployment(reaper, "target-datacenter-service")
+	podSpec := deployment.Spec.Template.Spec
+
+	assert.True(t, len(podSpec.Containers) == 1, "Expected a single container to exist")
+	assert.Equal(t, podSpec.Containers[0].Name, "reaper")
+
+	same := assert.ObjectsAreEqualValues(securityContext, podSpec.Containers[0].SecurityContext)
+	assert.True(t, same, "securityContext does not match for container")
+}
+
+func TestSchemaInitContainerSecurityContext(t *testing.T) {
+	image := "test/reaper:latest"
+	readOnlyRootFilesystemOverride := true
+	initContainerSecurityContext := &corev1.SecurityContext{
+		ReadOnlyRootFilesystem: &readOnlyRootFilesystemOverride,
+	}
+	nonInitContainerSecurityContext := &corev1.SecurityContext{
+		ReadOnlyRootFilesystem: &readOnlyRootFilesystemOverride,
+	}
+
+	reaper := newReaperWithCassandraBackend()
+	reaper.Spec.Image = image
+	reaper.Spec.SecurityContext = nonInitContainerSecurityContext
+	reaper.Spec.SchemaInitContainerConfig.SecurityContext = initContainerSecurityContext
+
+	deployment := newDeployment(reaper, "target-datacenter-service")
+	podSpec := deployment.Spec.Template.Spec
+
+	assert.Equal(t, podSpec.InitContainers[0].Name, "reaper-schema-init")
+	assert.True(t, len(podSpec.InitContainers) == 1, "Expected a single schema init container to exist")
+	same := assert.ObjectsAreEqualValues(initContainerSecurityContext, podSpec.InitContainers[0].SecurityContext)
+	assert.True(t, same, "securityContext does not match for schema init container")
+}
+
+func TestPodSecurityContext(t *testing.T) {
+	image := "test/reaper:latest"
+	runAsUser := int64(8675309)
+	podSecurityContext := &corev1.PodSecurityContext{
+		RunAsUser: &runAsUser,
+	}
+	reaper := newReaperWithCassandraBackend()
+	reaper.Spec.Image = image
+	reaper.Spec.PodSecurityContext = podSecurityContext
+
+	deployment := newDeployment(reaper, "target-datacenter-service")
+	podSpec := deployment.Spec.Template.Spec
+
+	same := assert.ObjectsAreEqualValues(podSecurityContext, podSpec.SecurityContext)
+	assert.True(t, same, "podSecurityContext expected at pod level")
 }
 
 func newReaperWithCassandraBackend() *api.Reaper {
