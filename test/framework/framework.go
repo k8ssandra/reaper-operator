@@ -77,6 +77,7 @@ func KustomizeAndApply(namespace, dir string, useOverlay bool) {
 
 	kustomizeDir := path + "/../config/" + dir
 
+
 	if useOverlay {
 		if overlay, found := os.LookupEnv("TEST_OVERLAY"); found {
 			kustomizeDir = filepath.Clean(kustomizeDir + "/overlays/forks/" + overlay)

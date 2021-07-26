@@ -17,6 +17,9 @@ ORG?=k8ssandra
 PROJECT=reaper-operator
 REG?=docker.io
 
+# Change from default of 'kind' as needed
+KIND_CLUSTER_NAME=kind
+
 BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
 REV=$(shell git rev-parse --short=12 HEAD)
 
@@ -105,7 +108,7 @@ docker-push:
 	docker push ${LATEST_IMAGE}
 
 kind-load-image:
-	kind load docker-image ${LATEST_IMAGE}
+	kind load docker-image ${LATEST_IMAGE} --name ${KIND_CLUSTER_NAME}
 
 # find or download controller-gen
 # download controller-gen if necessary
