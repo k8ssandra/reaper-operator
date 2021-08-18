@@ -18,7 +18,7 @@ PROJECT=reaper-operator
 REG?=docker.io
 
 BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
-REV=$(shell git rev-parse --short=12 HEAD)
+REV=$(shell git rev-parse --short=8 HEAD)
 
 IMAGE_BASE=$(REG)/$(ORG)/$(PROJECT)
 REV_IMAGE=$(IMAGE_BASE):$(REV)
