@@ -1,0 +1,8 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands: 
+- script: |
+    helm install \
+    --set reaper-operator.image.tag=staging \
+    k8ssandra-e2e k8ssandra/k8ssandra
+  ignoreFailure: false

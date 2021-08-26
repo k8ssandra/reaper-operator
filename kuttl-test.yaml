@@ -1,0 +1,23 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestSuite
+testDirs:
+- ./test/kuttl
+
+startKIND: true
+kindNodeCache: true
+kindConfig: test/config/kind/kind_config_3_workers.yaml
+
+timeout: 300
+namespace: default
+kindContainers:
+- k8ssandra/reaper-operator:staging
+
+commands:
+  # Remove the repo if it already exists.
+  - command: helm repo remove k8ssandra
+    ignoreFailure: true
+    # Run through regular install steps, excluding the unit under test.
+  - command: helm repo add k8ssandra https://helm.k8ssandra.io/stable
+    ignoreFailure: false
+  - command: helm repo update
+    ignoreFailure: false
