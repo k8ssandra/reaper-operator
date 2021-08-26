@@ -55,6 +55,39 @@ manager: generate fmt vet
 run: generate fmt vet manifests
 	go run ./main.go
 
+# E2E tests from kuttl
+kuttl-test: manager install-kuttl install-helm install-kustomize
+	docker build -t k8ssandra/reaper-operator:staging ./
+	kubectl kuttl test
+
+# Install kuttl for e2e tests.
+install-kuttl: install-krew
+	kubectl krew install kuttl
+
+install-kustomize:
+	curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | sh
+
+# Install krew which is then used to install kuttl
+install-krew:
+	tmp=$(mktemp) && cd $tmp
+	(
+	set -x; cd "$(mktemp -d)" &&
+	OS="$(uname | tr '[:upper:]' '[:lower:]')" &&
+	ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')" &&
+	curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/krew.tar.gz" &&
+	tar zxvf krew.tar.gz &&
+	KREW=./krew-"${OS}_${ARCH}" &&
+	"$KREW" install krew
+	)
+	export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+
+install-helm:
+	tmp=$(mktemp) && cd $tmp
+	curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
+	chmod 700 get_helm.sh
+	./get_helm.sh
+
+
 # Install CRDs into a cluster
 install: manifests kustomize
 	$(KUSTOMIZE) build config/crd | kubectl apply -f -
