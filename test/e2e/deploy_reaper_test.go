@@ -30,8 +30,6 @@ var _ = Describe("Deploy Reaper with Cassandra backend", func() {
 	Context("When a Cassandra cluster is deployed", func() {
 		Specify("Reaper is deployed", func() {
 			By("create namespace " + namespace)
-			err := framework.CreateNamespace(namespace)
-			Expect(err).ToNot(HaveOccurred())
 
 			By("deploy CRDs")
 			framework.KustomizeAndApply(namespace, "deploy_crds", false)
