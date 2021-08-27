@@ -65,11 +65,12 @@ install-kuttl: install-krew
 	kubectl krew install kuttl
 
 install-kustomize:
-	curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | sh
+	kustomize && if [[ $$? -ne 0 ]]; then \
+	curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | sh;  fi
 
 # Install krew which is then used to install kuttl
 install-krew:
-	kubectl krew && if [ $? != 0 ]; then \
+	kubectl krew && if [[ $$? -ne 0 ]]; then \
 	(set -x; cd "$$(mktemp -d)" && OS="$$(uname | tr '[:upper:]' '[:lower:]')"; \
 	ARCH="$$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$$/arm64/')";  \
 	curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/krew.tar.gz";  \
@@ -77,7 +78,7 @@ install-krew:
 	"$${KREW}" install krew ); fi
 
 install-helm:
-	helm && if [ $? != 0 ]; then \
+	helm && if [[ $$? -ne 0 ]]; then \
 	curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3; \
 	chmod 700 get_helm.sh; \
 	./get_helm.sh; \
