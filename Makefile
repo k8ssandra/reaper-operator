@@ -56,8 +56,8 @@ run: generate fmt vet manifests
 	go run ./main.go
 
 # E2E tests from kuttl
-kuttl-test: manager install-kuttl install-helm install-kustomize
-	docker build -t k8ssandra/reaper-operator:staging ./
+kuttl-test: manager install-kuttl install-helm install-kustomize \
+	docker build -t k8ssandra/reaper-operator:staging ./ \
 	kubectl kuttl test
 
 # Install kuttl for e2e tests.
@@ -69,23 +69,19 @@ install-kustomize:
 
 # Install krew which is then used to install kuttl
 install-krew:
-	tmp=$(mktemp) && cd $tmp
-	(
-	set -x; cd "$(mktemp -d)" &&
-	OS="$(uname | tr '[:upper:]' '[:lower:]')" &&
-	ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')" &&
-	curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/krew.tar.gz" &&
-	tar zxvf krew.tar.gz &&
-	KREW=./krew-"${OS}_${ARCH}" &&
-	"$KREW" install krew
-	)
-	export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+	kubectl krew && if [ $? != 0 ]; then \
+	(set -x; cd "$$(mktemp -d)" && OS="$$(uname | tr '[:upper:]' '[:lower:]')"; \
+	ARCH="$$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$$/arm64/')";  \
+	curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/krew.tar.gz";  \
+	tar zxvf krew.tar.gz && export KREW=./krew-"$${OS}_$${ARCH}";  \
+	"$${KREW}" install krew ); fi
 
 install-helm:
-	tmp=$(mktemp) && cd $tmp
-	curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
-	chmod 700 get_helm.sh
-	./get_helm.sh
+	helm && if [ $? != 0 ]; then \
+	curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3; \
+	chmod 700 get_helm.sh; \
+	./get_helm.sh; \
+	fi;
 
 
 # Install CRDs into a cluster
