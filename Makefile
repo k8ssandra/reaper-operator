@@ -56,8 +56,8 @@ run: generate fmt vet manifests
 	go run ./main.go
 
 # E2E tests from kuttl
-kuttl-test: manager install-kuttl install-helm install-kustomize \
-	docker build -t k8ssandra/reaper-operator:staging ./ \
+kuttl-test: manager install-kuttl install-helm install-kustomize
+	docker build -t k8ssandra/reaper-operator:staging ./
 	kubectl kuttl test
 
 # Install kuttl for e2e tests.
