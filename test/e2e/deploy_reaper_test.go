@@ -29,7 +29,7 @@ const (
 var _ = Describe("Deploy Reaper with Cassandra backend", func() {
 	Context("When a Cassandra cluster is deployed", func() {
 		Specify("Reaper is deployed", func() {
-			By("create namespace " + namespace)
+			var err error
 
 			By("deploy CRDs")
 			framework.KustomizeAndApply(namespace, "deploy_crds", false)
