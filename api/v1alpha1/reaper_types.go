@@ -113,7 +113,6 @@ type ReaperSpec struct {
 	// Tolerations applied to the Reaper pods
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 
-
 	// SchemaInitContainerConfig encapsulates settings applied to the Reaper schema init container
 	SchemaInitContainerConfig InitContainerConfig `json:"schemaInitContainerConfig,omitempty" yaml:"schemaInitContainerConfig,omitempty"`
 

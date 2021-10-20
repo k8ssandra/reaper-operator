@@ -329,6 +329,17 @@ var _ = Describe("Reaper controller", func() {
 		Expect(envVars[len(envVars)-2].ValueFrom.SecretKeyRef.Key).To(Equal("password"))
 		Expect(envVars[len(envVars)-1].Name).To(Equal("REAPER_CASS_AUTH_ENABLED"))
 		Expect(envVars[len(envVars)-1].Value).To(Equal("true"))
+
+		// Schema init env var check, note: config init doesn't currently utilize these vars
+		schemaInitEnvVars := deployment.Spec.Template.Spec.InitContainers[1].Env
+		Expect(schemaInitEnvVars[len(schemaInitEnvVars)-3].Name).To(Equal("REAPER_CASS_AUTH_USERNAME"))
+		Expect(schemaInitEnvVars[len(schemaInitEnvVars)-3].ValueFrom.SecretKeyRef.LocalObjectReference.Name).To(Equal("top-secret-cass"))
+		Expect(schemaInitEnvVars[len(schemaInitEnvVars)-3].ValueFrom.SecretKeyRef.Key).To(Equal("username"))
+		Expect(schemaInitEnvVars[len(schemaInitEnvVars)-2].Name).To(Equal("REAPER_CASS_AUTH_PASSWORD"))
+		Expect(schemaInitEnvVars[len(schemaInitEnvVars)-2].ValueFrom.SecretKeyRef.LocalObjectReference.Name).To(Equal("top-secret-cass"))
+		Expect(schemaInitEnvVars[len(schemaInitEnvVars)-2].ValueFrom.SecretKeyRef.Key).To(Equal("password"))
+		Expect(schemaInitEnvVars[len(schemaInitEnvVars)-1].Name).To(Equal("REAPER_CASS_AUTH_ENABLED"))
+		Expect(schemaInitEnvVars[len(schemaInitEnvVars)-1].Value).To(Equal("true"))
 	})
 })
 

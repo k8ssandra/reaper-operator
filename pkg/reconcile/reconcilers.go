@@ -389,13 +389,13 @@ func (r *defaultReconciler) buildNewDeployment(req ReaperRequest) (*appsv1.Deplo
 }
 
 func addAuthEnvVars(deployment *appsv1.Deployment, vars ...*corev1.EnvVar) {
-	initEnvVars := deployment.Spec.Template.Spec.InitContainers[0].Env
+	schemaInitEnvVars := deployment.Spec.Template.Spec.InitContainers[1].Env
 	envVars := deployment.Spec.Template.Spec.Containers[0].Env
 	for _, v := range vars {
-		initEnvVars = append(initEnvVars, *v)
+		schemaInitEnvVars = append(schemaInitEnvVars, *v)
 		envVars = append(envVars, *v)
 	}
-	deployment.Spec.Template.Spec.InitContainers[0].Env = initEnvVars
+	deployment.Spec.Template.Spec.InitContainers[1].Env = schemaInitEnvVars
 	deployment.Spec.Template.Spec.Containers[0].Env = envVars
 }
 
@@ -512,6 +512,21 @@ func newDeployment(reaper *api.Reaper, cassDcService string) *appsv1.Deployment 
 					Affinity: reaper.Spec.Affinity,
 					InitContainers: []corev1.Container{
 						{
+							Name:            "reaper-config-init",
+							ImagePullPolicy: corev1.PullPolicy(reaper.Spec.ImagePullPolicy),
+							Image:           reaper.Spec.Image,
+							SecurityContext: reaper.Spec.ConfigInitContainerConfig.SecurityContext,
+							Command:         []string{"/bin/sh"},
+							Args:            []string{"-c", "cp -r /etc/reaper/* /reaper-base-config/"},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "reaper-config",
+									ReadOnly:  false,
+									MountPath: "/reaper-base-config/",
+								},
+							},
+						},
+						{
 							Name:            "reaper-schema-init",
 							ImagePullPolicy: corev1.PullPolicy(reaper.Spec.ImagePullPolicy),
 							Image:           reaper.Spec.Image,
@@ -523,20 +538,6 @@ func newDeployment(reaper *api.Reaper, cassDcService string) *appsv1.Deployment 
 									Name:      "reaper-config",
 									ReadOnly:  false,
 									MountPath: "/etc/reaper",
-								},
-							},
-						},
-						{
-							Name:            "reaper-config-init",
-							ImagePullPolicy: corev1.PullPolicy(reaper.Spec.ImagePullPolicy),
-							Image:           reaper.Spec.Image,
-							SecurityContext: reaper.Spec.ConfigInitContainerConfig.SecurityContext,
-							Command:         []string{"/bin/sh -c cp -r /etc/reaper/* /reaper-base-config/"},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "reaper-config",
-									ReadOnly:  false,
-									MountPath: "/reaper-base-config/",
 								},
 							},
 						},

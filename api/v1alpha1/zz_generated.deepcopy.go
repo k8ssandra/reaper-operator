@@ -180,7 +180,6 @@ func (in *ReaperSpec) DeepCopyInto(out *ReaperSpec) {
 	}
 	in.SchemaInitContainerConfig.DeepCopyInto(&out.SchemaInitContainerConfig)
 	in.ConfigInitContainerConfig.DeepCopyInto(&out.ConfigInitContainerConfig)
-
 	if in.SecurityContext != nil {
 		in, out := &in.SecurityContext, &out.SecurityContext
 		*out = new(v1.SecurityContext)
