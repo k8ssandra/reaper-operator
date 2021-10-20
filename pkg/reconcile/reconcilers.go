@@ -574,6 +574,7 @@ func newDeployment(reaper *api.Reaper, cassDcService string) *appsv1.Deployment 
 					ServiceAccountName: reaper.Spec.ServiceAccountName,
 					Tolerations:        reaper.Spec.Tolerations,
 					SecurityContext:    reaper.Spec.PodSecurityContext,
+
 					Volumes: []corev1.Volume{
 						{
 							Name: "reaper-config",

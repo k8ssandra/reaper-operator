@@ -296,10 +296,10 @@ func TestSchemaInitContainerSecurityContext(t *testing.T) {
 	configInitSecurityContext := &corev1.SecurityContext{
 		ReadOnlyRootFilesystem: &readOnlyRootFilesystemOverride,
 	}
-
 	reaper := newReaperWithCassandraBackend()
 	reaper.Spec.Image = image
 	reaper.Spec.SecurityContext = nonInitContainerSecurityContext
+
 	reaper.Spec.SchemaInitContainerConfig.SecurityContext = schemaInitSecurityContext
 	reaper.Spec.ConfigInitContainerConfig.SecurityContext = configInitSecurityContext
 
@@ -336,6 +336,7 @@ func TestPodSecurityContext(t *testing.T) {
 	same := assert.ObjectsAreEqualValues(podSecurityContext, podSpec.SecurityContext)
 	assert.True(t, same, "podSecurityContext expected at pod level")
 }
+
 
 func TestVolumes(t *testing.T) {
 	image := "test/reaper:latest"
