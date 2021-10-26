@@ -8,4 +8,4 @@ roleRef:
   name: reaper-operator
 subjects:
 - kind: ServiceAccount
-  name: default
+  name: controller-manager

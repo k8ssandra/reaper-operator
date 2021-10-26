@@ -3,7 +3,7 @@ package status
 import (
 	"context"
 
-	cassdcv1beta1 "github.com/k8ssandra/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	cassdcapi "github.com/k8ssandra/cass-operator/apis/cassandra/v1beta1"
 	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,7 +31,7 @@ func (s *StatusManager) updateReady(ctx context.Context, reaper *api.Reaper, rea
 
 // Adds the cluster to .status.clusters if it not already in the list. The status is patch
 // updated if the list is modified.
-func (s *StatusManager) AddClusterToStatus(ctx context.Context, reaper *api.Reaper, cassdc *cassdcv1beta1.CassandraDatacenter) error {
+func (s *StatusManager) AddClusterToStatus(ctx context.Context, reaper *api.Reaper, cassdc *cassdcapi.CassandraDatacenter) error {
 	if contains(reaper.Status.Clusters, cassdc.Spec.ClusterName) {
 		return nil
 	}
@@ -45,7 +45,7 @@ func (s *StatusManager) AddClusterToStatus(ctx context.Context, reaper *api.Reap
 
 // Removes the cluster from .status.clusters if it is in the list. The status is patch
 // updated if the list is modified.
-func (s *StatusManager) RemoveClusterFromStatus(ctx context.Context, reaper *api.Reaper, cassdc *cassdcv1beta1.CassandraDatacenter) error {
+func (s *StatusManager) RemoveClusterFromStatus(ctx context.Context, reaper *api.Reaper, cassdc *cassdcapi.CassandraDatacenter) error {
 	if !contains(reaper.Status.Clusters, cassdc.Spec.ClusterName) {
 		return nil
 	}

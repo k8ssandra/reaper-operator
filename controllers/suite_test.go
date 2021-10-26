@@ -38,7 +38,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	cassdcv1beta1 "github.com/k8ssandra/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	cassdcapi "github.com/k8ssandra/cass-operator/apis/cassandra/v1beta1"
 	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	// +kubebuilder:scaffold:imports
@@ -62,8 +62,7 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(done Done) {
-	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
-
+	logf.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(GinkgoWriter)))
 	By("creating a fake mgtt-api-http")
 	var err error
 	// The client in cass-operator has hardcoded port of 8080, so we need to run our mgtt-api listener in that port
@@ -95,7 +94,7 @@ var _ = BeforeSuite(func(done Done) {
 	err = api.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = cassdcv1beta1.AddToScheme(scheme.Scheme)
+	err = cassdcapi.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:scheme

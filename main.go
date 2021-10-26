@@ -32,7 +32,7 @@ import (
 	reapermanager "github.com/k8ssandra/reaper-operator/pkg/reaper"
 	"github.com/k8ssandra/reaper-operator/pkg/reconcile"
 
-	cassdcv1beta1 "github.com/k8ssandra/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	cassdcapi "github.com/k8ssandra/cass-operator/apis/cassandra/v1beta1"
 	reaperv1alpha1 "github.com/k8ssandra/reaper-operator/api/v1alpha1"
 	"github.com/k8ssandra/reaper-operator/controllers"
 	// +kubebuilder:scaffold:imports
@@ -47,7 +47,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(reaperv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(cassdcv1beta1.AddToScheme(scheme))
+	utilruntime.Must(cassdcapi.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 

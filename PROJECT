@@ -1,11 +1,13 @@
 domain: cassandra-reaper.io
-layout: go.kubebuilder.io/v2
+layout: go.kubebuilder.io/v3
 projectName: reaper-operator
 repo: github.com/k8ssandra/reaper-operator
 resources:
 - group: reaper
   kind: Reaper
-  version: v1alpha1
-version: 3-alpha
+  version: v1alpha
+version: 3
 plugins:
-  go.sdk.operatorframework.io/v2-alpha: {}
+  manifests.sdk.operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}
+
