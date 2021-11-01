@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: cass-operator
+    cassandra.datastax.com/cluster: reaper-test
+    cassandra.datastax.com/datacenter: reaper-test
+    cassandra.datastax.com/node-state: Started
+  name: reaper-test-reaper-test-default-sts-0
+  namespace: default
+status:
+  phase: Running

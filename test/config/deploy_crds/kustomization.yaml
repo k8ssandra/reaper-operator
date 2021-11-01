@@ -1,5 +1,6 @@
 namespace: deploy-reaper-test
 
 resources:
+- namespace.yaml
 - ../../../config/crd
 - ../cass-operator-crd

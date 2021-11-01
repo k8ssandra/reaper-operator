@@ -1,0 +1,5 @@
+namespace: default
+resources:
+- ../../../../../config/crd # we are going to apply this in the parent kuttl suite config so the resource exists. This is here to be patched.
+- ../../../../../config/rbac
+- ../../../../../config/manager
