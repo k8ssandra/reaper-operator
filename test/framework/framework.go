@@ -20,7 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	cassdcv1beta1 "github.com/k8ssandra/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	cassdcapi "github.com/k8ssandra/cass-operator/apis/cassandra/v1beta1"
 	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -49,7 +49,7 @@ func Init() {
 	err := api.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = cassdcv1beta1.AddToScheme(scheme.Scheme)
+	err = cassdcapi.AddToScheme(scheme.Scheme)
 	Expect(err).ToNot(HaveOccurred())
 
 	apiConfig, err := clientcmd.NewDefaultClientConfigLoadingRules().Load()
@@ -190,18 +190,18 @@ func WaitForCassDcReady(key types.NamespacedName, retryInterval, timeout time.Du
 			return true, err
 		}
 		logCassDcStatus(cassdc, start)
-		return cassdc.Status.CassandraOperatorProgress == cassdcv1beta1.ProgressReady, nil
+		return cassdc.Status.CassandraOperatorProgress == cassdcapi.ProgressReady, nil
 	})
 }
 
-func GetCassDc(key types.NamespacedName) (*cassdcv1beta1.CassandraDatacenter, error) {
-	cassdc := &cassdcv1beta1.CassandraDatacenter{}
+func GetCassDc(key types.NamespacedName) (*cassdcapi.CassandraDatacenter, error) {
+	cassdc := &cassdcapi.CassandraDatacenter{}
 	err := Client.Get(context.Background(), key, cassdc)
 
 	return cassdc, err
 }
 
-func logCassDcStatus(cassdc *cassdcv1beta1.CassandraDatacenter, start time.Time) {
+func logCassDcStatus(cassdc *cassdcapi.CassandraDatacenter, start time.Time) {
 	if d, err := yaml.Marshal(cassdc.Status); err == nil {
 		duration := time.Now().Sub(start)
 		sec := int(duration.Seconds())

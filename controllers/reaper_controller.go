@@ -51,8 +51,7 @@ type ReaperReconciler struct {
 // +kubebuilder:rbac:groups="",namespace="reaper-operator",resources=services,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="",namespace="reaper-operator",resources=secrets,verbs=get;list;watch
 
-func (r *ReaperReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	ctx := context.Background()
+func (r *ReaperReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	reqLogger := r.Log.WithValues("reaper", req.NamespacedName)
 	statusManager := &status.StatusManager{Client: r.Client}
 

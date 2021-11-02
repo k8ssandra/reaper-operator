@@ -3,7 +3,8 @@ package reaper
 import (
 	"context"
 	"fmt"
-	"github.com/k8ssandra/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+
+	cassdcapi "github.com/k8ssandra/cass-operator/apis/cassandra/v1beta1"
 	"github.com/k8ssandra/reaper-client-go/reaper"
 	reapergo "github.com/k8ssandra/reaper-client-go/reaper"
 	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
@@ -11,8 +12,8 @@ import (
 
 type ReaperManager interface {
 	Connect(reaper *api.Reaper) error
-	AddClusterToReaper(ctx context.Context, cassdc *v1beta1.CassandraDatacenter) error
-	VerifyClusterIsConfigured(ctx context.Context, cassdc *v1beta1.CassandraDatacenter) (bool, error)
+	AddClusterToReaper(ctx context.Context, cassdc *cassdcapi.CassandraDatacenter) error
+	VerifyClusterIsConfigured(ctx context.Context, cassdc *cassdcapi.CassandraDatacenter) (bool, error)
 }
 
 // RestReaperManager abstracts the ugly details of how to connect to the Reaper instance
@@ -33,11 +34,11 @@ func (r *RestReaperManager) Connect(reaper *api.Reaper) error {
 	return nil
 }
 
-func (r *RestReaperManager) AddClusterToReaper(ctx context.Context, cassdc *v1beta1.CassandraDatacenter) error {
+func (r *RestReaperManager) AddClusterToReaper(ctx context.Context, cassdc *cassdcapi.CassandraDatacenter) error {
 	return r.reaperClient.AddCluster(ctx, cassdc.Spec.ClusterName, cassdc.GetDatacenterServiceName())
 }
 
-func (r *RestReaperManager) VerifyClusterIsConfigured(ctx context.Context, cassdc *v1beta1.CassandraDatacenter) (bool, error) {
+func (r *RestReaperManager) VerifyClusterIsConfigured(ctx context.Context, cassdc *cassdcapi.CassandraDatacenter) (bool, error) {
 	_, err := r.reaperClient.GetCluster(ctx, cassdc.Spec.ClusterName)
 	if err != nil {
 		if err == reaper.CassandraClusterNotFound {

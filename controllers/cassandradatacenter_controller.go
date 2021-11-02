@@ -20,9 +20,10 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"strings"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
 	"github.com/k8ssandra/reaper-operator/pkg/status"
@@ -32,7 +33,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	cassdcv1beta1 "github.com/k8ssandra/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	cassdcapi "github.com/k8ssandra/cass-operator/apis/cassandra/v1beta1"
 	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
 	manager "github.com/k8ssandra/reaper-operator/pkg/reaper"
 )
@@ -80,12 +81,11 @@ func getReconcileDelay(name string, defaultDelay time.Duration) time.Duration {
 
 // +kubebuilder:rbac:groups=cassandra.datastax.com,namespace="reaper-operator",resources=cassandradatacenters,verbs=get;list;watch;create
 
-func (r *CassandraDatacenterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	ctx := context.Background()
+func (r *CassandraDatacenterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = r.Log.WithValues("cassandradatacenter", req.NamespacedName)
 	statusManager := &status.StatusManager{Client: r.Client}
 
-	instance := &cassdcv1beta1.CassandraDatacenter{}
+	instance := &cassdcapi.CassandraDatacenter{}
 	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -174,6 +174,6 @@ func getReaperKey(instanceName, cassdcNamespace string) types.NamespacedName {
 
 func (r *CassandraDatacenterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&cassdcv1beta1.CassandraDatacenter{}).
+		For(&cassdcapi.CassandraDatacenter{}).
 		Complete(r)
 }
