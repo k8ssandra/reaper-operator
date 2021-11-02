@@ -24,7 +24,7 @@ const (
 	ReaperName              = "test-reaper"
 	CassandraDatacenterName = "test-dc"
 
-	timeout  = time.Second * 10
+	timeout  = time.Second * 20
 	interval = time.Millisecond * 250
 )
 
