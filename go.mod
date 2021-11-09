@@ -12,7 +12,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	k8s.io/api v0.21.4
 	k8s.io/apimachinery v0.21.4
-	k8s.io/client-go v12.0.0+incompatible
+	k8s.io/client-go v0.21.4
 	k8s.io/kubernetes v1.21.4
 	sigs.k8s.io/controller-runtime v0.9.2
 )
