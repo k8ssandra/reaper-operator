@@ -325,6 +325,9 @@ func (r *defaultReconciler) ReconcileDeployment(ctx context.Context, req ReaperR
 			deployment.Spec.RevisionHistoryLimit = desiredDeployment.Spec.RevisionHistoryLimit
 			deployment.Spec.Strategy = desiredDeployment.Spec.Strategy
 
+			deployment.Spec.Template.Spec.Volumes = desiredDeployment.Spec.Template.Spec.Volumes
+			deployment.Spec.Template.Spec.Containers[0].VolumeMounts = desiredDeployment.Spec.Template.Spec.Containers[0].VolumeMounts
+
 			if err = r.Update(ctx, deployment); err != nil {
 				req.Logger.Error(err, "failed to update deployment", "deployment", deployment)
 			}
@@ -401,13 +404,14 @@ func (r *defaultReconciler) buildNewDeployment(req ReaperRequest) (*appsv1.Deplo
 }
 
 func addAuthEnvVars(deployment *appsv1.Deployment, vars ...*corev1.EnvVar) {
-	initEnvVars := deployment.Spec.Template.Spec.InitContainers[0].Env
+	schemaInitEnvVars := deployment.Spec.Template.Spec.InitContainers[1].Env
 	envVars := deployment.Spec.Template.Spec.Containers[0].Env
+
 	for _, v := range vars {
-		initEnvVars = append(initEnvVars, *v)
+		schemaInitEnvVars = append(schemaInitEnvVars, *v)
 		envVars = append(envVars, *v)
 	}
-	deployment.Spec.Template.Spec.InitContainers[0].Env = initEnvVars
+	deployment.Spec.Template.Spec.InitContainers[1].Env = schemaInitEnvVars
 	deployment.Spec.Template.Spec.Containers[0].Env = envVars
 }
 
@@ -506,7 +510,6 @@ func newDeployment(reaper *api.Reaper, cassDcService string) *appsv1.Deployment 
 			}
 		}
 	}
-
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: reaper.Namespace,
@@ -526,12 +529,34 @@ func newDeployment(reaper *api.Reaper, cassDcService string) *appsv1.Deployment 
 					Affinity: reaper.Spec.Affinity,
 					InitContainers: []corev1.Container{
 						{
+							Name:            "reaper-config-init",
+							ImagePullPolicy: corev1.PullPolicy(reaper.Spec.ImagePullPolicy),
+							Image:           reaper.Spec.Image,
+							SecurityContext: reaper.Spec.ConfigInitContainerConfig.SecurityContext,
+							Command:         []string{"/bin/sh"},
+							Args:            []string{"-c", "cp -r /etc/cassandra-reaper/* /reaper-base-config/"},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "reaper-config",
+									ReadOnly:  false,
+									MountPath: "/reaper-base-config/",
+								},
+							},
+						},
+						{
 							Name:            "reaper-schema-init",
 							ImagePullPolicy: corev1.PullPolicy(reaper.Spec.ImagePullPolicy),
 							Image:           reaper.Spec.Image,
 							SecurityContext: reaper.Spec.SchemaInitContainerConfig.SecurityContext,
 							Env:             envVars,
 							Args:            []string{"schema-migration"},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "reaper-config",
+									ReadOnly:  false,
+									MountPath: "/etc/cassandra-reaper",
+								},
+							},
 						},
 					},
 					Containers: []corev1.Container{
@@ -539,6 +564,13 @@ func newDeployment(reaper *api.Reaper, cassDcService string) *appsv1.Deployment 
 							Name:            "reaper",
 							ImagePullPolicy: corev1.PullPolicy(reaper.Spec.ImagePullPolicy),
 							Image:           reaper.Spec.Image,
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "reaper-config",
+									ReadOnly:  true,
+									MountPath: "/etc/cassandra-reaper",
+								},
+							},
 							SecurityContext: reaper.Spec.SecurityContext,
 							Ports: []corev1.ContainerPort{
 								{
@@ -560,6 +592,11 @@ func newDeployment(reaper *api.Reaper, cassDcService string) *appsv1.Deployment 
 					ServiceAccountName: reaper.Spec.ServiceAccountName,
 					Tolerations:        reaper.Spec.Tolerations,
 					SecurityContext:    reaper.Spec.PodSecurityContext,
+					Volumes: []corev1.Volume{
+						{
+							Name: "reaper-config",
+						},
+					},
 				},
 			},
 		},
