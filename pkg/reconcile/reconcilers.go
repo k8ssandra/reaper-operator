@@ -286,6 +286,20 @@ func (r *defaultReconciler) ReconcileDeployment(ctx context.Context, req ReaperR
 			return &ctrl.Result{RequeueAfter: 10 * time.Second}, err
 		}
 	} else {
+		if deployment.Spec.Strategy.Type != appsv1.RecreateDeploymentStrategyType {
+			// When strategy is not set to RecreateDeploymentStrategyType this can cause [issues](https://github.com/k8ssandra/reaper-operator/issues/63) where multiple Reaper pods exist concurrently.
+			// This is not supported due to the way that migrations in Reaper work. We need to ensure that RecreateDeploymentStrategyType is in place before any upgrades can occur.
+			req.Logger.Info("Reaper deployment not currently using appsv1.RecreateDeploymentStrategyType, patching and re-queueing the request")
+			patch := client.StrategicMergeFrom(deployment.DeepCopy())
+			deployment.Spec.Strategy = appsv1.DeploymentStrategy{
+				Type: appsv1.RecreateDeploymentStrategyType,
+			}
+			if err := r.Patch(ctx, deployment, patch); err != nil {
+				req.Logger.Error(err, "Failed to patch deployment with appsv1.RecreateDeploymentStrategyType")
+				return &ctrl.Result{RequeueAfter: 10 * time.Second}, err
+			}
+			return &ctrl.Result{RequeueAfter: 10 * time.Second}, err
+		}
 		if !util.ResourcesHaveSameHash(desiredDeployment, deployment) {
 			req.Logger.Info("updating deployment", "deployment", key)
 
@@ -501,6 +515,9 @@ func newDeployment(reaper *api.Reaper, cassDcService string) *appsv1.Deployment 
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &selector,
+			Strategy: appsv1.DeploymentStrategy{
+				Type: appsv1.RecreateDeploymentStrategyType,
+			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,

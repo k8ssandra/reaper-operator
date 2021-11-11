@@ -23,7 +23,6 @@ import (
 const (
 	ReaperName              = "test-reaper"
 	CassandraDatacenterName = "test-dc"
-
 	timeout  = time.Second * 100
 	interval = time.Millisecond * 250
 )
@@ -149,35 +148,60 @@ var _ = Describe("Reaper controller", func() {
 
 		By("check that the deployment is created")
 		deploymentKey := types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName}
-		deployment := &appsv1.Deployment{}
+		currentDeployment := &appsv1.Deployment{}
 
 		Eventually(func() error {
-			return k8sClient.Get(context.Background(), deploymentKey, deployment)
+			return k8sClient.Get(context.Background(), deploymentKey, currentDeployment)
 		}, timeout, interval).Should(Succeed(), "deployment creation check failed")
 
-		Expect(len(deployment.OwnerReferences)).Should(Equal(1), "deployment owner reference not set")
-		Expect(deployment.OwnerReferences[0].UID).Should(Equal(reaper.GetUID()), "deployment owner reference has wrong uid")
+		Expect(len(currentDeployment.OwnerReferences)).Should(Equal(1), "deployment owner reference not set")
+		Expect(currentDeployment.OwnerReferences[0].UID).Should(Equal(reaper.GetUID()), "deployment owner reference has wrong uid")
 
 		By("update deployment to be ready")
-		patchDeploymentStatus(deployment, 1, 1)
+		patchDeploymentStatus(currentDeployment, 1, 1)
 
 		verifyReaperReady(types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName})
+
+		// Simulate changing the deployment strategy to rolling.
+		// The deployment strategy should be reconciled back to recreate.
+		By("patch deployment to have a rolling update strategy")
+		Eventually(func() error {
+			return k8sClient.Get(context.Background(), deploymentKey, currentDeployment)
+		}, timeout, interval).Should(Succeed(), "could not obtain current deployment")
+		deploymentPatch := client.MergeFrom(currentDeployment.DeepCopy())
+		currentDeployment.Spec.Strategy = appsv1.DeploymentStrategy{
+			Type: appsv1.RollingUpdateDeploymentStrategyType,
+		}
+		if err := k8sClient.Patch(context.Background(), currentDeployment, deploymentPatch); err != nil {
+			Fail("Failed to patch deployment with appsv1.RecreateDeploymentStrategyType")
+		}
+		Eventually(func() bool {
+			if err := k8sClient.Get(context.Background(), deploymentKey, currentDeployment); err != nil {
+				Fail("lost the reaper deployment")
+			}
+			return currentDeployment.Spec.Strategy.Type == appsv1.RollingUpdateDeploymentStrategyType
+		}, timeout, interval).Should(BeTrue(), "deployment strategy type should have been patched to rolling")
+		Eventually(func() bool {
+			if err := k8sClient.Get(context.Background(), deploymentKey, currentDeployment); err != nil {
+				Fail("lost the reaper deployment")
+			}
+			return currentDeployment.Spec.Strategy.Type == appsv1.RecreateDeploymentStrategyType
+		}, timeout, interval).Should(BeTrue(), "deployment strategy type should have been reconciled back to recreate")
 
 		// Now simulate the Reaper app entering a state in which its readiness probe fails. This
 		// should cause the deployment to have its status updated. The Reaper object's .Status.Ready
 		// field should subsequently be updated.
 		By("update deployment to be not ready")
-		patchDeploymentStatus(deployment, 1, 0)
-
 		reaperKey := types.NamespacedName{Namespace: ReaperNamespace, Name: ReaperName}
-		updatedReaper := &api.Reaper{}
+		currentReaper := &api.Reaper{}
+		patchDeploymentStatus(currentDeployment, 1, 0)
 		Eventually(func() bool {
-			err := k8sClient.Get(context.Background(), reaperKey, updatedReaper)
+			err := k8sClient.Get(context.Background(), reaperKey, currentReaper)
 			if err != nil {
 				return false
 			}
-			ctrl.Log.WithName("test").Info("after update", "updatedReaper", updatedReaper)
-			return updatedReaper.Status.Ready == false
+			ctrl.Log.WithName("test").Info("after update", "updatedReaper", currentReaper)
+			return currentReaper.Status.Ready == false
 		}, timeout, interval).Should(BeTrue(), "reaper status should have been updated")
 	})
 

@@ -1,19 +1,27 @@
 package reconcile
 
 import (
+	"context"
 	"testing"
 
+	cassdcapi "github.com/k8ssandra/cass-operator/apis/cassandra/v1beta1"
 	api "github.com/k8ssandra/reaper-operator/api/v1alpha1"
 	mlabels "github.com/k8ssandra/reaper-operator/pkg/labels"
+	"github.com/k8ssandra/reaper-operator/pkg/status"
 	"github.com/stretchr/testify/assert"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func TestNewService(t *testing.T) {
-	reaper := newReaperWithCassandraBackend()
+	reaper := newReaperWithCassandraBackend("service-test", "test-reaper")
 	key := types.NamespacedName{Namespace: reaper.Namespace, Name: GetServiceName(reaper.Name)}
 
 	service := newService(key, reaper)
@@ -40,7 +48,7 @@ func TestNewService(t *testing.T) {
 func TestNewDeployment(t *testing.T) {
 	assert := assert.New(t)
 	image := "test/reaper:latest"
-	reaper := newReaperWithCassandraBackend()
+	reaper := newReaperWithCassandraBackend("service-test", "test-reaper")
 	reaper.Spec.Image = image
 	reaper.Spec.ImagePullPolicy = "Always"
 	reaper.Spec.ServerConfig.AutoScheduling = &api.AutoScheduler{Enabled: true}
@@ -208,7 +216,7 @@ func TestTolerations(t *testing.T) {
 		},
 	}
 
-	reaper := newReaperWithCassandraBackend()
+	reaper := newReaperWithCassandraBackend("service-test", "test-reaper")
 	reaper.Spec.Image = image
 	reaper.Spec.Tolerations = tolerations
 
@@ -236,7 +244,7 @@ func TestAffinity(t *testing.T) {
 			},
 		},
 	}
-	reaper := newReaperWithCassandraBackend()
+	reaper := newReaperWithCassandraBackend("service-test", "test-reaper")
 	reaper.Spec.Image = image
 	reaper.Spec.Affinity = affinity
 
@@ -252,7 +260,7 @@ func TestContainerSecurityContext(t *testing.T) {
 	securityContext := &corev1.SecurityContext{
 		ReadOnlyRootFilesystem: &readOnlyRootFilesystemOverride,
 	}
-	reaper := newReaperWithCassandraBackend()
+	reaper := newReaperWithCassandraBackend("service-test", "test-reaper")
 	reaper.Spec.Image = image
 	reaper.Spec.SecurityContext = securityContext
 
@@ -276,7 +284,7 @@ func TestSchemaInitContainerSecurityContext(t *testing.T) {
 		ReadOnlyRootFilesystem: &readOnlyRootFilesystemOverride,
 	}
 
-	reaper := newReaperWithCassandraBackend()
+	reaper := newReaperWithCassandraBackend("service-test", "test-reaper")
 	reaper.Spec.Image = image
 	reaper.Spec.SecurityContext = nonInitContainerSecurityContext
 	reaper.Spec.SchemaInitContainerConfig.SecurityContext = initContainerSecurityContext
@@ -296,7 +304,7 @@ func TestPodSecurityContext(t *testing.T) {
 	podSecurityContext := &corev1.PodSecurityContext{
 		RunAsUser: &runAsUser,
 	}
-	reaper := newReaperWithCassandraBackend()
+	reaper := newReaperWithCassandraBackend("service-test", "test-reaper")
 	reaper.Spec.Image = image
 	reaper.Spec.PodSecurityContext = podSecurityContext
 
@@ -307,9 +315,87 @@ func TestPodSecurityContext(t *testing.T) {
 	assert.True(t, same, "podSecurityContext expected at pod level")
 }
 
-func newReaperWithCassandraBackend() *api.Reaper {
-	namespace := "service-test"
-	reaperName := "test-reaper"
+func TestReaperDeploymentStrategy(t *testing.T) {
+	// Test to ensure that if we set DeploymentStrategy to Rolling then it gets set back to Recreate by reconcile()
+	// Reaper test resource
+	testReaper := newReaperWithCassandraBackend("default", "test-reaper")
+	runAsUser := int64(8675309)
+	testReaper.Spec.Image = "test/reaper:latest"
+	testReaper.Spec.PodSecurityContext = &corev1.PodSecurityContext{
+		RunAsUser: &runAsUser,
+	}
+	// Create CassDC
+	testCassDC := newCassDC("default", "dc1")
+
+	// Test Scheme
+	localSchemeBuilder := runtime.SchemeBuilder{
+		api.AddToScheme,
+		appsv1.AddToScheme,
+		cassdcapi.AddToScheme,
+	}
+	testScheme := runtime.NewScheme()
+	localSchemeBuilder.AddToScheme(testScheme)
+
+	// Mock client
+	k8sClient := fake.NewClientBuilder().WithScheme(testScheme).WithObjects(testCassDC.DeepCopy()).Build()
+
+	// Other fixtures
+	testSecretsmngr := NewSecretsManager()
+	testctx := context.Background()
+	testStatusManager := &status.StatusManager{Client: k8sClient}
+	testLogger := zap.New()
+
+	// Test reconcile deployment
+	r := defaultReconciler{
+		k8sClient,
+		testScheme,
+		testSecretsmngr,
+	}
+	req := ReaperRequest{
+		testReaper,
+		testLogger,
+		testStatusManager,
+	}
+	r.ReconcileDeployment(testctx, req)
+
+	// Ensure Reaper is deploying with RecreateStrategy
+	deploymentList := &appsv1.DeploymentList{}
+	if err := k8sClient.List(testctx, deploymentList, client.MatchingLabels{"app.kubernetes.io/managed-by": "reaper-operator"}); err != nil {
+		t.Log(err)
+		assert.FailNow(t, "Failed to get Reaper instance")
+	}
+	reaperDeployment := deploymentList.Items[0].DeepCopy()
+	assert.True(t, len(deploymentList.Items) == 1)                                               // Only one deployment should be observed
+	assert.True(t, reaperDeployment.Spec.Strategy.Type == appsv1.RecreateDeploymentStrategyType) // Deployment type is right.
+
+	// Change deploymentStrategy to RollingUpdate
+	reaperDeploymentPatch := client.MergeFrom(reaperDeployment.DeepCopy())
+	reaperDeployment.Spec.Strategy = appsv1.DeploymentStrategy{
+		Type: appsv1.RollingUpdateDeploymentStrategyType,
+	}
+	if err := r.Patch(testctx, reaperDeployment, reaperDeploymentPatch); err != nil {
+		t.Log(err)
+		assert.FailNow(t, "Failed to patch deployment with appsv1.RecreateDeploymentStrategyType")
+	}
+
+	if err := k8sClient.List(testctx, deploymentList, client.MatchingLabels{"app.kubernetes.io/managed-by": "reaper-operator"}); err != nil {
+		t.Log(err)
+		assert.FailNow(t, "Failed to get Reaper Deployment")
+	}
+	assert.True(t, deploymentList.Items[0].Spec.Strategy.Type == appsv1.RollingUpdateDeploymentStrategyType)
+
+	// Reconcile - expect to see DeploymenStrategyType change back to Recreate
+	r.ReconcileDeployment(testctx, req)
+	if err := k8sClient.List(testctx, deploymentList, client.MatchingLabels{"app.kubernetes.io/managed-by": "reaper-operator"}); err != nil {
+		t.Log(err)
+		assert.FailNow(t, "Failed to get Reaper Deployment")
+	}
+	assert.True(t, len(deploymentList.Items) == 1) // Only one deployment should be observed
+	assert.True(t, deploymentList.Items[0].Spec.Strategy.Type == appsv1.RecreateDeploymentStrategyType)
+
+}
+
+func newReaperWithCassandraBackend(namespace string, reaperName string) *api.Reaper {
 	dcName := "dc1"
 
 	return &api.Reaper{
@@ -332,6 +418,22 @@ func newReaperWithCassandraBackend() *api.Reaper {
 					},
 				},
 			},
+		},
+	}
+}
+
+func newCassDC(namespace string, cassDCName string) cassdcapi.CassandraDatacenter {
+	return cassdcapi.CassandraDatacenter{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        cassDCName,
+			Namespace:   namespace,
+			Annotations: map[string]string{},
+		},
+		Spec: cassdcapi.CassandraDatacenterSpec{
+			ClusterName:   "name",
+			ServerType:    "cassandra",
+			ServerVersion: "3.11.7",
+			Size:          3,
 		},
 	}
 }
