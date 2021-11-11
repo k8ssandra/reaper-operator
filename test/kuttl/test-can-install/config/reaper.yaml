@@ -1,0 +1,16 @@
+apiVersion: reaper.cassandra-reaper.io/v1alpha1
+kind: Reaper
+metadata:
+  name: reaper-test
+spec:
+  image: docker.io/thelastpickle/cassandra-reaper:2.3.0
+  serverConfig:
+    storageType: cassandra
+    jmxUserSecretName: reaper-jmx
+    cassandraBackend:
+      cassandraUserSecretName: reaper-test-superuser
+      cassandraDatacenter:
+        name: reaper-test
+      replication:
+        networkTopologyStrategy:
+          reaper-test: 1

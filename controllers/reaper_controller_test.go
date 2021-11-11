@@ -23,8 +23,7 @@ import (
 const (
 	ReaperName              = "test-reaper"
 	CassandraDatacenterName = "test-dc"
-
-	timeout  = time.Second * 20
+	timeout  = time.Second * 100
 	interval = time.Millisecond * 250
 )
 

@@ -1,0 +1,7 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands: 
+- command: kubectl apply -k ./config/cass-operator
+  ignoreFailure: false
+- command: kubectl apply -k ../../config/cassdc
+  ignoreFailure: false

@@ -1,0 +1,14 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestSuite
+testDirs:
+- ./test/kuttl
+
+startKIND: true
+kindNodeCache: true
+# we are using a k8s 1.22 as default. Other versions can be run using the --kind-config flag.
+kindConfig: test/config/kind/w1k1.22.yaml 
+
+timeout: 1400
+namespace: default
+kindContainers:
+- k8ssandra/reaper-operator:latest

@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands: 
+- script: |
+    kubectl apply -f ./config/reaper.yaml
+  ignoreFailure: false 

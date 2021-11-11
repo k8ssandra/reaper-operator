@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands: 
+- script: |
+    kubectl apply -k ./config/reaper-operator
+  ignoreFailure: false 

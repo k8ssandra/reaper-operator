@@ -7,13 +7,12 @@ metadata:
 spec:
   clusterName: reaper-test
   serverType: cassandra
-  serverVersion: 3.11.10
-  serverImage: k8ssandra/cass-management-api:3.11.10-v0.1.25
+  serverVersion: 3.11.11
+  serverImage: k8ssandra/cass-management-api:3.11.11-v0.1.31
   dockerImageRunsAsCassandra: true
   managementApiAuth:
     insecure: {}
   size: 1
-  allowMultipleNodesPerWorker: true
   config:
     jvm-options:
       initial_heap_size: "512m"
