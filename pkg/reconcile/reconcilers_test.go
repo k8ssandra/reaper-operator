@@ -109,12 +109,32 @@ func TestNewDeployment(t *testing.T) {
 		},
 	})
 
-	assert.Equal(1, len(podSpec.InitContainers))
+	assert.Equal(2, len(podSpec.InitContainers))
 
-	initContainer := podSpec.InitContainers[0]
-	assert.Equal(image, initContainer.Image)
-	assert.Equal(corev1.PullAlways, initContainer.ImagePullPolicy)
-	assert.ElementsMatch(initContainer.Env, []corev1.EnvVar{
+	// Reaper configuration init-container
+	initContainerConfigInit := podSpec.InitContainers[0]
+	expectedVolMount := []corev1.VolumeMount{
+		{
+			Name:      "reaper-config",
+			ReadOnly:  false,
+			MountPath: "/reaper-base-config/",
+		},
+	}
+	assert.Equal("reaper-config-init", initContainerConfigInit.Name)
+	assert.Equal(image, initContainerConfigInit.Image)
+	assert.Equal([]string{"/bin/sh"}, initContainerConfigInit.Command)
+	assert.Equal([]string{"-c", "cp -r /etc/cassandra-reaper/* /reaper-base-config/"}, initContainerConfigInit.Args)
+
+	assert.Equal(corev1.PullAlways, initContainerConfigInit.ImagePullPolicy)
+	assert.ElementsMatch(expectedVolMount, initContainerConfigInit.VolumeMounts)
+
+	// Schema initialization init-container
+	initContainerSchemaInit := podSpec.InitContainers[1]
+	assert.Equal(image, initContainerSchemaInit.Image)
+
+	assert.Equal("reaper-schema-init", initContainerSchemaInit.Name)
+	assert.Equal(corev1.PullAlways, initContainerSchemaInit.ImagePullPolicy)
+	assert.ElementsMatch(initContainerSchemaInit.Env, []corev1.EnvVar{
 		{
 			Name:  "REAPER_STORAGE_TYPE",
 			Value: "cassandra",
@@ -136,9 +156,9 @@ func TestNewDeployment(t *testing.T) {
 			Value: "true",
 		},
 	})
+	assert.ElementsMatch(initContainerSchemaInit.Args, []string{"schema-migration"})
 
-	assert.ElementsMatch(initContainer.Args, []string{"schema-migration"})
-
+	// ServerConfig AutoScheduling
 	reaper.Spec.ServerConfig.AutoScheduling = &api.AutoScheduler{
 		Enabled:              false,
 		InitialDelay:         "PT10S",
@@ -277,25 +297,37 @@ func TestContainerSecurityContext(t *testing.T) {
 func TestSchemaInitContainerSecurityContext(t *testing.T) {
 	image := "test/reaper:latest"
 	readOnlyRootFilesystemOverride := true
-	initContainerSecurityContext := &corev1.SecurityContext{
+	schemaInitSecurityContext := &corev1.SecurityContext{
 		ReadOnlyRootFilesystem: &readOnlyRootFilesystemOverride,
 	}
 	nonInitContainerSecurityContext := &corev1.SecurityContext{
+		ReadOnlyRootFilesystem: &readOnlyRootFilesystemOverride,
+	}
+	configInitSecurityContext := &corev1.SecurityContext{
 		ReadOnlyRootFilesystem: &readOnlyRootFilesystemOverride,
 	}
 
 	reaper := newReaperWithCassandraBackend("service-test", "test-reaper")
 	reaper.Spec.Image = image
 	reaper.Spec.SecurityContext = nonInitContainerSecurityContext
-	reaper.Spec.SchemaInitContainerConfig.SecurityContext = initContainerSecurityContext
+	reaper.Spec.SchemaInitContainerConfig.SecurityContext = schemaInitSecurityContext
+	reaper.Spec.ConfigInitContainerConfig.SecurityContext = configInitSecurityContext
 
 	deployment := newDeployment(reaper, "target-datacenter-service")
 	podSpec := deployment.Spec.Template.Spec
 
-	assert.Equal(t, podSpec.InitContainers[0].Name, "reaper-schema-init")
-	assert.True(t, len(podSpec.InitContainers) == 1, "Expected a single schema init container to exist")
-	same := assert.ObjectsAreEqualValues(initContainerSecurityContext, podSpec.InitContainers[0].SecurityContext)
-	assert.True(t, same, "securityContext does not match for schema init container")
+	assert.True(t, len(podSpec.InitContainers) == 2, "Expected two init containers to exist")
+	assert.Equal(t, podSpec.InitContainers[0].Name, "reaper-config-init")
+	assert.Equal(t, podSpec.InitContainers[1].Name, "reaper-schema-init")
+
+	schemaInitSecurityCtxNotMatch := assert.ObjectsAreEqualValues(schemaInitSecurityContext,
+		podSpec.InitContainers[0].SecurityContext)
+
+	configInitSecurityCtxNotMatch := assert.ObjectsAreEqualValues(configInitSecurityContext,
+		podSpec.InitContainers[1].SecurityContext)
+
+	assert.True(t, schemaInitSecurityCtxNotMatch, "securityContext does not match for schema init container")
+	assert.True(t, configInitSecurityCtxNotMatch, "securityContext does not match for config init container")
 }
 
 func TestPodSecurityContext(t *testing.T) {
@@ -313,6 +345,73 @@ func TestPodSecurityContext(t *testing.T) {
 
 	same := assert.ObjectsAreEqualValues(podSecurityContext, podSpec.SecurityContext)
 	assert.True(t, same, "podSecurityContext expected at pod level")
+}
+
+func TestVolumes(t *testing.T) {
+	image := "test/reaper:latest"
+	volumes := []corev1.Volume{
+		{
+			Name: "reaper-config",
+		},
+	}
+
+	reaper := newReaperWithCassandraBackend("service-test", "test-reaper")
+	reaper.Spec.Image = image
+
+	deployment := newDeployment(reaper, "target-datacenter-service")
+	assert.ElementsMatch(t, volumes, deployment.Spec.Template.Spec.Volumes)
+}
+
+func TestSchemaInitContainerVolumesMounts(t *testing.T) {
+	image := "test/reaper:latest"
+	volumes := []corev1.Volume{
+		{
+			Name: "reaper-config",
+		},
+	}
+
+	volumeMounts := []corev1.VolumeMount{
+		{
+			Name:      "reaper-config",
+			ReadOnly:  false,
+			MountPath: "/etc/cassandra-reaper",
+		},
+	}
+
+	reaper := newReaperWithCassandraBackend("service-test", "test-reaper")
+	reaper.Spec.Image = image
+
+	deployment := newDeployment(reaper, "target-datacenter-service")
+
+	assert.ElementsMatch(t, volumes, deployment.Spec.Template.Spec.Volumes)
+	assert.Equal(t, "reaper-schema-init", deployment.Spec.Template.Spec.InitContainers[1].Name)
+	assert.ElementsMatch(t, volumeMounts, deployment.Spec.Template.Spec.InitContainers[1].VolumeMounts)
+}
+
+func TestConfigInitContainerVolumesMounts(t *testing.T) {
+
+	image := "test/reaper:latest"
+	volumes := []corev1.Volume{
+		{
+			Name: "reaper-config",
+		},
+	}
+
+	volumeMounts := []corev1.VolumeMount{
+		{
+			Name:      "reaper-config",
+			ReadOnly:  false,
+			MountPath: "/reaper-base-config/",
+		},
+	}
+
+	reaper := newReaperWithCassandraBackend("service-test", "test-reaper")
+	reaper.Spec.Image = image
+
+	deployment := newDeployment(reaper, "target-datacenter-service")
+	assert.ElementsMatch(t, volumes, deployment.Spec.Template.Spec.Volumes)
+	assert.Equal(t, "reaper-config-init", deployment.Spec.Template.Spec.InitContainers[0].Name)
+	assert.ElementsMatch(t, volumeMounts, deployment.Spec.Template.Spec.InitContainers[0].VolumeMounts)
 }
 
 func TestReaperDeploymentStrategy(t *testing.T) {
