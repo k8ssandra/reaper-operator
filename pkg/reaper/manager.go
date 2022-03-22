@@ -3,6 +3,7 @@ package reaper
 import (
 	"context"
 	"fmt"
+	"net/url"
 
 	cassdcapi "github.com/k8ssandra/cass-operator/apis/cassandra/v1beta1"
 	"github.com/k8ssandra/reaper-client-go/reaper"
@@ -18,20 +19,22 @@ type ReaperManager interface {
 
 // RestReaperManager abstracts the ugly details of how to connect to the Reaper instance
 type RestReaperManager struct {
-	reaperClient reaper.ReaperClient
+	reaperClient reaper.Client
 }
 
 func (r *RestReaperManager) Connect(reaper *api.Reaper) error {
 	// Include the namespace in case Reaper is deployed in a different namespace than
 	// the CassandraDatacenter.
 	reaperSvc := reaper.Name + "-reaper-service" + "." + reaper.Namespace
+	reaperURL, err := url.Parse(fmt.Sprintf("http://%s:8080", reaperSvc))
 
-	reaperClient, err := reapergo.NewReaperClient(fmt.Sprintf("http://%s:8080", reaperSvc))
 	if err != nil {
 		return err
 	}
+	reaperClient := reapergo.NewClient(reaperURL)
 	r.reaperClient = reaperClient
 	return nil
+
 }
 
 func (r *RestReaperManager) AddClusterToReaper(ctx context.Context, cassdc *cassdcapi.CassandraDatacenter) error {
@@ -39,9 +42,9 @@ func (r *RestReaperManager) AddClusterToReaper(ctx context.Context, cassdc *cass
 }
 
 func (r *RestReaperManager) VerifyClusterIsConfigured(ctx context.Context, cassdc *cassdcapi.CassandraDatacenter) (bool, error) {
-	_, err := r.reaperClient.GetCluster(ctx, cassdc.Spec.ClusterName)
+	cluster, err := r.reaperClient.GetCluster(ctx, cassdc.Spec.ClusterName)
 	if err != nil {
-		if err == reaper.CassandraClusterNotFound {
+		if cluster == nil {
 			// We didn't have issues verifying the existence, but the cluster isn't there
 			return false, nil
 		}

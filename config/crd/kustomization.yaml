@@ -2,20 +2,39 @@
 # since it depends on service name and namespace that are out of this kustomize package.
 # It should be run by config/default
 resources:
-- bases/reaper.cassandra-reaper.io_reapers.yaml
-# +kubebuilder:scaffold:crdkustomizeresource
+  - bases/k8ssandra.io_k8ssandraclusters.yaml
+  #- bases/stargate.k8ssandra.io_stargates.yaml
+  - bases/config.k8ssandra.io_clientconfigs.yaml
+  #- bases/replication.k8ssandra.io_replicatedsecrets.yaml
+  - bases/reaper.cassandra-reaper.io_reapers.yaml
+#- bases/reaper.k8ssandra.io_reapers.yaml
+#- bases/medusa.k8ssandra.io_cassandrabackups.yaml
+#- bases/medusa.k8ssandra.io_cassandrarestores.yaml
+#+kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:
-# [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix.
-# patches here are for enabling the conversion webhook for each CRD
-#- patches/webhook_in_reapers.yaml
-# +kubebuilder:scaffold:crdkustomizewebhookpatch
+  # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix.
+  # patches here are for enabling the conversion webhook for each CRD
+  - patches/webhook_in_reapers.yaml
+  - patches/webhook_in_k8ssandraclusters.yaml
+  #- patches/webhook_in_stargates.yaml
+  #- patches/webhook_in_replicatedsecrets.yaml
+  #- patches/webhook_in_reapers.yaml
+  #- patches/webhook_in_cassandrabackups.yaml
+  #- patches/webhook_in_cassandrarestores.yaml
+  #+kubebuilder:scaffold:crdkustomizewebhookpatch
 
-# [CERTMANAGER] To enable webhook, uncomment all the sections with [CERTMANAGER] prefix.
-# patches here are for enabling the CA injection for each CRD
+  # [CERTMANAGER] To enable webhook, uncomment all the sections with [CERTMANAGER] prefix.
+  # patches here are for enabling the CA injection for each CRD
+  - patches/cainjection_in_k8ssandraclusters.yaml
+  - patches/cainjection_in_reapers.yaml
+#- patches/cainjection_in_stargates.yaml
+#- patches/cainjection_in_replicatedsecrets.yaml
 #- patches/cainjection_in_reapers.yaml
-# +kubebuilder:scaffold:crdkustomizecainjectionpatch
+#- patches/cainjection_in_cassandrabackups.yaml
+#- patches/cainjection_in_cassandrarestores.yaml
+#+kubebuilder:scaffold:crdkustomizecainjectionpatch
 
 # the following config is for teaching kustomize how to do kustomization for CRDs.
 configurations:
-- kustomizeconfig.yaml
+  - kustomizeconfig.yaml

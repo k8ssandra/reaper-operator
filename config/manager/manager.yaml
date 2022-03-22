@@ -1,38 +1,56 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: reaper-operator
+  name: k8ssandra-operator
   labels:
-    control-plane: reaper-operator
+    control-plane: k8ssandra-operator
 spec:
   selector:
     matchLabels:
-      control-plane: reaper-operator
+      control-plane: k8ssandra-operator
   replicas: 1
   template:
     metadata:
       labels:
-        control-plane: reaper-operator
+        control-plane: k8ssandra-operator
     spec:
+      securityContext:
+        runAsNonRoot: true
       containers:
       - command:
         - /manager
-        args:
-        - --enable-leader-election
-        image: controller:latest
-        name: manager
+        args: []
+#        - --leader-elect
+        image: k8ssandra/k8ssandra-operator:latest
         imagePullPolicy: IfNotPresent
-        resources:
-          limits:
-            cpu: 100m
-            memory: 30Mi
-          requests:
-            cpu: 100m
-            memory: 20Mi
+        name: k8ssandra-operator
         env:
           - name: WATCH_NAMESPACE
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          - name: K8SSANDRA_CONTROL_PLANE
+            value: "true"
+        securityContext:
+          allowPrivilegeEscalation: false
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 100m
+            memory: 64Mi
+      serviceAccountName: k8ssandra-operator
       terminationGracePeriodSeconds: 10
-      serviceAccountName: controller-manager

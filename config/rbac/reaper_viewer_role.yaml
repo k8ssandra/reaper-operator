@@ -5,7 +5,7 @@ metadata:
   name: reaper-viewer-role
 rules:
 - apiGroups:
-  - reaper.cassandra-reaper.io
+  - reaper.k8ssandra.io
   resources:
   - reapers
   verbs:
@@ -13,7 +13,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - reaper.cassandra-reaper.io
+  - reaper.k8ssandra.io
   resources:
   - reapers/status
   verbs:

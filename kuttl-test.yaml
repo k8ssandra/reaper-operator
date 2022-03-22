@@ -5,8 +5,8 @@ testDirs:
 
 startKIND: true
 kindNodeCache: true
-# we are using a k8s 1.22 as default. Other versions can be run using the --kind-config flag.
-kindConfig: test/config/kind/w1k1.22.yaml 
+# we are using a k8s 1.23 as default. Other versions can be run using the --kind-config flag.
+kindConfig: test/config/kind/w1k1.23.yaml
 
 timeout: 1400
 namespace: default

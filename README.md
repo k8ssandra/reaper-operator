@@ -10,7 +10,7 @@ A Kubernetes operator for [Cassandra Reaper](http://cassandra-reaper.io/)
 * Support for specifying affinity and anti-affinity
 
 ## Requirements
-* Go >= 1.13.0
+* Go >= 1.17.0
 * Docker client >= 17
 * kubectl >= 1.13
 * Kubernetes >= 1.15.0

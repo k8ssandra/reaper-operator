@@ -31,7 +31,14 @@ LATEST_IMAGE=$(IMAGE_BASE):latest
 IMG ?= $(LATEST_IMAGE)
 
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
-CRD_OPTIONS ?= "crd:trivialVersions=true"
+CRD_OPTIONS ?= "crd:generateEmbeddedObjectMeta=true"
+ACK_GINKGO_DEPRECATIONS=1.16.5
+
+# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
+## CRD_OPTIONS ?= "crd:trivialVersions=true"
+
+# ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
+# ENVTEST_K8S_VERSION = 1.23
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -41,7 +48,7 @@ GOBIN=$(shell go env GOBIN)
 endif
 
 KREW_INSTALLED=$(shell kubectl krew; $?)
-KUTTL_KIND_CFG ?= "./test/config/kind/w1k1.21.yaml"
+KUTTL_KIND_CFG ?= "./test/config/kind/w1k1.23.yaml"
 
 all: manager
 
@@ -91,6 +98,7 @@ deploy: manifests kustomize
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=reaper-operator webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
+
 # Run go fmt against code
 fmt:
 	go fmt ./...
@@ -124,7 +132,7 @@ docker-push:
 	docker push ${LATEST_IMAGE}
 
 kind-load-image:
-    kind load docker-image ${LATEST_IMAGE} --name ${KIND_CLUSTER_NAME}
+	kind load docker-image ${LATEST_IMAGE} --name ${KIND_CLUSTER_NAME}
 
 # find or download controller-gen
 # download controller-gen if necessary
@@ -135,7 +143,7 @@ ifeq (, $(shell which controller-gen))
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
 	cd $$CONTROLLER_GEN_TMP_DIR ;\
 	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0 ;\
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.8.0 ;\
 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	}
 CONTROLLER_GEN=$(GOBIN)/controller-gen

@@ -1,2 +1,2 @@
 resources:
-- github.com/k8ssandra/cass-operator/config/deployments/cluster?ref=v1.8.0
+- github.com/k8ssandra/cass-operator/config/deployments/cluster?ref=v1.10.1-0.20220317071437-056e2e793db1

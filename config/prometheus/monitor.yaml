@@ -4,8 +4,8 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   labels:
-    control-plane: reaper-operator
-  name: reaper-operator-metrics-monitor
+    control-plane: controller-manager
+  name: controller-manager-metrics-monitor
   namespace: system
 spec:
   endpoints:
@@ -17,4 +17,4 @@ spec:
         insecureSkipVerify: true
   selector:
     matchLabels:
-      control-plane: reaper-operator
+      control-plane: controller-manager

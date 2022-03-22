@@ -93,7 +93,7 @@ func KustomizeAndApply(namespace, dir string, useOverlay bool) {
 	err = kustomize.Run()
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("kustomize build failed: %s", err))
 
-	kubectl := exec.Command("kubectl", "-n", namespace, "apply", "-f", "-")
+	kubectl := exec.Command("kubectl", "-n", namespace, "--server-side=true", "apply", "-f", "-")
 	kubectl.Stdin = &stdout
 	out, err := kubectl.CombinedOutput()
 	GinkgoWriter.Write(out)
@@ -107,14 +107,16 @@ func WaitForCRDs(namespace string) {
 
 	// Wait for Reaper CRD
 	var stdout bytes.Buffer
-	kubectl := exec.Command("kubectl", "-n", namespace, "wait", "--for", "condition=established", "--timeout=60s", "crd/reapers.reaper.cassandra-reaper.io")
+	kubectl := exec.Command("kubectl", "-n", namespace, "wait", "--for", "condition=established",
+		"--timeout=60s", "crd/reapers.reaper.cassandra-reaper.io")
 	kubectl.Stdin = &stdout
 	out, err := kubectl.CombinedOutput()
 	GinkgoWriter.Write(out)
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("kubectl wait failed: %s", err))
 
 	// Wait for CassandraDatacenter CRD
-	kubectl = exec.Command("kubectl", "-n", namespace, "wait", "--for", "condition=established", "--timeout=60s", "crd/cassandradatacenters.cassandra.datastax.com")
+	kubectl = exec.Command("kubectl", "-n", namespace, "wait", "--for",
+		"condition=established", "--timeout=60s", "crd/cassandradatacenters.cassandra.datastax.com")
 	kubectl.Stdin = &stdout
 	out, err = kubectl.CombinedOutput()
 	GinkgoWriter.Write(out)

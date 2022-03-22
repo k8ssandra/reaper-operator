@@ -1,4 +1,6 @@
 ## Append samples you want in your CSV to this file as resources ##
 resources:
-- reaper_v1alpha1_reaper.yaml
-# +kubebuilder:scaffold:manifestskustomizesamples
+- k8ssandra.io_v1alpha1_k8ssandracluster.yaml
+- _v1alpha1_stargate.yaml
+- k8ssandra.io_v1alpha1_replicatedsecret.yaml
+#+kubebuilder:scaffold:manifestskustomizesamples
